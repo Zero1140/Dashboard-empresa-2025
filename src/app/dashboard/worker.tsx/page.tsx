@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Layout from '../../ui/Layout';
+import { useRouter } from 'next/navigation';
 
 interface Registro {
-  id: number;
+  SKU: string;
   fecha: string;
   material: string;
   color: string;
@@ -24,23 +25,8 @@ const MAQUINAS = [
   { nombre: 'Máquina 8' },
 ];
 
-// Simulación de API: genera datos aleatorios para cada máquina
-function generarRegistro(maquinaIdx: number): Registro {
-  const materiales = ['PLA', 'PETG', 'ABS', 'TPU'];
-  const colores = ['Rojo', 'Azul', 'Verde', 'Negro', 'Blanco', 'Amarillo'];
-  const filamentos = ['Filamento A', 'Filamento B', 'Filamento C'];
-  return {
-    id: Date.now() + Math.floor(Math.random() * 10000) + maquinaIdx * 100000,
-    fecha: new Date().toLocaleString(),
-    material: materiales[Math.floor(Math.random() * materiales.length)],
-    color: colores[Math.floor(Math.random() * colores.length)],
-    filamento: filamentos[Math.floor(Math.random() * filamentos.length)],
-    codigoBarra: Math.floor(100000000 + Math.random() * 900000000).toString(),
-    contadorEtiqueta: (Math.floor(Math.random() * 1000) + 1).toString(),
-  };
-}
-
 const columnas = [
+  { key: 'SKU', label: 'SKU' },
   { key: 'fecha', label: 'Fecha' },
   { key: 'material', label: 'Material' },
   { key: 'color', label: 'Color' },
@@ -54,34 +40,52 @@ export default function ProduccionMaquinas() {
   const [registros, setRegistros] = useState<Registro[][]>(
     Array(8).fill(null).map(() => [])
   );
+  const router = useRouter();
 
   // Guardar intervalos para limpiar al desmontar
   const intervalRefs = useRef<NodeJS.Timeout[]>([]);
 
+  // Cargar datos desde la API (route.js)
   useEffect(() => {
-    // Simular la llegada de datos de la API para cada máquina
-    MAQUINAS.forEach((_, idx) => {
-      // Cada máquina recibe un nuevo registro cada 5-10 segundos
-      const intervalo = setInterval(() => {
-        setRegistros(prev => {
-          const nuevos = [...prev];
-          // Simular máximo 20 registros por máquina
-          if (nuevos[idx].length > 19) {
-            nuevos[idx] = [...nuevos[idx].slice(1), generarRegistro(idx)];
-          } else {
-            nuevos[idx] = [...nuevos[idx], generarRegistro(idx)];
-          }
-          return nuevos;
-        });
-      }, 5000 + Math.random() * 5000);
-      intervalRefs.current.push(intervalo);
-    });
+    let cancelado = false;
 
-    // Limpieza al desmontar
+    async function fetchRegistros() {
+      try {
+        const res = await fetch('/api/produccion', { cache: 'no-store' });
+        if (!res.ok) throw new Error('Error al obtener datos');
+        const data: { [maquina: string]: Registro[] } = await res.json();
+
+        if (!cancelado) {
+          // Mapear los datos a un array de arrays por máquina
+          const nuevosRegistros: Registro[][] = MAQUINAS.map((m, idx) => {
+            // Suponemos que la clave es el nombre de la máquina
+            return data[m.nombre] || [];
+          });
+          setRegistros(nuevosRegistros);
+        }
+      } catch (e) {
+        // Si hay error, no hacer nada (o podrías mostrar un mensaje)
+      }
+    }
+
+    fetchRegistros();
+
+    // Opcional: refrescar cada X segundos
+    const intervalo = setInterval(fetchRegistros, 7000);
+    intervalRefs.current.push(intervalo);
+
     return () => {
+      cancelado = true;
       intervalRefs.current.forEach(clearInterval);
     };
   }, []);
+
+  // Función para enviar SKU a la página de categorías
+  const handleEnviarSKU = (sku: string) => {
+    // Puedes enviar el SKU por query param, localStorage, context, etc.
+    // Aquí lo enviamos por query param
+    router.push(`/app/dashboard/categorias?sku=${encodeURIComponent(sku)}`);
+  };
 
   return (
     <Layout>
@@ -105,18 +109,19 @@ export default function ProduccionMaquinas() {
                         {col.label}
                       </th>
                     ))}
+                    <th className="px-2 py-2 border-b font-bold text-center bg-gray-100">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
                   {registros[idx].length === 0 ? (
                     <tr>
-                      <td colSpan={columnas.length} className="text-center py-6 text-gray-400">
+                      <td colSpan={columnas.length + 1} className="text-center py-6 text-gray-400">
                         Esperando datos de producción...
                       </td>
                     </tr>
                   ) : (
                     registros[idx].map((registro, filaIdx) => (
-                      <tr key={registro.id}>
+                      <tr key={registro.SKU}>
                         {columnas.map(col => (
                           <td
                             key={col.key}
@@ -128,6 +133,14 @@ export default function ProduccionMaquinas() {
                             {(registro as any)[col.key]}
                           </td>
                         ))}
+                        <td className="px-2 py-1 border-b text-center">
+                          <button
+                            className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
+                            onClick={() => handleEnviarSKU(registro.SKU)}
+                          >
+                            Enviar a Categorías
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}

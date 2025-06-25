@@ -1,0 +1,93 @@
+/* Tailwind CSS Directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables globales */
+:root {
+  --font-geist-sans: 'Geist', sans-serif;
+  --font-geist-mono: 'Geist Mono', monospace;
+  --color-primary: #2563eb;
+  --color-secondary: #64748b;
+  --color-accent: #10b981;
+}
+
+/* Estilos base */
+html,
+body {
+  @apply min-h-full m-0 p-0 bg-gray-100 text-gray-900;
+  font-family: var(--font-geist-sans);
+  font-size: 1rem;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  @apply bg-gray-900 text-gray-100;
+}
+
+/* Tipografía */
+h1, h2, h3, h4 {
+  @apply font-semibold text-gray-800 dark:text-gray-100;
+}
+
+p {
+  @apply text-gray-700 dark:text-gray-300;
+}
+
+/* Links */
+a {
+  @apply text-blue-600 font-medium transition-colors no-underline; /* Cambio aquí */
+}
+
+a:hover {
+  @apply underline text-blue-700 dark:text-blue-400;
+}
+
+/* Componentes personalizados */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-5 py-2.5 rounded-xl font-medium text-sm sm:text-base transition-all shadow-sm;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300;
+    /* Si quieres usar variable CSS en lugar de bg-blue-600, debes escribir color en CSS separado */
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700;
+  }
+
+  .btn-accent {
+    @apply bg-emerald-500 text-white hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-300;
+  }
+
+  .card {
+    @apply bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-card transition-all;
+  }
+}
+
+/* Utilidades personalizadas */
+@layer utilities {
+  .shadow-card {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .dark .shadow-card {
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Inputs */
+input,
+select,
+textarea {
+  @apply w-full px-3 py-2 border border-gray-300 rounded-md text-gray-800 bg-white transition-all focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  @apply bg-gray-800 text-gray-100 border-gray-600;
+}
