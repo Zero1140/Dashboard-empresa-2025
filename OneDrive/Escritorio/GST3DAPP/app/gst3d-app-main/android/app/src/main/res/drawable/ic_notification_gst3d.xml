@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Icono optimizado para notificaciones GST3D -->
+    <!-- REQUISITOS PARA ANDROID 5.0+ (API 21+):
+         - Debe ser completamente BLANCO (#FFFFFF)
+         - Fondo debe ser TRANSPARENTE
+         - Diseño simple y claro (sin sombras, sin degradados)
+         - Tamaño recomendado: 24x24dp
+         Este ícono cumple con los requisitos de Material Design -->
+    
+    <!-- Diseño de cubo 3D estilizado que representa GST3D -->
+    <!-- Forma simple, reconocible y visible en todos los tamaños -->
+    <group>
+        <!-- Cara frontal del cubo (principal) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M8,14 L12,10 L16,14 L16,18 L12,22 L8,18 Z" />
+        
+        <!-- Cara superior del cubo (para dar dimensión 3D) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M12,10 L16,14 L16,10 L12,6 Z"
+            android:fillAlpha="0.8" />
+        
+        <!-- Borde lateral para profundidad (simplificado, sin stroke) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M16,14 L16,18"
+            android:fillAlpha="0.6" />
+    </group>
+</vector>

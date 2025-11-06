@@ -1,0 +1,50 @@
+{
+  "name": "com.wichisoft.gst3d",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "lint": "eslint .",
+    "start": "react-native start",
+    "start:ios": "npm run ios -- --simulator='iPhone 16 Pro (1311DC46-ED88-441B-8609-56C4457D0CF7)'",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@notifee/react-native": "^9.1.8",
+    "@react-native-async-storage/async-storage": "^1.24.0",
+    "@react-native-community/netinfo": "^11.4.1",
+    "@react-native-cookies/cookies": "^6.2.1",
+    "@react-native-firebase/app": "^21.2.0",
+    "@react-native-firebase/messaging": "^21.2.0",
+    "react": "18.3.1",
+    "react-native": "0.75.4",
+    "react-native-device-info": "^14.1.1",
+    "react-native-permissions": "^5.4.2",
+    "react-native-safe-area-context": "^4.11.1",
+    "react-native-vector-icons": "^10.2.0",
+    "react-native-webview": "^13.12.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@babel/preset-env": "^7.20.0",
+    "@babel/runtime": "^7.26.0",
+    "@react-native-community/cli": "^20.0.2",
+    "@react-native/babel-preset": "0.75.4",
+    "@react-native/eslint-config": "0.75.4",
+    "@react-native/metro-config": "0.75.4",
+    "@react-native/typescript-config": "0.75.4",
+    "@types/react": "^18.2.6",
+    "@types/react-native-vector-icons": "^6.4.18",
+    "@types/react-test-renderer": "^18.0.0",
+    "babel-jest": "^29.6.3",
+    "eslint": "^8.19.0",
+    "jest": "^29.6.3",
+    "prettier": "2.8.8",
+    "react-test-renderer": "18.3.1",
+    "typescript": "5.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
