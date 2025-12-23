@@ -45,6 +45,10 @@ export default function MachineCard({
   const [cantidadChicas, setCantidadChicas] = useState<number>(8);
   const [cantidadGrandes, setCantidadGrandes] = useState<number>(8);
   const [showCambiarOperadorModal, setShowCambiarOperadorModal] = useState<boolean>(false);
+  
+  // Estados para filtrar por tipo de material
+  const [filtroTipoChica, setFiltroTipoChica] = useState<string>(colorChicaInicial ? colorChicaInicial.split("::")[0] : "PLA");
+  const [filtroTipoGrande, setFiltroTipoGrande] = useState<string>(colorGrandeInicial ? colorGrandeInicial.split("::")[0] : "PLA");
 
   // Actualizar cuando cambien los colores iniciales
   useEffect(() => {
@@ -61,38 +65,52 @@ export default function MachineCard({
     }
   }, [colorGrandeInicial]);
 
-  // Obtener todos los colores de todos los materiales (incluyendo personalizados)
-  const todasEtiquetasChicas = useMemo(() => {
-    const coloresCombinados = obtenerColoresCombinados();
-    const opciones: ColorOption[] = [];
-    Object.keys(coloresCombinados).forEach((tipo) => {
-      const colores = coloresCombinados[tipo].chica || {};
-      Object.keys(colores).forEach((color) => {
-        opciones.push({ color, tipo, esChica: true });
-      });
-    });
-    return opciones.sort((a, b) => {
-      const nombreA = limpiarNombre(a.color, a.tipo);
-      const nombreB = limpiarNombre(b.color, b.tipo);
-      return nombreA.localeCompare(nombreB);
-    });
+  // Obtener todos los tipos de materiales disponibles
+  const tiposMateriales = useMemo(() => {
+    return Object.keys(obtenerColoresCombinados());
   }, []);
 
-  const todasEtiquetasGrandes = useMemo(() => {
+  // Obtener colores filtrados por tipo para etiquetas chicas
+  const etiquetasChicasFiltradas = useMemo(() => {
     const coloresCombinados = obtenerColoresCombinados();
+    const tipo = filtroTipoChica;
+    const colores = coloresCombinados[tipo]?.chica || {};
     const opciones: ColorOption[] = [];
-    Object.keys(coloresCombinados).forEach((tipo) => {
-      const colores = coloresCombinados[tipo].grande || {};
-      Object.keys(colores).forEach((color) => {
-        opciones.push({ color, tipo, esChica: false });
-      });
+    Object.keys(colores).forEach((color) => {
+      opciones.push({ color, tipo, esChica: true });
     });
     return opciones.sort((a, b) => {
       const nombreA = limpiarNombre(a.color, a.tipo);
       const nombreB = limpiarNombre(b.color, b.tipo);
       return nombreA.localeCompare(nombreB);
     });
-  }, []);
+  }, [filtroTipoChica]);
+
+  // Obtener colores filtrados por tipo para etiquetas grandes
+  const etiquetasGrandesFiltradas = useMemo(() => {
+    const coloresCombinados = obtenerColoresCombinados();
+    const tipo = filtroTipoGrande;
+    const colores = coloresCombinados[tipo]?.grande || {};
+    const opciones: ColorOption[] = [];
+    Object.keys(colores).forEach((color) => {
+      opciones.push({ color, tipo, esChica: false });
+    });
+    return opciones.sort((a, b) => {
+      const nombreA = limpiarNombre(a.color, a.tipo);
+      const nombreB = limpiarNombre(b.color, b.tipo);
+      return nombreA.localeCompare(nombreB);
+    });
+  }, [filtroTipoGrande]);
+
+  // Obtener el color hexadecimal de una opción
+  const obtenerColorHex = (color: string, tipo: string, esChica: boolean): string => {
+    const coloresCombinados = obtenerColoresCombinados();
+    if (esChica) {
+      return coloresCombinados[tipo]?.chica?.[color] || "#808080";
+    } else {
+      return coloresCombinados[tipo]?.grande?.[color] || "#808080";
+    }
+  };
 
   const getDisplayName = (color: string, tipo: string) => {
     const nombreLimpio = limpiarNombre(color, tipo);
@@ -124,6 +142,7 @@ export default function MachineCard({
     if (value) {
       const [tipo, color] = value.split("::");
       setTipoMaterialChica(tipo);
+      setFiltroTipoChica(tipo); // Actualizar filtro cuando se selecciona un color
       // Ahora todos pueden cambiar el color (no solo supervisores)
       if (onCambiarColorChica) {
         onCambiarColorChica(maquinaId, value);
@@ -138,6 +157,7 @@ export default function MachineCard({
     if (value) {
       const [tipo, color] = value.split("::");
       setTipoMaterialGrande(tipo);
+      setFiltroTipoGrande(tipo); // Actualizar filtro cuando se selecciona un color
       // Ahora todos pueden cambiar el color (no solo supervisores)
       if (onCambiarColorGrande) {
         onCambiarColorGrande(maquinaId, value);
@@ -146,6 +166,21 @@ export default function MachineCard({
       setTipoMaterialGrande("");
     }
   };
+
+  // Actualizar filtros cuando cambian los colores iniciales
+  useEffect(() => {
+    if (colorChicaInicial) {
+      const tipo = colorChicaInicial.split("::")[0];
+      setFiltroTipoChica(tipo);
+    }
+  }, [colorChicaInicial]);
+
+  useEffect(() => {
+    if (colorGrandeInicial) {
+      const tipo = colorGrandeInicial.split("::")[0];
+      setFiltroTipoGrande(tipo);
+    }
+  }, [colorGrandeInicial]);
 
   return (
     <div className="bg-gradient-to-br from-[#1a2332] to-[#0f1419] rounded-2xl p-6 shadow-2xl border border-[#2d3748] hover:border-[#00d4ff]/30 transition-all duration-300 hover-lift relative overflow-hidden group">
@@ -165,43 +200,189 @@ export default function MachineCard({
         <div className="h-1 w-16 bg-gradient-to-r from-[#00d4ff] to-transparent rounded-full mx-auto"></div>
       </div>
 
-      <div className="space-y-5 relative z-10">
+      <div className="space-y-6 relative z-10">
         {/* Selector de color etiqueta chica */}
-        <div>
-          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
+        <div className="space-y-3">
+          <label className="block text-white text-lg font-bold mb-3 uppercase tracking-wide">
             🏷️ Etiqueta Chica
           </label>
-          <select
-            value={etiquetaChica}
-            onChange={(e) => handleEtiquetaChicaChange(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
-          >
-            <option value="">-- Selecciona color --</option>
-            {todasEtiquetasChicas.map((opcion) => (
-              <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
-                {getDisplayName(opcion.color, opcion.tipo)}
-              </option>
-            ))}
-          </select>
+          
+          {/* Selector de tipo de material para filtrar */}
+          <div>
+            <label className="block text-[#a0aec0] text-sm font-semibold mb-2">
+              Tipo de Material:
+            </label>
+            <select
+              value={filtroTipoChica}
+              onChange={(e) => {
+                setFiltroTipoChica(e.target.value);
+                setEtiquetaChica(""); // Limpiar selección al cambiar tipo
+                setTipoMaterialChica("");
+              }}
+              className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-base font-medium"
+            >
+              {tiposMateriales.map((tipo) => (
+                <option key={tipo} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Selector de color con muestra visual */}
+          <div>
+            <label className="block text-[#a0aec0] text-sm font-semibold mb-2">
+              Color:
+            </label>
+            <div className="relative">
+              <select
+                value={etiquetaChica}
+                onChange={(e) => handleEtiquetaChicaChange(e.target.value)}
+                className="w-full px-4 py-4 pr-16 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-lg font-semibold appearance-none"
+                style={{
+                  backgroundImage: etiquetaChica 
+                    ? `linear-gradient(to right, ${obtenerColorHex(etiquetaChica.split("::")[1] || "", filtroTipoChica, true)} 0%, ${obtenerColorHex(etiquetaChica.split("::")[1] || "", filtroTipoChica, true)} 40px, #0f1419 40px)`
+                    : undefined
+                }}
+              >
+                <option value="" className="bg-[#0f1419]">-- Selecciona color --</option>
+                {etiquetasChicasFiltradas.map((opcion) => {
+                  const colorHex = obtenerColorHex(opcion.color, opcion.tipo, true);
+                  return (
+                    <option 
+                      key={getValueKey(opcion.color, opcion.tipo)} 
+                      value={getValueKey(opcion.color, opcion.tipo)}
+                      style={{ backgroundColor: colorHex, color: '#000' }}
+                    >
+                      {limpiarNombre(opcion.color, opcion.tipo)}
+                    </option>
+                  );
+                })}
+              </select>
+              {/* Muestra de color grande a la izquierda */}
+              {etiquetaChica && (
+                <div 
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border-2 border-white/30 shadow-lg"
+                  style={{ backgroundColor: obtenerColorHex(etiquetaChica.split("::")[1] || "", filtroTipoChica, true) }}
+                />
+              )}
+              {/* Flecha del select */}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="w-5 h-5 text-[#a0aec0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            {/* Muestra de color grande debajo del selector */}
+            {etiquetaChica && (
+              <div className="mt-3 p-4 rounded-xl border border-[#2d3748] bg-[#0f1419]">
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-16 h-16 rounded-xl border-3 border-white/50 shadow-xl flex-shrink-0"
+                    style={{ backgroundColor: obtenerColorHex(etiquetaChica.split("::")[1] || "", filtroTipoChica, true) }}
+                  />
+                  <div className="flex-1">
+                    <p className="text-white text-lg font-bold">
+                      {limpiarNombre(etiquetaChica.split("::")[1] || "", filtroTipoChica)}
+                    </p>
+                    <p className="text-[#a0aec0] text-sm">{filtroTipoChica}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Selector de color etiqueta grande */}
-        <div>
-          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
+        <div className="space-y-3">
+          <label className="block text-white text-lg font-bold mb-3 uppercase tracking-wide">
             🏷️ Etiqueta Grande
           </label>
-          <select
-            value={etiquetaGrande}
-            onChange={(e) => handleEtiquetaGrandeChange(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
-          >
-            <option value="">-- Selecciona color --</option>
-            {todasEtiquetasGrandes.map((opcion) => (
-              <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
-                {getDisplayName(opcion.color, opcion.tipo)}
-              </option>
-            ))}
-          </select>
+          
+          {/* Selector de tipo de material para filtrar */}
+          <div>
+            <label className="block text-[#a0aec0] text-sm font-semibold mb-2">
+              Tipo de Material:
+            </label>
+            <select
+              value={filtroTipoGrande}
+              onChange={(e) => {
+                setFiltroTipoGrande(e.target.value);
+                setEtiquetaGrande(""); // Limpiar selección al cambiar tipo
+                setTipoMaterialGrande("");
+              }}
+              className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-base font-medium"
+            >
+              {tiposMateriales.map((tipo) => (
+                <option key={tipo} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Selector de color con muestra visual */}
+          <div>
+            <label className="block text-[#a0aec0] text-sm font-semibold mb-2">
+              Color:
+            </label>
+            <div className="relative">
+              <select
+                value={etiquetaGrande}
+                onChange={(e) => handleEtiquetaGrandeChange(e.target.value)}
+                className="w-full px-4 py-4 pr-16 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-lg font-semibold appearance-none"
+                style={{
+                  backgroundImage: etiquetaGrande 
+                    ? `linear-gradient(to right, ${obtenerColorHex(etiquetaGrande.split("::")[1] || "", filtroTipoGrande, false)} 0%, ${obtenerColorHex(etiquetaGrande.split("::")[1] || "", filtroTipoGrande, false)} 40px, #0f1419 40px)`
+                    : undefined
+                }}
+              >
+                <option value="" className="bg-[#0f1419]">-- Selecciona color --</option>
+                {etiquetasGrandesFiltradas.map((opcion) => {
+                  const colorHex = obtenerColorHex(opcion.color, opcion.tipo, false);
+                  return (
+                    <option 
+                      key={getValueKey(opcion.color, opcion.tipo)} 
+                      value={getValueKey(opcion.color, opcion.tipo)}
+                      style={{ backgroundColor: colorHex, color: '#000' }}
+                    >
+                      {limpiarNombre(opcion.color, opcion.tipo)}
+                    </option>
+                  );
+                })}
+              </select>
+              {/* Muestra de color grande a la izquierda */}
+              {etiquetaGrande && (
+                <div 
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border-2 border-white/30 shadow-lg"
+                  style={{ backgroundColor: obtenerColorHex(etiquetaGrande.split("::")[1] || "", filtroTipoGrande, false) }}
+                />
+              )}
+              {/* Flecha del select */}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="w-5 h-5 text-[#a0aec0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            {/* Muestra de color grande debajo del selector */}
+            {etiquetaGrande && (
+              <div className="mt-3 p-4 rounded-xl border border-[#2d3748] bg-[#0f1419]">
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-16 h-16 rounded-xl border-3 border-white/50 shadow-xl flex-shrink-0"
+                    style={{ backgroundColor: obtenerColorHex(etiquetaGrande.split("::")[1] || "", filtroTipoGrande, false) }}
+                  />
+                  <div className="flex-1">
+                    <p className="text-white text-lg font-bold">
+                      {limpiarNombre(etiquetaGrande.split("::")[1] || "", filtroTipoGrande)}
+                    </p>
+                    <p className="text-[#a0aec0] text-sm">{filtroTipoGrande}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Selector de cantidad etiquetas chicas */}
