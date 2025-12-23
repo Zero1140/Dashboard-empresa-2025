@@ -1,0 +1,608 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { obtenerColoresCombinados } from "../utils/colores";
+import MachineCard from "./MachineCard";
+import { guardarImpresion, guardarCambioOperador, obtenerImpresiones, obtenerImpresionesSync, guardarCambioColor } from "../utils/storage";
+import { sumarStock } from "../utils/stock";
+import { restarStockCategoria, obtenerStockItem } from "../utils/stockCategorias";
+import { obtenerCategoriasArray, agregarCategoria, agregarItemACategoria } from "../utils/categorias";
+import { ImpresionEtiqueta, CambioOperador, CambioColor } from "../types";
+import { limpiarNombre, esLineaLibre } from "../data";
+
+const STORAGE_KEY_COLORES_MAQUINAS = "gst3d_colores_maquinas";
+const STORAGE_KEY_CONTADOR_ETIQUETAS = "gst3d_contador_etiquetas";
+
+// Nombres de categorías necesarias
+const NOMBRE_CATEGORIA_ROLLOS_CHICAS = "Rollos de Etiquetas Chicas";
+const NOMBRE_CATEGORIA_ROLLOS_GRANDES = "Rollos de Etiquetas Grandes";
+const NOMBRE_CATEGORIA_CAJAS_1K = "Cajas de 1k";
+const NOMBRE_CATEGORIA_BOLSAS_SELLADAS = "Bolsas Selladas";
+
+// Nombres de items
+const ITEM_ROLLO_CHICAS = "Rollo de Etiquetas Chicas";
+const ITEM_ROLLO_GRANDES = "Rollo de Etiquetas Grandes";
+const ITEM_CAJA_1K = "Caja de 1k";
+const ITEM_BOLSA_SELLADA = "Bolsa Sellada";
+
+interface MaquinasPageProps {
+  modoEdicion: boolean;
+  supervisorActual: string | null;
+}
+
+export default function MaquinasPage({ modoEdicion, supervisorActual }: MaquinasPageProps) {
+  const [tipoSeleccionado, setTipoSeleccionado] = useState<string>("PLA");
+  const [operadoresAsignados, setOperadoresAsignados] = useState<Record<number, string>>({
+    1: "",
+    2: "",
+    3: "",
+    4: "",
+    5: "",
+    6: "",
+    7: "",
+    8: "",
+  });
+  const [impresiones, setImpresiones] = useState<ImpresionEtiqueta[]>([]);
+  const [contadoresEtiquetas, setContadoresEtiquetas] = useState<{ chicas: number; grandes: number }>({ chicas: 0, grandes: 0 });
+
+  // Estado para almacenar colores seleccionados por máquina
+  const [coloresPorMaquina, setColoresPorMaquina] = useState<Record<number, { chica: string; grande: string }>>({});
+
+  // Cargar estado desde localStorage al iniciar
+  useEffect(() => {
+    // Cargar operadores asignados
+    const asignacionesGuardadas = localStorage.getItem("operadores_asignados");
+    if (asignacionesGuardadas) {
+      try {
+        setOperadoresAsignados(JSON.parse(asignacionesGuardadas));
+      } catch (e) {
+        console.error("Error al cargar asignaciones:", e);
+      }
+    }
+
+    // Cargar colores guardados
+    const coloresGuardados = localStorage.getItem(STORAGE_KEY_COLORES_MAQUINAS);
+    if (coloresGuardados) {
+      try {
+        setColoresPorMaquina(JSON.parse(coloresGuardados));
+      } catch (e) {
+        console.error("Error al cargar colores:", e);
+      }
+    }
+
+    // Cargar impresiones (usar versión síncrona para carga inicial)
+    setImpresiones(obtenerImpresionesSync());
+  }, []);
+
+  // Actualizar impresiones y contadores cuando cambien
+  useEffect(() => {
+    const actualizarDatos = async () => {
+      const impresionesData = await obtenerImpresiones();
+      setImpresiones(impresionesData);
+      setContadoresEtiquetas(obtenerContadoresEtiquetas());
+    };
+    
+    actualizarDatos();
+    const interval = setInterval(actualizarDatos, 2000); // Actualizar cada 2 segundos
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Calcular conteo de etiquetas por operador - SOLO DEL DÍA ACTUAL
+  const conteoPorOperador = useMemo(() => {
+    // Obtener fecha de hoy (inicio del día)
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const timestampHoy = hoy.getTime();
+    
+    // Obtener fecha de mañana (inicio del día siguiente)
+    const manana = new Date(hoy);
+    manana.setDate(manana.getDate() + 1);
+    const timestampManana = manana.getTime();
+
+    // Filtrar solo impresiones del día actual
+    const impresionesHoy = impresiones.filter((imp) => {
+      const fechaImpresion = new Date(imp.fecha).getTime();
+      return fechaImpresion >= timestampHoy && fechaImpresion < timestampManana;
+    });
+
+    const conteo: Record<string, { chicas: number; grandes: number; total: number }> = {};
+    
+    impresionesHoy.forEach((imp) => {
+      if (!conteo[imp.operador]) {
+        conteo[imp.operador] = { chicas: 0, grandes: 0, total: 0 };
+      }
+      conteo[imp.operador].chicas += imp.cantidadChicas || 8;
+      conteo[imp.operador].grandes += imp.cantidadGrandes || 8;
+      conteo[imp.operador].total += (imp.cantidadChicas || 8) + (imp.cantidadGrandes || 8);
+    });
+
+    return conteo;
+  }, [impresiones]);
+
+  const handleCambiarOperador = (maquinaId: number, nuevoOperador: string) => {
+    const operadorAnterior = operadoresAsignados[maquinaId] || "-";
+    const ahora = new Date();
+
+    // Actualizar asignación
+    const nuevasAsignaciones = {
+      ...operadoresAsignados,
+      [maquinaId]: nuevoOperador,
+    };
+    setOperadoresAsignados(nuevasAsignaciones);
+    localStorage.setItem("operadores_asignados", JSON.stringify(nuevasAsignaciones));
+
+    // Guardar cambio de operador en historial
+    const cambio: CambioOperador = {
+      id: `${maquinaId}_${Date.now()}_${Math.random()}`,
+      maquinaId,
+      operadorAnterior,
+      operadorNuevo: nuevoOperador,
+      supervisor: supervisorActual || "Supervisor",
+      fecha: ahora.toISOString(),
+      timestamp: Date.now(),
+    };
+    guardarCambioOperador(cambio).catch((error) => {
+      console.error('Error al guardar cambio de operador:', error);
+    });
+  };
+
+  const handleCambiarColorChica = (maquinaId: number, color: string) => {
+    const colorAnterior = coloresPorMaquina[maquinaId]?.chica || "";
+    const ahora = new Date();
+
+    // Actualizar colores
+    const nuevosColores = {
+      ...coloresPorMaquina,
+      [maquinaId]: {
+        ...coloresPorMaquina[maquinaId],
+        chica: color,
+      },
+    };
+    setColoresPorMaquina(nuevosColores);
+    localStorage.setItem(STORAGE_KEY_COLORES_MAQUINAS, JSON.stringify(nuevosColores));
+
+    // Guardar cambio de color en historial
+    const cambio: CambioColor = {
+      id: `color_${maquinaId}_chica_${Date.now()}_${Math.random()}`,
+      maquinaId,
+      tipoColor: "chica",
+      colorAnterior,
+      colorNuevo: color,
+      supervisor: supervisorActual || "Supervisor",
+      fecha: ahora.toISOString(),
+      timestamp: Date.now(),
+    };
+    guardarCambioColor(cambio);
+  };
+
+  const handleCambiarColorGrande = (maquinaId: number, color: string) => {
+    const colorAnterior = coloresPorMaquina[maquinaId]?.grande || "";
+    const ahora = new Date();
+
+    // Actualizar colores
+    const nuevosColores = {
+      ...coloresPorMaquina,
+      [maquinaId]: {
+        ...coloresPorMaquina[maquinaId],
+        grande: color,
+      },
+    };
+    setColoresPorMaquina(nuevosColores);
+    localStorage.setItem(STORAGE_KEY_COLORES_MAQUINAS, JSON.stringify(nuevosColores));
+
+    // Guardar cambio de color en historial
+    const cambio: CambioColor = {
+      id: `color_${maquinaId}_grande_${Date.now()}_${Math.random()}`,
+      maquinaId,
+      tipoColor: "grande",
+      colorAnterior,
+      colorNuevo: color,
+      supervisor: supervisorActual || "Supervisor",
+      fecha: ahora.toISOString(),
+      timestamp: Date.now(),
+    };
+    guardarCambioColor(cambio);
+  };
+
+  // Función auxiliar para asegurar que existan las categorías necesarias
+  const asegurarCategoriasNecesarias = () => {
+    let categorias = obtenerCategoriasArray();
+    
+    // Verificar y crear categoría de Rollos de Etiquetas Chicas
+    let categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
+    if (!categoriaRollosChicas) {
+      agregarCategoria(NOMBRE_CATEGORIA_ROLLOS_CHICAS);
+      categorias = obtenerCategoriasArray();
+      categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
+    }
+    if (categoriaRollosChicas && !categoriaRollosChicas.items.includes(ITEM_ROLLO_CHICAS)) {
+      agregarItemACategoria(categoriaRollosChicas.id, ITEM_ROLLO_CHICAS);
+    }
+    
+    // Verificar y crear categoría de Rollos de Etiquetas Grandes
+    let categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
+    if (!categoriaRollosGrandes) {
+      agregarCategoria(NOMBRE_CATEGORIA_ROLLOS_GRANDES);
+      categorias = obtenerCategoriasArray();
+      categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
+    }
+    if (categoriaRollosGrandes && !categoriaRollosGrandes.items.includes(ITEM_ROLLO_GRANDES)) {
+      agregarItemACategoria(categoriaRollosGrandes.id, ITEM_ROLLO_GRANDES);
+    }
+    
+    // Verificar y crear categoría de Cajas de 1k
+    let categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
+    if (!categoriaCajas) {
+      agregarCategoria(NOMBRE_CATEGORIA_CAJAS_1K);
+      categorias = obtenerCategoriasArray();
+      categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
+    }
+    if (categoriaCajas && !categoriaCajas.items.includes(ITEM_CAJA_1K)) {
+      agregarItemACategoria(categoriaCajas.id, ITEM_CAJA_1K);
+    }
+    
+    // Verificar y crear categoría de Bolsas Selladas
+    let categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
+    if (!categoriaBolsas) {
+      agregarCategoria(NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
+      categorias = obtenerCategoriasArray();
+      categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
+    }
+    if (categoriaBolsas && !categoriaBolsas.items.includes(ITEM_BOLSA_SELLADA)) {
+      agregarItemACategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA);
+    }
+  };
+
+  // Función auxiliar para obtener contadores de etiquetas impresas
+  const obtenerContadoresEtiquetas = (): { chicas: number; grandes: number } => {
+    if (typeof window === "undefined") return { chicas: 0, grandes: 0 };
+    const contadores = localStorage.getItem(STORAGE_KEY_CONTADOR_ETIQUETAS);
+    if (contadores) {
+      try {
+        return JSON.parse(contadores);
+      } catch {
+        return { chicas: 0, grandes: 0 };
+      }
+    }
+    return { chicas: 0, grandes: 0 };
+  };
+
+  // Función auxiliar para guardar contadores de etiquetas impresas
+  const guardarContadoresEtiquetas = (contadores: { chicas: number; grandes: number }): void => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_KEY_CONTADOR_ETIQUETAS, JSON.stringify(contadores));
+  };
+
+  const handleImprimir = (
+    maquinaId: number,
+    etiquetaChica: string,
+    etiquetaGrande: string,
+    operador: string,
+    tipoMaterial: string,
+    cantidadChicas: number,
+    cantidadGrandes: number
+  ) => {
+    // Validar que no se intente imprimir cuando está en Línea Libre
+    if (esLineaLibre(operador)) {
+      alert("No se puede imprimir cuando la máquina está en estado 'Línea Libre'. Por favor, asigna un operador primero.");
+      return;
+    }
+    
+    // Asegurar que existan las categorías necesarias
+    asegurarCategoriasNecesarias();
+    
+    // Extraer el color del formato "tipo::color"
+    const colorChica = etiquetaChica.includes("::") ? etiquetaChica.split("::")[1] : etiquetaChica;
+    const colorGrande = etiquetaGrande.includes("::") ? etiquetaGrande.split("::")[1] : etiquetaGrande;
+    const tipoChica = etiquetaChica.includes("::") ? etiquetaChica.split("::")[0] : tipoMaterial;
+    const tipoGrande = etiquetaGrande.includes("::") ? etiquetaGrande.split("::")[0] : tipoMaterial;
+
+    // Guardar impresión con las cantidades seleccionadas
+    const impresion: ImpresionEtiqueta = {
+      id: `${maquinaId}_${Date.now()}_${Math.random()}`,
+      maquinaId,
+      tipoMaterial: tipoChica, // Usar el tipo del color chico como principal
+      etiquetaChica: colorChica,
+      etiquetaGrande: colorGrande,
+      operador,
+      fecha: new Date().toISOString(),
+      timestamp: Date.now(),
+      cantidadChicas: cantidadChicas,
+      cantidadGrandes: cantidadGrandes,
+    };
+    guardarImpresion(impresion).then(() => {
+      // Actualizar estado local después de guardar
+      setImpresiones([...impresiones, impresion]);
+    }).catch((error) => {
+      console.error('Error al guardar impresión:', error);
+      // Aún así actualizar el estado local para que la UI responda
+      setImpresiones([...impresiones, impresion]);
+    });
+
+    // Sumar al stock con las cantidades seleccionadas
+    sumarStock(tipoChica, colorChica, cantidadChicas);
+    sumarStock(tipoGrande, colorGrande, cantidadGrandes);
+
+    // Obtener contadores actuales
+    const contadores = obtenerContadoresEtiquetas();
+    contadores.chicas += cantidadChicas;
+    contadores.grandes += cantidadGrandes;
+
+    // Verificar si se alcanzaron 1000 etiquetas chicas
+    if (contadores.chicas >= 1000) {
+      const rollosADescontar = Math.floor(contadores.chicas / 1000);
+      contadores.chicas = contadores.chicas % 1000; // Mantener el resto
+      
+      // Obtener categoría de rollos chicas
+      const categorias = obtenerCategoriasArray();
+      const categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
+      if (categoriaRollosChicas) {
+        restarStockCategoria(categoriaRollosChicas.id, ITEM_ROLLO_CHICAS, rollosADescontar);
+        console.log(`Se descontaron ${rollosADescontar} rollo(s) de etiquetas chicas`);
+      }
+    }
+
+    // Verificar si se alcanzaron 1000 etiquetas grandes
+    if (contadores.grandes >= 1000) {
+      const rollosADescontar = Math.floor(contadores.grandes / 1000);
+      contadores.grandes = contadores.grandes % 1000; // Mantener el resto
+      
+      // Obtener categoría de rollos grandes
+      const categorias = obtenerCategoriasArray();
+      const categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
+      if (categoriaRollosGrandes) {
+        restarStockCategoria(categoriaRollosGrandes.id, ITEM_ROLLO_GRANDES, rollosADescontar);
+        console.log(`Se descontaron ${rollosADescontar} rollo(s) de etiquetas grandes`);
+      }
+    }
+
+    // Guardar contadores actualizados
+    guardarContadoresEtiquetas(contadores);
+
+    // Descontar siempre de Cajas de 1k y Bolsas Selladas
+    // Cada bobina (1 chica + 1 grande) descuenta 1 caja y 1 bolsa
+    // Si se imprimen múltiples bobinas, se descuenta 1 por cada bobina
+    const categorias = obtenerCategoriasArray();
+    const categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
+    const categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
+    
+    // Calcular cuántas bobinas se crearon (mínimo entre chicas y grandes)
+    // Ya que 1 bobina = 1 chica + 1 grande
+    const bobinasCreadas = Math.min(cantidadChicas, cantidadGrandes);
+    
+    if (categoriaCajas && bobinasCreadas > 0) {
+      restarStockCategoria(categoriaCajas.id, ITEM_CAJA_1K, bobinasCreadas);
+    }
+    if (categoriaBolsas && bobinasCreadas > 0) {
+      restarStockCategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA, bobinasCreadas);
+    }
+
+    // Simular impresión (aquí se conectaría con la API del backend)
+    console.log(
+      `Máquina ${maquinaId} - Imprimir ${cantidadChicas} etiquetas chicas (${etiquetaChica}) y ${cantidadGrandes} etiquetas grandes (${etiquetaGrande}), Operador: ${operador}, Tipo: ${tipoSeleccionado}`
+    );
+
+    // Aquí se puede hacer una llamada a la API para imprimir las etiquetas
+    // fetch('/api/imprimir', {
+    //   method: 'POST',
+    //   body: JSON.stringify({
+    //     maquinaId,
+    //     tipo: tipoSeleccionado,
+    //     etiquetaChica,
+    //     etiquetaGrande,
+    //     cantidadChicas: cantidadChicas,
+    //     cantidadGrandes: cantidadGrandes,
+    //     operador
+    //   })
+    // })
+  };
+
+  const NUMERO_MAQUINAS = 8;
+
+  return (
+    <div className="p-6 lg:p-8 animate-fade-in-up">
+      {/* Header elegante mejorado */}
+      <div className="card-elegant rounded-2xl p-6 lg:p-8 mb-6 lg:mb-8 relative overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#00d4ff]/5 via-transparent to-[#ffb800]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#00d4ff]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6 mb-6 relative z-10">
+          <div className="flex-1">
+            <div className="flex items-center gap-4 mb-3">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00d4ff] to-[#0099cc] flex items-center justify-center shadow-xl shadow-[#00d4ff]/40 ring-2 ring-[#00d4ff]/20">
+                <span className="text-2xl">🏭</span>
+              </div>
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-white mb-1">
+                  <span className="bg-gradient-to-r from-white via-[#00d4ff] to-white bg-clip-text text-transparent">
+                    Línea de Producción
+                  </span>
+                </h1>
+                <p className="text-[#718096] text-sm font-medium">
+                  Sistema de Impresión de Etiquetas
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                modoEdicion 
+                  ? "bg-[#ffb800]/20 text-[#ffb800] border-[#ffb800]/40 shadow-lg shadow-[#ffb800]/20" 
+                  : "bg-[#2d3748]/50 text-[#a0aec0] border-[#4a5568]"
+              }`}>
+                {modoEdicion ? "⚡ Supervisor" : "👤 Operador"}
+              </div>
+            </div>
+          </div>
+          <div className="relative">
+            <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">Material:</label>
+            <select
+              value={tipoSeleccionado}
+              onChange={(e) => setTipoSeleccionado(e.target.value)}
+              className="bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] focus:outline-none focus:ring-2 focus:ring-[#00d4ff] focus:border-[#00d4ff] cursor-pointer font-medium shadow-lg hover:border-[#00d4ff]/50 transition-all duration-200 min-w-[180px]"
+            >
+              {Object.keys(obtenerColoresCombinados()).map((tipo) => (
+                <option key={tipo} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Indicador de etiquetas faltantes para rollos */}
+        <div className="card-elegant rounded-xl p-5 lg:p-6 relative z-10 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#ffb800] to-[#ff9500] flex items-center justify-center shadow-md">
+              <span className="text-xl">📦</span>
+            </div>
+            <h2 className="text-lg lg:text-xl font-bold text-white">Contador de Rollos</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Etiquetas Chicas */}
+            <div className="bg-gradient-to-br from-[#1a2332] to-[#0f1419] rounded-xl p-4 border border-[#2d3748]">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[#a0aec0] text-sm font-semibold">Etiquetas Chicas</span>
+                <span className="text-[#00d4ff] text-xs font-bold bg-[#00d4ff]/10 px-2 py-1 rounded">
+                  {contadoresEtiquetas.chicas} / 1000
+                </span>
+              </div>
+              <div className="w-full bg-[#0f1419] rounded-full h-3 mb-2 overflow-hidden border border-[#2d3748]">
+                <div 
+                  className="h-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] transition-all duration-300"
+                  style={{ width: `${Math.min((contadoresEtiquetas.chicas / 1000) * 100, 100)}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-white font-bold text-lg">
+                  {Math.max(0, 1000 - contadoresEtiquetas.chicas)}
+                </span>
+                <span className="text-[#718096] text-sm">
+                  {Math.max(0, 1000 - contadoresEtiquetas.chicas) === 1 ? "etiqueta falta" : "etiquetas faltan"}
+                </span>
+                <span className="text-[#718096] text-sm ml-auto">
+                  para descontar 1 rollo
+                </span>
+              </div>
+            </div>
+
+            {/* Etiquetas Grandes */}
+            <div className="bg-gradient-to-br from-[#1a2332] to-[#0f1419] rounded-xl p-4 border border-[#2d3748]">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[#a0aec0] text-sm font-semibold">Etiquetas Grandes</span>
+                <span className="text-[#00d4ff] text-xs font-bold bg-[#00d4ff]/10 px-2 py-1 rounded">
+                  {contadoresEtiquetas.grandes} / 1000
+                </span>
+              </div>
+              <div className="w-full bg-[#0f1419] rounded-full h-3 mb-2 overflow-hidden border border-[#2d3748]">
+                <div 
+                  className="h-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] transition-all duration-300"
+                  style={{ width: `${Math.min((contadoresEtiquetas.grandes / 1000) * 100, 100)}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-white font-bold text-lg">
+                  {Math.max(0, 1000 - contadoresEtiquetas.grandes)}
+                </span>
+                <span className="text-[#718096] text-sm">
+                  {Math.max(0, 1000 - contadoresEtiquetas.grandes) === 1 ? "etiqueta falta" : "etiquetas faltan"}
+                </span>
+                <span className="text-[#718096] text-sm ml-auto">
+                  para descontar 1 rollo
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Conteo de etiquetas por operador - Mejorado */}
+        <div className="card-elegant rounded-xl p-5 lg:p-6 relative z-10">
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#0099cc] flex items-center justify-center shadow-md">
+                <span className="text-xl">📊</span>
+              </div>
+              <h2 className="text-lg lg:text-xl font-bold text-white">Estadísticas por Operador</h2>
+            </div>
+            <div className="bg-gradient-to-r from-[#00d4ff]/20 to-[#0099cc]/20 border border-[#00d4ff]/30 rounded-xl px-4 py-2">
+              <p className="text-[#00d4ff] text-sm font-semibold">
+                📅 {new Date().toLocaleDateString("es-ES", { 
+                  weekday: "long", 
+                  year: "numeric", 
+                  month: "long", 
+                  day: "numeric" 
+                })}
+              </p>
+              <p className="text-[#718096] text-xs mt-1">
+                Se reinician cada 24 horas
+              </p>
+            </div>
+          </div>
+          {Object.keys(conteoPorOperador).length === 0 ? (
+            <div className="text-[#718096] text-center py-12 bg-[#0f1419]/50 rounded-xl border-2 border-dashed border-[#2d3748]">
+              <span className="text-4xl block mb-3">📭</span>
+              <p className="font-semibold">No hay impresiones registradas</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {Object.entries(conteoPorOperador)
+                .sort(([, a], [, b]) => b.total - a.total)
+                .map(([operador, conteo], index) => (
+                  <div 
+                    key={operador} 
+                    className="card-elegant rounded-xl p-4 animate-fade-in-up"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <div className="text-white font-bold text-sm mb-3 flex items-center gap-2">
+                      <span className="text-base">👷</span>
+                      <span className="truncate">{operador}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-[#718096]">Chicas:</span>
+                        <span className="text-[#00d4ff] font-bold">{conteo.chicas}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-[#718096]">Grandes:</span>
+                        <span className="text-[#00d4ff] font-bold">{conteo.grandes}</span>
+                      </div>
+                      <div className="pt-2 mt-2 border-t border-[#2d3748] flex justify-between items-center">
+                        <span className="text-[#a0aec0] text-xs font-semibold">Total:</span>
+                        <span className="text-[#ffb800] font-bold text-base">{conteo.total}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Grid de máquinas - Mejorado */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+        {Array.from({ length: NUMERO_MAQUINAS }, (_, i) => i + 1).map(
+          (maquinaId) => {
+            const operadorMaquina = operadoresAsignados[maquinaId] || "";
+            return (
+              <MachineCard
+                key={maquinaId}
+                maquinaId={maquinaId}
+                tipoSeleccionado={tipoSeleccionado}
+                operador={operadorMaquina}
+                conteoOperador={operadorMaquina ? conteoPorOperador[operadorMaquina] : undefined}
+                modoEdicion={modoEdicion}
+                colorChicaInicial={coloresPorMaquina[maquinaId]?.chica || ""}
+                colorGrandeInicial={coloresPorMaquina[maquinaId]?.grande || ""}
+                onImprimir={handleImprimir}
+                onCambiarOperador={(maquinaId, nuevoOperador) => handleCambiarOperador(maquinaId, nuevoOperador)}
+                onCambiarColorChica={handleCambiarColorChica}
+                onCambiarColorGrande={handleCambiarColorGrande}
+              />
+            );
+          }
+        )}
+      </div>
+    </div>
+  );
+}
+
