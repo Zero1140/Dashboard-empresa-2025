@@ -26,6 +26,17 @@
   - Costo (aunque Render tiene plan gratuito)
   - Más complejidad técnica
 
+### ⚙️ Configuración en Render
+
+**IMPORTANTE**: El proyecto usa `npm`, NO `pnpm`. 
+
+En Render, configura:
+- **Build Command**: `npm install && npm run build`
+- **Start Command**: `npm start`
+- **Node Version**: `22.16.0` (o la versión que prefieras)
+
+O simplemente usa el archivo `render.yaml` incluido en el proyecto.
+
 ### 🚀 Opciones de Despliegue en Render
 
 #### Opción 1: Solo Frontend (Sin Base de Datos)
