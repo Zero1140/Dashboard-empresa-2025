@@ -200,16 +200,16 @@ export default function MachineCard({
         <div className="h-1 w-16 bg-gradient-to-r from-[#00d4ff] to-transparent rounded-full mx-auto"></div>
       </div>
 
-      <div className="space-y-6 relative z-10">
+      <div className="space-y-5 relative z-10">
         {/* Selector de color etiqueta chica */}
-        <div className="space-y-3">
-          <label className="block text-white text-lg font-bold mb-3 uppercase tracking-wide">
+        <div className="space-y-2">
+          <label className="block text-white text-base font-bold mb-2 uppercase tracking-wide">
             🏷️ Etiqueta Chica
           </label>
           
           {/* Selector de tipo de material para filtrar */}
           <div>
-            <label className="block text-[#a0aec0] text-sm font-semibold mb-2">
+            <label className="block text-[#a0aec0] text-xs font-semibold mb-1.5">
               Tipo de Material:
             </label>
             <select
@@ -219,7 +219,7 @@ export default function MachineCard({
                 setEtiquetaChica(""); // Limpiar selección al cambiar tipo
                 setTipoMaterialChica("");
               }}
-              className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-base font-medium"
+              className="w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-sm font-medium"
             >
               {tiposMateriales.map((tipo) => (
                 <option key={tipo} value={tipo}>
@@ -231,19 +231,14 @@ export default function MachineCard({
 
           {/* Selector de color con muestra visual */}
           <div>
-            <label className="block text-[#a0aec0] text-sm font-semibold mb-2">
+            <label className="block text-[#a0aec0] text-xs font-semibold mb-1.5">
               Color:
             </label>
             <div className="relative">
               <select
                 value={etiquetaChica}
                 onChange={(e) => handleEtiquetaChicaChange(e.target.value)}
-                className="w-full px-4 py-4 pr-16 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-lg font-semibold appearance-none"
-                style={{
-                  backgroundImage: etiquetaChica 
-                    ? `linear-gradient(to right, ${obtenerColorHex(etiquetaChica.split("::")[1] || "", filtroTipoChica, true)} 0%, ${obtenerColorHex(etiquetaChica.split("::")[1] || "", filtroTipoChica, true)} 40px, #0f1419 40px)`
-                    : undefined
-                }}
+                className="w-full px-12 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-base font-semibold appearance-none"
               >
                 <option value="" className="bg-[#0f1419]">-- Selecciona color --</option>
                 {etiquetasChicasFiltradas.map((opcion) => {
@@ -259,33 +254,33 @@ export default function MachineCard({
                   );
                 })}
               </select>
-              {/* Muestra de color grande a la izquierda */}
+              {/* Muestra de color a la izquierda */}
               {etiquetaChica && (
                 <div 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border-2 border-white/30 shadow-lg"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md border-2 border-white/40 shadow-md"
                   style={{ backgroundColor: obtenerColorHex(etiquetaChica.split("::")[1] || "", filtroTipoChica, true) }}
                 />
               )}
               {/* Flecha del select */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-5 h-5 text-[#a0aec0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-[#a0aec0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
             </div>
-            {/* Muestra de color grande debajo del selector */}
+            {/* Muestra de color debajo del selector */}
             {etiquetaChica && (
-              <div className="mt-3 p-4 rounded-xl border border-[#2d3748] bg-[#0f1419]">
-                <div className="flex items-center gap-4">
+              <div className="mt-2 p-3 rounded-lg border border-[#2d3748] bg-[#0f1419]">
+                <div className="flex items-center gap-3">
                   <div 
-                    className="w-16 h-16 rounded-xl border-3 border-white/50 shadow-xl flex-shrink-0"
+                    className="w-10 h-10 rounded-lg border-2 border-white/40 shadow-lg flex-shrink-0"
                     style={{ backgroundColor: obtenerColorHex(etiquetaChica.split("::")[1] || "", filtroTipoChica, true) }}
                   />
                   <div className="flex-1">
-                    <p className="text-white text-lg font-bold">
+                    <p className="text-white text-sm font-bold">
                       {limpiarNombre(etiquetaChica.split("::")[1] || "", filtroTipoChica)}
                     </p>
-                    <p className="text-[#a0aec0] text-sm">{filtroTipoChica}</p>
+                    <p className="text-[#a0aec0] text-xs">{filtroTipoChica}</p>
                   </div>
                 </div>
               </div>
@@ -294,14 +289,14 @@ export default function MachineCard({
         </div>
 
         {/* Selector de color etiqueta grande */}
-        <div className="space-y-3">
-          <label className="block text-white text-lg font-bold mb-3 uppercase tracking-wide">
+        <div className="space-y-2">
+          <label className="block text-white text-base font-bold mb-2 uppercase tracking-wide">
             🏷️ Etiqueta Grande
           </label>
           
           {/* Selector de tipo de material para filtrar */}
           <div>
-            <label className="block text-[#a0aec0] text-sm font-semibold mb-2">
+            <label className="block text-[#a0aec0] text-xs font-semibold mb-1.5">
               Tipo de Material:
             </label>
             <select
@@ -311,7 +306,7 @@ export default function MachineCard({
                 setEtiquetaGrande(""); // Limpiar selección al cambiar tipo
                 setTipoMaterialGrande("");
               }}
-              className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-base font-medium"
+              className="w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-sm font-medium"
             >
               {tiposMateriales.map((tipo) => (
                 <option key={tipo} value={tipo}>
@@ -323,19 +318,14 @@ export default function MachineCard({
 
           {/* Selector de color con muestra visual */}
           <div>
-            <label className="block text-[#a0aec0] text-sm font-semibold mb-2">
+            <label className="block text-[#a0aec0] text-xs font-semibold mb-1.5">
               Color:
             </label>
             <div className="relative">
               <select
                 value={etiquetaGrande}
                 onChange={(e) => handleEtiquetaGrandeChange(e.target.value)}
-                className="w-full px-4 py-4 pr-16 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-lg font-semibold appearance-none"
-                style={{
-                  backgroundImage: etiquetaGrande 
-                    ? `linear-gradient(to right, ${obtenerColorHex(etiquetaGrande.split("::")[1] || "", filtroTipoGrande, false)} 0%, ${obtenerColorHex(etiquetaGrande.split("::")[1] || "", filtroTipoGrande, false)} 40px, #0f1419 40px)`
-                    : undefined
-                }}
+                className="w-full px-12 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg text-base font-semibold appearance-none"
               >
                 <option value="" className="bg-[#0f1419]">-- Selecciona color --</option>
                 {etiquetasGrandesFiltradas.map((opcion) => {
@@ -351,33 +341,33 @@ export default function MachineCard({
                   );
                 })}
               </select>
-              {/* Muestra de color grande a la izquierda */}
+              {/* Muestra de color a la izquierda */}
               {etiquetaGrande && (
                 <div 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border-2 border-white/30 shadow-lg"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md border-2 border-white/40 shadow-md"
                   style={{ backgroundColor: obtenerColorHex(etiquetaGrande.split("::")[1] || "", filtroTipoGrande, false) }}
                 />
               )}
               {/* Flecha del select */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-5 h-5 text-[#a0aec0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-[#a0aec0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
             </div>
-            {/* Muestra de color grande debajo del selector */}
+            {/* Muestra de color debajo del selector */}
             {etiquetaGrande && (
-              <div className="mt-3 p-4 rounded-xl border border-[#2d3748] bg-[#0f1419]">
-                <div className="flex items-center gap-4">
+              <div className="mt-2 p-3 rounded-lg border border-[#2d3748] bg-[#0f1419]">
+                <div className="flex items-center gap-3">
                   <div 
-                    className="w-16 h-16 rounded-xl border-3 border-white/50 shadow-xl flex-shrink-0"
+                    className="w-10 h-10 rounded-lg border-2 border-white/40 shadow-lg flex-shrink-0"
                     style={{ backgroundColor: obtenerColorHex(etiquetaGrande.split("::")[1] || "", filtroTipoGrande, false) }}
                   />
                   <div className="flex-1">
-                    <p className="text-white text-lg font-bold">
+                    <p className="text-white text-sm font-bold">
                       {limpiarNombre(etiquetaGrande.split("::")[1] || "", filtroTipoGrande)}
                     </p>
-                    <p className="text-[#a0aec0] text-sm">{filtroTipoGrande}</p>
+                    <p className="text-[#a0aec0] text-xs">{filtroTipoGrande}</p>
                   </div>
                 </div>
               </div>
