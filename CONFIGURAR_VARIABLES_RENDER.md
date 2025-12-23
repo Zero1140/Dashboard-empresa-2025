@@ -1,63 +1,102 @@
-# 🔑 Configurar Variables de Entorno en Render
+# 🔑 CONFIGURAR VARIABLES DE SUPABASE EN RENDER (OBLIGATORIO)
 
 ## ⚠️ IMPORTANTE
 
-El build está fallando porque las variables de entorno de Supabase no están configuradas. **Esto es OPCIONAL** - la aplicación funcionará con localStorage si no configuras Supabase.
+**La aplicación REQUIERE Supabase para funcionar.** Debes configurar las variables de entorno antes de desplegar.
 
-## 📋 Pasos para Configurar Variables (Opcional)
+## 📋 Pasos OBLIGATORIOS
 
-### Opción 1: Sin Supabase (Funciona con localStorage)
-
-Si no quieres usar Supabase ahora, puedes dejar las variables vacías y la aplicación funcionará con localStorage. El build debería pasar ahora con el código actualizado.
-
-### Opción 2: Con Supabase (Recomendado para producción)
-
-Si quieres usar Supabase:
-
-#### Paso 1: Ve a Render Dashboard
+### Paso 1: Ve a Render Dashboard
 1. Abre: https://dashboard.render.com
-2. Selecciona tu servicio: **Dashboard-empresa-2025**
+2. Inicia sesión
+3. Selecciona tu servicio: **Dashboard-empresa-2025**
 
-#### Paso 2: Ve a Environment Variables
-1. En el menú lateral, haz clic en **Environment**
+### Paso 2: Ve a Environment Variables
+1. En el menú lateral izquierdo, haz clic en **Environment**
 2. Busca la sección **Environment Variables**
 
-#### Paso 3: Agrega las Variables
+### Paso 3: Agrega las Variables (OBLIGATORIAS)
 
-Agrega estas dos variables:
+Debes agregar estas **DOS variables**:
 
-**Variable 1:**
-- **Key**: `NEXT_PUBLIC_SUPABASE_URL`
-- **Value**: `https://rybokbjrbugvggprnith.supabase.co`
+#### Variable 1: NEXT_PUBLIC_SUPABASE_URL
+1. Haz clic en **Add Environment Variable**
+2. En **Key**, escribe: `NEXT_PUBLIC_SUPABASE_URL`
+3. En **Value**, escribe: `https://rybokbjrbugvggprnith.supabase.co`
+4. Haz clic en **Save**
 
-**Variable 2:**
-- **Key**: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- **Value**: `sb_publishable_VAI_JWRKxhjCwcPw_qWXNA_IkXLfKR_`
+#### Variable 2: NEXT_PUBLIC_SUPABASE_ANON_KEY
+1. Haz clic en **Add Environment Variable** nuevamente
+2. En **Key**, escribe: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. En **Value**, escribe: `sb_publishable_VAI_JWRKxhjCwcPw_qWXNA_IkXLfKR_`
+4. Haz clic en **Save**
 
-#### Paso 4: Guarda y Redespliega
-1. Haz clic en **Save Changes**
-2. Ve a **Manual Deploy** → **Deploy latest commit**
+### Paso 4: Verifica que las Variables Estén Configuradas
+
+Deberías ver estas dos variables en la lista:
+
+```
+✅ NEXT_PUBLIC_SUPABASE_URL = https://rybokbjrbugvggprnith.supabase.co
+✅ NEXT_PUBLIC_SUPABASE_ANON_KEY = sb_publishable_VAI_JWRKxhjCwcPw_qWXNA_IkXLfKR_
+```
+
+### Paso 5: Guarda y Redespliega
+1. Haz clic en **Save Changes** (si aparece)
+2. Ve a la pestaña **Manual Deploy** (en el menú superior)
+3. Haz clic en **Deploy latest commit**
+4. Espera a que el build complete
 
 ## ✅ Verificación
 
-Después de configurar las variables (o dejarlas vacías), el build debería:
+Después de configurar las variables, el build debería:
 - ✅ Completarse exitosamente
-- ✅ La aplicación funcionará con localStorage si Supabase no está configurado
-- ✅ La aplicación usará Supabase si las variables están configuradas
+- ✅ La aplicación se conectará a Supabase automáticamente
+- ✅ Los datos se guardarán en Supabase
 
-## 📝 Valores de Supabase
+## 📝 Valores Exactos
 
-Si necesitas los valores de Supabase, están en `CONFIGURACION_SUPABASE.md`:
+Copia y pega estos valores exactamente:
 
-- **URL**: `https://rybokbjrbugvggprnith.supabase.co`
-- **Anon Key**: `sb_publishable_VAI_JWRKxhjCwcPw_qWXNA_IkXLfKR_`
+| Variable | Valor |
+|----------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://rybokbjrbugvggprnith.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_VAI_JWRKxhjCwcPw_qWXNA_IkXLfKR_` |
 
-## 🎯 Resumen
+## 🐛 Si el Build Falla
 
-| Variable | Valor | Requerido |
-|----------|-------|-----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://rybokbjrbugvggprnith.supabase.co` | Opcional |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_VAI_JWRKxhjCwcPw_qWXNA_IkXLfKR_` | Opcional |
+Si el build falla con un error sobre variables faltantes:
 
-**Nota**: Si no configuras estas variables, la aplicación funcionará perfectamente con localStorage. Solo necesitas configurarlas si quieres usar Supabase para sincronización entre usuarios.
+1. ✅ Verifica que agregaste AMBAS variables
+2. ✅ Verifica que los nombres sean EXACTAMENTE como se muestran arriba (case-sensitive)
+3. ✅ Verifica que los valores sean correctos (sin espacios al inicio o final)
+4. ✅ Guarda los cambios
+5. ✅ Redespliega manualmente
 
+## 📸 Ubicación Visual
+
+```
+Render Dashboard
+└── Tu Servicio (Dashboard-empresa-2025)
+    └── Environment (menú lateral izquierdo)
+        └── Environment Variables (sección)
+            ├── Add Environment Variable ← Click aquí
+            └── Lista de variables ← Deberías ver las 2 variables aquí
+```
+
+## 🎯 Checklist
+
+Antes de redesplegar, verifica:
+
+- [ ] Variable `NEXT_PUBLIC_SUPABASE_URL` está configurada
+- [ ] Variable `NEXT_PUBLIC_SUPABASE_ANON_KEY` está configurada
+- [ ] Los valores son correctos (sin espacios extra)
+- [ ] Guardaste los cambios
+- [ ] Estás listo para redesplegar
+
+## ⚡ Después de Configurar
+
+Una vez configuradas las variables:
+1. El build debería completarse exitosamente
+2. La aplicación se conectará automáticamente a Supabase
+3. Todos los datos se guardarán en Supabase
+4. Los datos se sincronizarán entre todos los usuarios

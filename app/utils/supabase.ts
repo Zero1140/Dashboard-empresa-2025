@@ -1,29 +1,30 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 // Variables de entorno para Supabase
-// Estas se deben configurar en Render como variables de entorno
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// ESTAS SON OBLIGATORIAS - La aplicación requiere Supabase para funcionar
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Verificar si Supabase está configurado
-export function isSupabaseConfigured(): boolean {
-  return !!supabaseUrl && !!supabaseAnonKey && supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
-}
-
-// Crear cliente de Supabase solo si está configurado
-// Si no está configurado, creamos un cliente dummy que no fallará
-let supabaseInstance: SupabaseClient | null = null;
-
-if (isSupabaseConfigured()) {
-  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
-} else {
-  // Crear un cliente dummy con valores placeholder para evitar errores en build
-  // Este cliente no funcionará para operaciones reales, pero permitirá que el build pase
-  supabaseInstance = createClient(
-    'https://placeholder.supabase.co',
-    'placeholder-key'
+// Validar que las variables estén configuradas
+if (!supabaseUrl || !supabaseAnonKey) {
+  const missingVars = [];
+  if (!supabaseUrl) missingVars.push('NEXT_PUBLIC_SUPABASE_URL');
+  if (!supabaseAnonKey) missingVars.push('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  
+  throw new Error(
+    `❌ Variables de entorno de Supabase faltantes: ${missingVars.join(', ')}\n` +
+    `Por favor, configura estas variables en Render:\n` +
+    `- NEXT_PUBLIC_SUPABASE_URL\n` +
+    `- NEXT_PUBLIC_SUPABASE_ANON_KEY\n` +
+    `Ver CONFIGURAR_VARIABLES_RENDER.md para más detalles.`
   );
 }
 
-export const supabase = supabaseInstance;
+// Crear cliente de Supabase
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Verificar si Supabase está configurado (siempre debería ser true)
+export function isSupabaseConfigured(): boolean {
+  return !!supabaseUrl && !!supabaseAnonKey;
+}
 
