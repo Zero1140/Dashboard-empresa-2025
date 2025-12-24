@@ -41,8 +41,7 @@ export default function MachineCard({
   // Estado unificado para ambas etiquetas
   const [etiquetaUnificada, setEtiquetaUnificada] = useState<string>(colorChicaInicial || colorGrandeInicial || "");
   const [tipoMaterial, setTipoMaterial] = useState<string>(colorChicaInicial ? colorChicaInicial.split("::")[0] : (colorGrandeInicial ? colorGrandeInicial.split("::")[0] : ""));
-  const [cantidadChicas, setCantidadChicas] = useState<number>(8);
-  const [cantidadGrandes, setCantidadGrandes] = useState<number>(8);
+  const [cantidad, setCantidad] = useState<number>(8);
   const [showCambiarOperadorModal, setShowCambiarOperadorModal] = useState<boolean>(false);
 
   // Actualizar cuando cambien los colores iniciales (usar el que esté disponible)
@@ -104,12 +103,12 @@ export default function MachineCard({
       alert("No se puede imprimir cuando la máquina está en estado 'Línea Libre'. Por favor, asigna un operador primero.");
       return;
     }
-    if (cantidadChicas < 1 || cantidadChicas > 10 || cantidadGrandes < 1 || cantidadGrandes > 10) {
+    if (cantidad < 1 || cantidad > 10) {
       alert("La cantidad de etiquetas debe estar entre 1 y 10");
       return;
     }
-    // Usar la misma etiqueta para ambas (chica y grande)
-    onImprimir(maquinaId, etiquetaUnificada, etiquetaUnificada, operador, tipoMaterial, cantidadChicas, cantidadGrandes);
+    // Usar la misma etiqueta y cantidad para ambas (chica y grande)
+    onImprimir(maquinaId, etiquetaUnificada, etiquetaUnificada, operador, tipoMaterial, cantidad, cantidad);
   };
 
   const handleEtiquetaUnificadaChange = (value: string) => {
@@ -167,32 +166,14 @@ export default function MachineCard({
           </select>
         </div>
 
-        {/* Selector de cantidad etiquetas chicas */}
+        {/* Selector unificado de cantidad para etiquetas chicas y grandes */}
         <div>
           <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
-            📊 Cantidad Etiquetas Chicas
+            📊 Cantidad Etiquetas
           </label>
           <select
-            value={cantidadChicas}
-            onChange={(e) => setCantidadChicas(parseInt(e.target.value))}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
-          >
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
-              <option key={num} value={num}>
-                {num} {num === 1 ? "etiqueta" : "etiquetas"}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Selector de cantidad etiquetas grandes */}
-        <div>
-          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
-            📊 Cantidad Etiquetas Grandes
-          </label>
-          <select
-            value={cantidadGrandes}
-            onChange={(e) => setCantidadGrandes(parseInt(e.target.value))}
+            value={cantidad}
+            onChange={(e) => setCantidad(parseInt(e.target.value))}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
           >
             {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
@@ -267,11 +248,11 @@ export default function MachineCard({
           onClick={handleImprimir}
           disabled={!etiquetaUnificada || !operador || !tipoMaterial || esLineaLibre(operador)}
           className="w-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] disabled:from-[#2d3748] disabled:to-[#1a2332] disabled:cursor-not-allowed text-white font-bold py-4 px-4 rounded-xl transition-all duration-200 mt-6 shadow-lg shadow-[#00d4ff]/30 hover:shadow-[#00d4ff]/50 disabled:shadow-none hover-lift flex items-center justify-center gap-2"
-          title={esLineaLibre(operador) ? "No se puede imprimir en estado Línea Libre" : `Imprime ${cantidadChicas} etiquetas chicas y ${cantidadGrandes} etiquetas grandes`}
+          title={esLineaLibre(operador) ? "No se puede imprimir en estado Línea Libre" : `Imprime ${cantidad} etiquetas chicas y ${cantidad} etiquetas grandes`}
         >
           <span className="text-xl">🖨️</span>
           <span>Imprimir Etiquetas</span>
-          <span className="text-xs opacity-75">({cantidadChicas}+{cantidadGrandes})</span>
+          <span className="text-xs opacity-75">({cantidad * 2} total)</span>
         </button>
       </div>
 
