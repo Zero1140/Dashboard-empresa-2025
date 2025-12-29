@@ -11,6 +11,7 @@ export interface ImpresionEtiqueta {
   timestamp: number; // Unix timestamp
   cantidadChicas: number; // Cantidad de etiquetas chicas (8)
   cantidadGrandes: number; // Cantidad de etiquetas grandes (8)
+  estado?: 'pendiente' | 'impresa' | 'error'; // Estado de impresión física
 }
 
 export interface CambioOperador {

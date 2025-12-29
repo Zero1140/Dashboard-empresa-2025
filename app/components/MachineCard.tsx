@@ -38,66 +38,73 @@ export default function MachineCard({
   onCambiarColorChica,
   onCambiarColorGrande,
 }: MachineCardProps) {
-  // Estado para material y color seleccionados
-  const [materialSeleccionado, setMaterialSeleccionado] = useState<string>(() => {
-    const colorInicial = colorChicaInicial || colorGrandeInicial || "";
-    return colorInicial ? colorInicial.split("::")[0] : "";
-  });
-  const [colorSeleccionado, setColorSeleccionado] = useState<string>(() => {
-    const colorInicial = colorChicaInicial || colorGrandeInicial || "";
-    return colorInicial ? colorInicial.split("::")[1] : "";
-  });
-  const [cantidad, setCantidad] = useState<number>(8);
+  const [etiquetaChica, setEtiquetaChica] = useState<string>(colorChicaInicial);
+  const [etiquetaGrande, setEtiquetaGrande] = useState<string>(colorGrandeInicial);
+  const [tipoMaterialChica, setTipoMaterialChica] = useState<string>(colorChicaInicial ? colorChicaInicial.split("::")[0] : "");
+  const [tipoMaterialGrande, setTipoMaterialGrande] = useState<string>(colorGrandeInicial ? colorGrandeInicial.split("::")[0] : "");
+  const [cantidadChicas, setCantidadChicas] = useState<number>(8);
+  const [cantidadGrandes, setCantidadGrandes] = useState<number>(8);
   const [showCambiarOperadorModal, setShowCambiarOperadorModal] = useState<boolean>(false);
 
-  // Actualizar cuando cambien los colores iniciales (usar el que esté disponible)
+  // Actualizar cuando cambien los colores iniciales
   useEffect(() => {
-    const colorInicial = colorChicaInicial || colorGrandeInicial || "";
-    if (colorInicial) {
-      const [tipo, color] = colorInicial.split("::");
-      setMaterialSeleccionado(tipo);
-      setColorSeleccionado(color);
+    setEtiquetaChica(colorChicaInicial);
+    if (colorChicaInicial) {
+      setTipoMaterialChica(colorChicaInicial.split("::")[0]);
     }
-  }, [colorChicaInicial, colorGrandeInicial]);
+  }, [colorChicaInicial]);
 
-  // Obtener todos los materiales disponibles
-  const materialesDisponibles = useMemo(() => {
+  useEffect(() => {
+    setEtiquetaGrande(colorGrandeInicial);
+    if (colorGrandeInicial) {
+      setTipoMaterialGrande(colorGrandeInicial.split("::")[0]);
+    }
+  }, [colorGrandeInicial]);
+
+  // Obtener todos los colores de todos los materiales (incluyendo personalizados)
+  const todasEtiquetasChicas = useMemo(() => {
     const coloresCombinados = obtenerColoresCombinados();
-    return Object.keys(coloresCombinados).sort();
-  }, []);
-
-  // Obtener colores disponibles para el material seleccionado
-  const coloresDisponibles = useMemo(() => {
-    if (!materialSeleccionado) return [];
-    
-    const coloresCombinados = obtenerColoresCombinados();
-    const material = coloresCombinados[materialSeleccionado];
-    if (!material) return [];
-
-    const coloresChica = material.chica || {};
-    const coloresGrande = material.grande || {};
-    
-    // Obtener nombres únicos de colores (eliminando el sufijo _GRANDE)
-    const coloresUnicos = new Set<string>();
-    
-    // Agregar colores de chica
-    Object.keys(coloresChica).forEach(color => coloresUnicos.add(color));
-    
-    // Agregar colores de grande (remover sufijo _GRANDE si existe)
-    Object.keys(coloresGrande).forEach(color => {
-      const colorBase = color.replace(/_GRANDE$/, '');
-      coloresUnicos.add(colorBase);
+    const opciones: ColorOption[] = [];
+    Object.keys(coloresCombinados).forEach((tipo) => {
+      const colores = coloresCombinados[tipo].chica || {};
+      Object.keys(colores).forEach((color) => {
+        opciones.push({ color, tipo, esChica: true });
+      });
     });
-    
-    return Array.from(coloresUnicos).sort((a, b) => {
-      const nombreA = limpiarNombre(a, materialSeleccionado);
-      const nombreB = limpiarNombre(b, materialSeleccionado);
+    return opciones.sort((a, b) => {
+      const nombreA = limpiarNombre(a.color, a.tipo);
+      const nombreB = limpiarNombre(b.color, b.tipo);
       return nombreA.localeCompare(nombreB);
     });
-  }, [materialSeleccionado]);
+  }, []);
+
+  const todasEtiquetasGrandes = useMemo(() => {
+    const coloresCombinados = obtenerColoresCombinados();
+    const opciones: ColorOption[] = [];
+    Object.keys(coloresCombinados).forEach((tipo) => {
+      const colores = coloresCombinados[tipo].grande || {};
+      Object.keys(colores).forEach((color) => {
+        opciones.push({ color, tipo, esChica: false });
+      });
+    });
+    return opciones.sort((a, b) => {
+      const nombreA = limpiarNombre(a.color, a.tipo);
+      const nombreB = limpiarNombre(b.color, b.tipo);
+      return nombreA.localeCompare(nombreB);
+    });
+  }, []);
+
+  const getDisplayName = (color: string, tipo: string) => {
+    const nombreLimpio = limpiarNombre(color, tipo);
+    return `${nombreLimpio} ${tipo}`;
+  };
+
+  const getValueKey = (color: string, tipo: string) => {
+    return `${tipo}::${color}`;
+  };
 
   const handleImprimir = () => {
-    if (!materialSeleccionado || !colorSeleccionado || !operador) {
+    if (!etiquetaChica || !etiquetaGrande || !operador || !tipoMaterialChica || !tipoMaterialGrande) {
       alert("Por favor, completa todos los campos antes de imprimir");
       return;
     }
@@ -105,63 +112,38 @@ export default function MachineCard({
       alert("No se puede imprimir cuando la máquina está en estado 'Línea Libre'. Por favor, asigna un operador primero.");
       return;
     }
-    if (cantidad < 1 || cantidad > 10) {
+    if (cantidadChicas < 1 || cantidadChicas > 10 || cantidadGrandes < 1 || cantidadGrandes > 10) {
       alert("La cantidad de etiquetas debe estar entre 1 y 10");
       return;
     }
-    
-    // Construir etiquetas correctas para chica y grande
-    const coloresCombinados = obtenerColoresCombinados();
-    const material = coloresCombinados[materialSeleccionado];
-    
-    // Color para chica (usar el color base, sin _GRANDE)
-    const colorChica = colorSeleccionado.replace(/_GRANDE$/, '');
-    const etiquetaChica = `${materialSeleccionado}::${colorChica}`;
-    
-    // Color para grande (buscar versión con _GRANDE, si no existe usar el base)
-    let colorGrande = colorChica;
-    if (material?.grande && material.grande[colorChica + "_GRANDE"]) {
-      colorGrande = colorChica + "_GRANDE";
-    } else if (material?.grande && material.grande[colorChica]) {
-      colorGrande = colorChica;
-    }
-    const etiquetaGrande = `${materialSeleccionado}::${colorGrande}`;
-    
-    onImprimir(maquinaId, etiquetaChica, etiquetaGrande, operador, materialSeleccionado, cantidad, cantidad);
+    onImprimir(maquinaId, etiquetaChica, etiquetaGrande, operador, tipoMaterialChica, cantidadChicas, cantidadGrandes);
   };
 
-  const handleMaterialChange = (material: string) => {
-    setMaterialSeleccionado(material);
-    setColorSeleccionado(""); // Limpiar color cuando cambia el material
-  };
-
-  const handleColorChange = (color: string) => {
-    setColorSeleccionado(color);
-    
-    // Actualizar ambas etiquetas cuando se selecciona un color
-    if (materialSeleccionado && color) {
-      const coloresCombinados = obtenerColoresCombinados();
-      const material = coloresCombinados[materialSeleccionado];
-      
-      // Color para chica (usar el color base, sin _GRANDE)
-      const colorChica = color.replace(/_GRANDE$/, '');
-      const etiquetaChica = `${materialSeleccionado}::${colorChica}`;
-      
-      // Color para grande (buscar versión con _GRANDE, si no existe usar el base)
-      let colorGrande = colorChica;
-      if (material?.grande && material.grande[colorChica + "_GRANDE"]) {
-        colorGrande = colorChica + "_GRANDE";
-      } else if (material?.grande && material.grande[colorChica]) {
-        colorGrande = colorChica;
-      }
-      const etiquetaGrande = `${materialSeleccionado}::${colorGrande}`;
-      
+  const handleEtiquetaChicaChange = (value: string) => {
+    setEtiquetaChica(value);
+    if (value) {
+      const [tipo, color] = value.split("::");
+      setTipoMaterialChica(tipo);
+      // Ahora todos pueden cambiar el color (no solo supervisores)
       if (onCambiarColorChica) {
-        onCambiarColorChica(maquinaId, etiquetaChica);
+        onCambiarColorChica(maquinaId, value);
       }
+    } else {
+      setTipoMaterialChica("");
+    }
+  };
+
+  const handleEtiquetaGrandeChange = (value: string) => {
+    setEtiquetaGrande(value);
+    if (value) {
+      const [tipo, color] = value.split("::");
+      setTipoMaterialGrande(tipo);
+      // Ahora todos pueden cambiar el color (no solo supervisores)
       if (onCambiarColorGrande) {
-        onCambiarColorGrande(maquinaId, etiquetaGrande);
+        onCambiarColorGrande(maquinaId, value);
       }
+    } else {
+      setTipoMaterialGrande("");
     }
   };
 
@@ -184,53 +166,70 @@ export default function MachineCard({
       </div>
 
       <div className="space-y-5 relative z-10">
-        {/* Selector de material */}
+        {/* Selector de color etiqueta chica */}
         <div>
           <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
-            📦 Material
+            🏷️ Etiqueta Chica
           </label>
           <select
-            value={materialSeleccionado}
-            onChange={(e) => handleMaterialChange(e.target.value)}
+            value={etiquetaChica}
+            onChange={(e) => handleEtiquetaChicaChange(e.target.value)}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
           >
-            <option value="">-- Selecciona material --</option>
-            {materialesDisponibles.map((material) => (
-              <option key={material} value={material}>
-                {material}
+            <option value="">-- Selecciona color --</option>
+            {todasEtiquetasChicas.map((opcion) => (
+              <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
+                {getDisplayName(opcion.color, opcion.tipo)}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Selector de color del material seleccionado */}
+        {/* Selector de color etiqueta grande */}
         <div>
           <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
-            🎨 Color
+            🏷️ Etiqueta Grande
           </label>
           <select
-            value={colorSeleccionado}
-            onChange={(e) => handleColorChange(e.target.value)}
-            disabled={!materialSeleccionado}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            value={etiquetaGrande}
+            onChange={(e) => handleEtiquetaGrandeChange(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
           >
-            <option value="">-- {materialSeleccionado ? "Selecciona color" : "Selecciona material primero"} --</option>
-            {coloresDisponibles.map((color) => (
-              <option key={color} value={color}>
-                {limpiarNombre(color, materialSeleccionado)}
+            <option value="">-- Selecciona color --</option>
+            {todasEtiquetasGrandes.map((opcion) => (
+              <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
+                {getDisplayName(opcion.color, opcion.tipo)}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Selector unificado de cantidad para etiquetas chicas y grandes */}
+        {/* Selector de cantidad etiquetas chicas */}
         <div>
           <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
-            📊 Cantidad Etiquetas
+            📊 Cantidad Etiquetas Chicas
           </label>
           <select
-            value={cantidad}
-            onChange={(e) => setCantidad(parseInt(e.target.value))}
+            value={cantidadChicas}
+            onChange={(e) => setCantidadChicas(parseInt(e.target.value))}
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
+          >
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+              <option key={num} value={num}>
+                {num} {num === 1 ? "etiqueta" : "etiquetas"}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Selector de cantidad etiquetas grandes */}
+        <div>
+          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
+            📊 Cantidad Etiquetas Grandes
+          </label>
+          <select
+            value={cantidadGrandes}
+            onChange={(e) => setCantidadGrandes(parseInt(e.target.value))}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
           >
             {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
@@ -303,13 +302,13 @@ export default function MachineCard({
         {/* Botón de imprimir */}
         <button
           onClick={handleImprimir}
-          disabled={!materialSeleccionado || !colorSeleccionado || !operador || esLineaLibre(operador)}
+          disabled={!etiquetaChica || !etiquetaGrande || !operador || !tipoMaterialChica || !tipoMaterialGrande || esLineaLibre(operador)}
           className="w-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] disabled:from-[#2d3748] disabled:to-[#1a2332] disabled:cursor-not-allowed text-white font-bold py-4 px-4 rounded-xl transition-all duration-200 mt-6 shadow-lg shadow-[#00d4ff]/30 hover:shadow-[#00d4ff]/50 disabled:shadow-none hover-lift flex items-center justify-center gap-2"
-          title={esLineaLibre(operador) ? "No se puede imprimir en estado Línea Libre" : `Imprime ${cantidad} etiquetas chicas y ${cantidad} etiquetas grandes`}
+          title={esLineaLibre(operador) ? "No se puede imprimir en estado Línea Libre" : `Imprime ${cantidadChicas} etiquetas chicas y ${cantidadGrandes} etiquetas grandes`}
         >
           <span className="text-xl">🖨️</span>
           <span>Imprimir Etiquetas</span>
-          <span className="text-xs opacity-75">({cantidad * 2} total)</span>
+          <span className="text-xs opacity-75">({cantidadChicas}+{cantidadGrandes})</span>
         </button>
       </div>
 

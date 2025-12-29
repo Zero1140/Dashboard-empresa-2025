@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { obtenerImpresiones, obtenerCambiosOperador, obtenerCambiosColor } from "../utils/storage";
+import { obtenerImpresiones, obtenerCambiosOperador, obtenerCambiosColor, obtenerImpresionesSync, obtenerCambiosOperadorSync, obtenerCambiosColorSync } from "../utils/storage";
 import { ImpresionEtiqueta, CambioOperador, CambioColor, EstadisticasMaquina, Accion } from "../types";
 import { limpiarNombre } from "../data";
 
@@ -12,25 +12,25 @@ export default function InformacionPage() {
   const [cambiosOperador, setCambiosOperador] = useState<CambioOperador[]>([]);
   const [cambiosColor, setCambiosColor] = useState<CambioColor[]>([]);
 
-  // Cargar datos al montar el componente desde Supabase
+  // Cargar datos al montar el componente
   useEffect(() => {
     const cargarDatos = async () => {
-      try {
-        const [impresionesData, cambiosOperadorData, cambiosColorData] = await Promise.all([
-          obtenerImpresiones(),
-          obtenerCambiosOperador(),
-          obtenerCambiosColor(),
-        ]);
-        setImpresiones(impresionesData);
-        setCambiosOperador(cambiosOperadorData);
-        setCambiosColor(cambiosColorData);
-      } catch (error) {
-        console.error('Error al cargar datos:', error);
-        // Si falla, intentar de nuevo después de un momento
-        setTimeout(() => cargarDatos(), 2000);
-      }
+      const [impresionesData, cambiosOperadorData, cambiosColorData] = await Promise.all([
+        obtenerImpresiones(),
+        obtenerCambiosOperador(),
+        obtenerCambiosColor(),
+      ]);
+      setImpresiones(impresionesData);
+      setCambiosOperador(cambiosOperadorData);
+      setCambiosColor(cambiosColorData);
     };
 
+    // Cargar datos síncronos primero para mostrar algo inmediatamente
+    setImpresiones(obtenerImpresionesSync());
+    setCambiosOperador(obtenerCambiosOperadorSync());
+    setCambiosColor(obtenerCambiosColorSync());
+
+    // Luego cargar datos asíncronos de Supabase si está configurado
     cargarDatos();
   }, []);
 

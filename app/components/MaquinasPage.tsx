@@ -70,32 +70,16 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
       }
     }
 
-    // Cargar impresiones desde Supabase
-    const cargarDatos = async () => {
-      try {
-        const impresionesData = await obtenerImpresiones();
-        setImpresiones(impresionesData);
-        setContadoresEtiquetas(obtenerContadoresEtiquetas());
-      } catch (error) {
-        console.error('Error al cargar datos iniciales:', error);
-        // Si falla, intentar de nuevo después de un momento
-        setTimeout(() => cargarDatos(), 2000);
-      }
-    };
-    
-    cargarDatos();
+    // Cargar impresiones (usar versión síncrona para carga inicial)
+    setImpresiones(obtenerImpresionesSync());
   }, []);
 
   // Actualizar impresiones y contadores cuando cambien
   useEffect(() => {
     const actualizarDatos = async () => {
-      try {
-        const impresionesData = await obtenerImpresiones();
-        setImpresiones(impresionesData);
-        setContadoresEtiquetas(obtenerContadoresEtiquetas());
-      } catch (error) {
-        console.error('Error al actualizar datos:', error);
-      }
+      const impresionesData = await obtenerImpresiones();
+      setImpresiones(impresionesData);
+      setContadoresEtiquetas(obtenerContadoresEtiquetas());
     };
     
     actualizarDatos();
