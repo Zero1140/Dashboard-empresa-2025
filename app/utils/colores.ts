@@ -1,8 +1,7 @@
 import { coloresPorTipo } from "../data";
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
-const STORAGE_KEY_COLORES_PERSONALIZADOS = "gst3d_colores_personalizados";
-const STORAGE_KEY_COLORES_ELIMINADOS = "gst3d_colores_eliminados";
 const COLORES_PERSONALIZADOS_ID = "colores_global";
 const COLORES_ELIMINADOS_ID = "eliminados_global";
 
@@ -13,7 +12,7 @@ async function cargarColoresPersonalizadosDesdeSupabase(): Promise<Record<string
   chica: Record<string, string>;
   grande: Record<string, string>;
 }>> {
-  if (!isSupabaseConfigured()) return {};
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -23,23 +22,17 @@ async function cargarColoresPersonalizadosDesdeSupabase(): Promise<Record<string
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Error al cargar colores personalizados de Supabase:', error);
-      return {};
+      throw new SupabaseConnectionError(`Error al cargar colores personalizados de Supabase: ${error.message}`);
     }
     
     if (!data || !data.colores_data) return {};
     
-    const colores = data.colores_data;
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_COLORES_PERSONALIZADOS, JSON.stringify(colores));
-    }
-    
-    return colores;
+    return data.colores_data;
   } catch (error) {
-    console.error('Error al cargar colores personalizados de Supabase:', error);
-    return {};
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar colores personalizados de Supabase: ${error}`);
   }
 }
 
@@ -49,8 +42,8 @@ async function cargarColoresPersonalizadosDesdeSupabase(): Promise<Record<string
 async function guardarColoresPersonalizadosEnSupabase(colores: Record<string, {
   chica: Record<string, string>;
   grande: Record<string, string>;
-}>): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+}>): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -62,14 +55,13 @@ async function guardarColoresPersonalizadosEnSupabase(colores: Record<string, {
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar colores personalizados en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar colores personalizados en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar colores personalizados en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar colores personalizados en Supabase: ${error}`);
   }
 }
 
@@ -82,25 +74,7 @@ export async function obtenerColoresPersonalizados(): Promise<Record<string, {
 }>> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const colores = await cargarColoresPersonalizadosDesdeSupabase();
-    if (Object.keys(colores).length > 0) {
-      return colores;
-    }
-  }
-  
-  // Fallback a localStorage
-  const coloresGuardados = localStorage.getItem(STORAGE_KEY_COLORES_PERSONALIZADOS);
-  if (coloresGuardados) {
-    try {
-      return JSON.parse(coloresGuardados);
-    } catch (e) {
-      console.error("Error al cargar colores personalizados:", e);
-      return {};
-    }
-  }
-  return {};
+  return await cargarColoresPersonalizadosDesdeSupabase();
 }
 
 /**
@@ -111,15 +85,12 @@ export function obtenerColoresPersonalizadosSync(): Record<string, {
   grande: Record<string, string>;
 }> {
   if (typeof window === "undefined") return {};
-  const coloresGuardados = localStorage.getItem(STORAGE_KEY_COLORES_PERSONALIZADOS);
-  if (coloresGuardados) {
-    try {
-      return JSON.parse(coloresGuardados);
-    } catch (e) {
-      console.error("Error al cargar colores personalizados:", e);
-      return {};
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerColoresPersonalizadosSync() devolverá un objeto vacío.');
+    return {};
   }
+  
   return {};
 }
 
@@ -130,7 +101,7 @@ async function cargarColoresEliminadosDesdeSupabase(): Promise<Record<string, {
   chica: string[];
   grande: string[];
 }>> {
-  if (!isSupabaseConfigured()) return {};
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -140,23 +111,17 @@ async function cargarColoresEliminadosDesdeSupabase(): Promise<Record<string, {
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Error al cargar colores eliminados de Supabase:', error);
-      return {};
+      throw new SupabaseConnectionError(`Error al cargar colores eliminados de Supabase: ${error.message}`);
     }
     
     if (!data || !data.eliminados_data) return {};
     
-    const eliminados = data.eliminados_data;
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_COLORES_ELIMINADOS, JSON.stringify(eliminados));
-    }
-    
-    return eliminados;
+    return data.eliminados_data;
   } catch (error) {
-    console.error('Error al cargar colores eliminados de Supabase:', error);
-    return {};
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar colores eliminados de Supabase: ${error}`);
   }
 }
 
@@ -166,8 +131,8 @@ async function cargarColoresEliminadosDesdeSupabase(): Promise<Record<string, {
 async function guardarColoresEliminadosEnSupabase(coloresEliminados: Record<string, {
   chica: string[];
   grande: string[];
-}>): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+}>): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -179,14 +144,13 @@ async function guardarColoresEliminadosEnSupabase(coloresEliminados: Record<stri
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar colores eliminados en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar colores eliminados en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar colores eliminados en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar colores eliminados en Supabase: ${error}`);
   }
 }
 
@@ -199,25 +163,7 @@ export async function obtenerColoresEliminados(): Promise<Record<string, {
 }>> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const eliminados = await cargarColoresEliminadosDesdeSupabase();
-    if (Object.keys(eliminados).length > 0) {
-      return eliminados;
-    }
-  }
-  
-  // Fallback a localStorage
-  const coloresEliminados = localStorage.getItem(STORAGE_KEY_COLORES_ELIMINADOS);
-  if (coloresEliminados) {
-    try {
-      return JSON.parse(coloresEliminados);
-    } catch (e) {
-      console.error("Error al cargar colores eliminados:", e);
-      return {};
-    }
-  }
-  return {};
+  return await cargarColoresEliminadosDesdeSupabase();
 }
 
 /**
@@ -228,15 +174,12 @@ export function obtenerColoresEliminadosSync(): Record<string, {
   grande: string[];
 }> {
   if (typeof window === "undefined") return {};
-  const coloresEliminados = localStorage.getItem(STORAGE_KEY_COLORES_ELIMINADOS);
-  if (coloresEliminados) {
-    try {
-      return JSON.parse(coloresEliminados);
-    } catch (e) {
-      console.error("Error al cargar colores eliminados:", e);
-      return {};
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerColoresEliminadosSync() devolverá un objeto vacío.');
+    return {};
   }
+  
   return {};
 }
 
@@ -249,10 +192,6 @@ export async function guardarColoresEliminados(coloresEliminados: Record<string,
 }>): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero
-  localStorage.setItem(STORAGE_KEY_COLORES_ELIMINADOS, JSON.stringify(coloresEliminados));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarColoresEliminadosEnSupabase(coloresEliminados);
 }
 
@@ -309,10 +248,6 @@ export async function guardarColoresPersonalizados(colores: Record<string, {
 }>): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero
-  localStorage.setItem(STORAGE_KEY_COLORES_PERSONALIZADOS, JSON.stringify(colores));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarColoresPersonalizadosEnSupabase(colores);
   
   // Disparar evento local
@@ -427,13 +362,7 @@ export function suscribirColoresPersonalizadosRealtime(
   }>) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
-    const handler = () => {
-      obtenerColoresPersonalizados().then(callback);
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener("coloresActualizados", handler);
-      return () => window.removeEventListener("coloresActualizados", handler);
-    }
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -448,10 +377,14 @@ export function suscribirColoresPersonalizadosRealtime(
         filter: `id=eq.${COLORES_PERSONALIZADOS_ID}`
       },
       async () => {
-        const nuevosColores = await cargarColoresPersonalizadosDesdeSupabase();
-        callback(nuevosColores);
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("coloresActualizados"));
+        try {
+          const nuevosColores = await cargarColoresPersonalizadosDesdeSupabase();
+          callback(nuevosColores);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("coloresActualizados"));
+          }
+        } catch (error) {
+          console.error('Error al recargar colores personalizados en Realtime:', error);
         }
       }
     )
@@ -472,6 +405,7 @@ export function suscribirColoresEliminadosRealtime(
   }>) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -486,8 +420,12 @@ export function suscribirColoresEliminadosRealtime(
         filter: `id=eq.${COLORES_ELIMINADOS_ID}`
       },
       async () => {
-        const nuevosEliminados = await cargarColoresEliminadosDesdeSupabase();
-        callback(nuevosEliminados);
+        try {
+          const nuevosEliminados = await cargarColoresEliminadosDesdeSupabase();
+          callback(nuevosEliminados);
+        } catch (error) {
+          console.error('Error al recargar colores eliminados en Realtime:', error);
+        }
       }
     )
     .subscribe();
