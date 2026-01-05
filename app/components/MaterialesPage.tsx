@@ -121,11 +121,32 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     };
   }, []);
 
-  // Suscripción Realtime para categorías
+  // Suscripción Realtime para todas las entidades
   useRealtimeSync({
     onCategoriasChange: async (nuevasCategoriasData) => {
       const nuevasCategorias = Object.values(nuevasCategoriasData);
       setCategorias(nuevasCategorias);
+    },
+    onOperadoresPersonalizadosChange: async (nuevosOperadores) => {
+      setOperadores(await obtenerOperadoresCombinados());
+    },
+    onOperadoresEliminadosChange: async () => {
+      setOperadores(await obtenerOperadoresCombinados());
+    },
+    onColoresPersonalizadosChange: () => {
+      // Los colores se recargan automáticamente con obtenerColoresCombinadosSync()
+      // que se llama en el render, así que no necesitamos actualizar estado aquí
+    },
+    onColoresEliminadosChange: () => {
+      // Los colores se recargan automáticamente con obtenerColoresCombinadosSync()
+      // que se llama en el render, así que no necesitamos actualizar estado aquí
+    },
+    onPinsOperadoresChange: async (nuevosPins) => {
+      setPins(nuevosPins);
+    },
+    onStockMinimosChange: () => {
+      // Los stock mínimos se recargan cuando se necesitan
+      // No necesitamos mantener estado aquí
     },
   });
 
