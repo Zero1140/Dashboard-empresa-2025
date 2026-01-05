@@ -437,7 +437,7 @@ export default function StockPage({ onSupabaseError }: StockPageProps = {}) {
                           </div>
                         ) : (
                           <button
-                            onClick={() => handleEditStock(tipoSeleccionado, color, stockColor)}
+                            onClick={() => handleEditStock(tipoSeleccionado, colorBase, stockColor)}
                             className="bg-[#2d3748] hover:bg-[#4a5568] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border border-[#4a5568] hover:border-[#00d4ff]/50 hover-lift"
                           >
                             ✏️
