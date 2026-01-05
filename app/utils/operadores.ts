@@ -1,14 +1,12 @@
 import { OPERADORES } from "../data";
 import { supabase, isSupabaseConfigured } from "./supabase";
-
-const STORAGE_KEY_OPERADORES_PERSONALIZADOS = "gst3d_operadores_personalizados";
-const STORAGE_KEY_OPERADORES_ELIMINADOS = "gst3d_operadores_eliminados";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
 /**
  * Carga operadores personalizados desde Supabase
  */
 async function cargarOperadoresPersonalizadosDesdeSupabase(): Promise<string[]> {
-  if (!isSupabaseConfigured()) return [];
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -17,31 +15,25 @@ async function cargarOperadoresPersonalizadosDesdeSupabase(): Promise<string[]> 
       .order('created_at', { ascending: true });
     
     if (error) {
-      console.error('Error al cargar operadores personalizados de Supabase:', error);
-      return [];
+      throw new SupabaseConnectionError(`Error al cargar operadores personalizados de Supabase: ${error.message}`);
     }
     
     if (!data || data.length === 0) return [];
     
-    const operadores = data.map((op: any) => op.nombre);
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_OPERADORES_PERSONALIZADOS, JSON.stringify(operadores));
-    }
-    
-    return operadores;
+    return data.map((op: any) => op.nombre);
   } catch (error) {
-    console.error('Error al cargar operadores personalizados de Supabase:', error);
-    return [];
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar operadores personalizados de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda operadores personalizados en Supabase
  */
-async function guardarOperadoresPersonalizadosEnSupabase(operadores: string[]): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarOperadoresPersonalizadosEnSupabase(operadores: string[]): Promise<void> {
+  requireSupabase();
   
   try {
     // Obtener operadores actuales de Supabase
@@ -59,8 +51,7 @@ async function guardarOperadoresPersonalizadosEnSupabase(operadores: string[]): 
         .insert(nuevosOperadores.map(nombre => ({ nombre })));
       
       if (error) {
-        console.error('Error al guardar operadores personalizados en Supabase:', error);
-        return false;
+        throw new SupabaseConnectionError(`Error al guardar operadores personalizados en Supabase: ${error.message}`);
       }
     }
     
@@ -73,15 +64,14 @@ async function guardarOperadoresPersonalizadosEnSupabase(operadores: string[]): 
         .in('nombre', operadoresAEliminar);
       
       if (error) {
-        console.error('Error al eliminar operadores personalizados de Supabase:', error);
-        return false;
+        throw new SupabaseConnectionError(`Error al eliminar operadores personalizados de Supabase: ${error.message}`);
       }
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar operadores personalizados en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar operadores personalizados en Supabase: ${error}`);
   }
 }
 
@@ -91,25 +81,7 @@ async function guardarOperadoresPersonalizadosEnSupabase(operadores: string[]): 
 export async function obtenerOperadoresPersonalizados(): Promise<string[]> {
   if (typeof window === "undefined") return [];
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const operadores = await cargarOperadoresPersonalizadosDesdeSupabase();
-    if (operadores.length > 0) {
-      return operadores;
-    }
-  }
-  
-  // Fallback a localStorage
-  const operadoresGuardados = localStorage.getItem(STORAGE_KEY_OPERADORES_PERSONALIZADOS);
-  if (operadoresGuardados) {
-    try {
-      return JSON.parse(operadoresGuardados);
-    } catch (e) {
-      console.error("Error al cargar operadores personalizados:", e);
-      return [];
-    }
-  }
-  return [];
+  return await cargarOperadoresPersonalizadosDesdeSupabase();
 }
 
 /**
@@ -117,15 +89,12 @@ export async function obtenerOperadoresPersonalizados(): Promise<string[]> {
  */
 export function obtenerOperadoresPersonalizadosSync(): string[] {
   if (typeof window === "undefined") return [];
-  const operadoresGuardados = localStorage.getItem(STORAGE_KEY_OPERADORES_PERSONALIZADOS);
-  if (operadoresGuardados) {
-    try {
-      return JSON.parse(operadoresGuardados);
-    } catch (e) {
-      console.error("Error al cargar operadores personalizados:", e);
-      return [];
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerOperadoresPersonalizadosSync() devolverá un array vacío.');
+    return [];
   }
+  
   return [];
 }
 
@@ -135,10 +104,6 @@ export function obtenerOperadoresPersonalizadosSync(): string[] {
 export async function guardarOperadoresPersonalizados(operadores: string[]): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero (para respuesta inmediata)
-  localStorage.setItem(STORAGE_KEY_OPERADORES_PERSONALIZADOS, JSON.stringify(operadores));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarOperadoresPersonalizadosEnSupabase(operadores);
   
   // Disparar evento local
@@ -204,7 +169,7 @@ export async function agregarOperador(nombre: string): Promise<void> {
  * Carga operadores eliminados desde Supabase
  */
 async function cargarOperadoresEliminadosDesdeSupabase(): Promise<string[]> {
-  if (!isSupabaseConfigured()) return [];
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -213,31 +178,25 @@ async function cargarOperadoresEliminadosDesdeSupabase(): Promise<string[]> {
       .order('created_at', { ascending: true });
     
     if (error) {
-      console.error('Error al cargar operadores eliminados de Supabase:', error);
-      return [];
+      throw new SupabaseConnectionError(`Error al cargar operadores eliminados de Supabase: ${error.message}`);
     }
     
     if (!data || data.length === 0) return [];
     
-    const eliminados = data.map((op: any) => op.nombre);
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_OPERADORES_ELIMINADOS, JSON.stringify(eliminados));
-    }
-    
-    return eliminados;
+    return data.map((op: any) => op.nombre);
   } catch (error) {
-    console.error('Error al cargar operadores eliminados de Supabase:', error);
-    return [];
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar operadores eliminados de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda operadores eliminados en Supabase
  */
-async function guardarOperadoresEliminadosEnSupabase(eliminados: string[]): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarOperadoresEliminadosEnSupabase(eliminados: string[]): Promise<void> {
+  requireSupabase();
   
   try {
     // Obtener eliminados actuales de Supabase
@@ -255,8 +214,7 @@ async function guardarOperadoresEliminadosEnSupabase(eliminados: string[]): Prom
         .insert(nuevosEliminados.map(nombre => ({ nombre })));
       
       if (error) {
-        console.error('Error al guardar operadores eliminados en Supabase:', error);
-        return false;
+        throw new SupabaseConnectionError(`Error al guardar operadores eliminados en Supabase: ${error.message}`);
       }
     }
     
@@ -269,15 +227,14 @@ async function guardarOperadoresEliminadosEnSupabase(eliminados: string[]): Prom
         .in('nombre', operadoresARestaurar);
       
       if (error) {
-        console.error('Error al restaurar operadores eliminados de Supabase:', error);
-        return false;
+        throw new SupabaseConnectionError(`Error al restaurar operadores eliminados de Supabase: ${error.message}`);
       }
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar operadores eliminados en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar operadores eliminados en Supabase: ${error}`);
   }
 }
 
@@ -287,24 +244,7 @@ async function guardarOperadoresEliminadosEnSupabase(eliminados: string[]): Prom
 export async function obtenerOperadoresEliminados(): Promise<string[]> {
   if (typeof window === "undefined") return [];
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const eliminados = await cargarOperadoresEliminadosDesdeSupabase();
-    if (eliminados.length > 0) {
-      return eliminados;
-    }
-  }
-  
-  // Fallback a localStorage
-  const eliminados = localStorage.getItem(STORAGE_KEY_OPERADORES_ELIMINADOS);
-  if (eliminados) {
-    try {
-      return JSON.parse(eliminados);
-    } catch (e) {
-      return [];
-    }
-  }
-  return [];
+  return await cargarOperadoresEliminadosDesdeSupabase();
 }
 
 /**
@@ -312,14 +252,12 @@ export async function obtenerOperadoresEliminados(): Promise<string[]> {
  */
 export function obtenerOperadoresEliminadosSync(): string[] {
   if (typeof window === "undefined") return [];
-  const eliminados = localStorage.getItem(STORAGE_KEY_OPERADORES_ELIMINADOS);
-  if (eliminados) {
-    try {
-      return JSON.parse(eliminados);
-    } catch (e) {
-      return [];
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerOperadoresEliminadosSync() devolverá un array vacío.');
+    return [];
   }
+  
   return [];
 }
 
@@ -329,10 +267,6 @@ export function obtenerOperadoresEliminadosSync(): string[] {
 async function guardarOperadoresEliminados(eliminados: string[]): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero
-  localStorage.setItem(STORAGE_KEY_OPERADORES_ELIMINADOS, JSON.stringify(eliminados));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarOperadoresEliminadosEnSupabase(eliminados);
 }
 
@@ -411,6 +345,7 @@ export function suscribirOperadoresEliminadosRealtime(
   callback: (eliminados: string[]) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -424,8 +359,12 @@ export function suscribirOperadoresEliminadosRealtime(
         table: 'operadores_eliminados'
       },
       async () => {
-        const nuevosEliminados = await cargarOperadoresEliminadosDesdeSupabase();
-        callback(nuevosEliminados);
+        try {
+          const nuevosEliminados = await cargarOperadoresEliminadosDesdeSupabase();
+          callback(nuevosEliminados);
+        } catch (error) {
+          console.error('Error al recargar operadores eliminados en Realtime:', error);
+        }
       }
     )
     .subscribe();
