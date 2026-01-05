@@ -3,12 +3,10 @@
 import { useState, useEffect } from "react";
 import { limpiarNombre } from "../data";
 import { obtenerColoresCombinados } from "../utils/colores";
-import { obtenerStock, establecerStock, StockPorTipo } from "../utils/stock";
+import { obtenerStock, obtenerStockSync, establecerStock, suscribirStockRealtime, StockPorTipo } from "../utils/stock";
 import { obtenerCategoriasArray, obtenerCategoriasArraySync, suscribirCategoriasRealtime } from "../utils/categorias";
-import { obtenerStock, obtenerStockSync, suscribirStockRealtime } from "../utils/stock";
-import { obtenerStockCategorias, obtenerStockCategoriasSync, suscribirStockCategoriasRealtime } from "../utils/stockCategorias";
+import { obtenerStockCategorias, obtenerStockCategoriasSync, establecerStockCategoria, suscribirStockCategoriasRealtime, StockCategoria } from "../utils/stockCategorias";
 import { useRealtimeSync } from "../utils/useRealtimeSync";
-import { obtenerStockCategorias, establecerStockCategoria, StockCategoria } from "../utils/stockCategorias";
 import { obtenerMinimoMaterial, obtenerMinimoCategoria, obtenerAlertasStock, AlertaStock } from "../utils/stockMinimos";
 
 export default function StockPage() {
