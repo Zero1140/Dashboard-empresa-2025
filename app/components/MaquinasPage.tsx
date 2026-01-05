@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { obtenerColoresCombinados } from "../utils/colores";
+import { obtenerColoresCombinadosSync } from "../utils/colores";
 import MachineCard from "./MachineCard";
 import { guardarImpresion, guardarCambioOperador, obtenerImpresiones, obtenerImpresionesSync, guardarCambioColor } from "../utils/storage";
 import { sumarStock } from "../utils/stock";
@@ -467,7 +467,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
               onChange={(e) => setTipoSeleccionado(e.target.value)}
               className="bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] focus:outline-none focus:ring-2 focus:ring-[#00d4ff] focus:border-[#00d4ff] cursor-pointer font-medium shadow-lg hover:border-[#00d4ff]/50 transition-all duration-200 min-w-[180px]"
             >
-              {Object.keys(obtenerColoresCombinados()).map((tipo) => (
+              {Object.keys(obtenerColoresCombinadosSync()).map((tipo) => (
                 <option key={tipo} value={tipo}>
                   {tipo}
                 </option>

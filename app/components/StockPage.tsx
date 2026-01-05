@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { limpiarNombre } from "../data";
-import { obtenerColoresCombinados } from "../utils/colores";
+import { obtenerColoresCombinadosSync } from "../utils/colores";
 import { obtenerStock, obtenerStockSync, establecerStock, suscribirStockRealtime, StockPorTipo } from "../utils/stock";
 import { obtenerCategoriasArray, obtenerCategoriasArraySync, suscribirCategoriasRealtime } from "../utils/categorias";
 import { obtenerStockCategorias, obtenerStockCategoriasSync, establecerStockCategoria, suscribirStockCategoriasRealtime, StockCategoria } from "../utils/stockCategorias";
@@ -43,7 +43,7 @@ export default function StockPage() {
     onStockChange: (nuevoStock) => {
       setStock(nuevoStock);
       // Recalcular alertas cuando cambia el stock
-      const coloresCombinados = obtenerColoresCombinados();
+      const coloresCombinados = obtenerColoresCombinadosSync();
       const nuevasAlertas = obtenerAlertasStock(
         nuevoStock,
         stockCategorias,
@@ -55,7 +55,7 @@ export default function StockPage() {
     onStockCategoriasChange: (nuevoStockCategorias) => {
       setStockCategorias(nuevoStockCategorias);
       // Recalcular alertas cuando cambia el stock de categorías
-      const coloresCombinados = obtenerColoresCombinados();
+      const coloresCombinados = obtenerColoresCombinadosSync();
       const nuevasAlertas = obtenerAlertasStock(
         stock,
         nuevoStockCategorias,
@@ -68,7 +68,7 @@ export default function StockPage() {
       const nuevasCategorias = Object.values(nuevasCategoriasData);
       setCategorias(nuevasCategorias);
       // Recalcular alertas cuando cambian las categorías
-      const coloresCombinados = obtenerColoresCombinados();
+      const coloresCombinados = obtenerColoresCombinadosSync();
       const nuevasAlertas = obtenerAlertasStock(
         stock,
         stockCategorias,

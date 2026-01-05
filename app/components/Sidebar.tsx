@@ -5,7 +5,7 @@ import { obtenerAlertasStock } from "../utils/stockMinimos";
 import { obtenerStockSync } from "../utils/stock";
 import { obtenerStockCategoriasSync } from "../utils/stockCategorias";
 import { obtenerCategoriasArraySync } from "../utils/categorias";
-import { obtenerColoresCombinados } from "../utils/colores";
+import { obtenerColoresCombinadosSync } from "../utils/colores";
 
 interface SidebarProps {
   paginaActual: "maquinas" | "informacion" | "stock" | "materiales";
@@ -33,7 +33,7 @@ export default function Sidebar({
         const stock = obtenerStockSync();
         const stockCategorias = obtenerStockCategoriasSync();
         const categorias = obtenerCategoriasArraySync();
-        const coloresCombinados = obtenerColoresCombinados();
+        const coloresCombinados = obtenerColoresCombinadosSync();
         const alertas = obtenerAlertasStock(stock, stockCategorias, coloresCombinados, categorias);
         setAlertasCount(alertas.length);
       } else {
