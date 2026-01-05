@@ -301,6 +301,26 @@ export default function MaterialesPage() {
     setValorMinimo("");
   };
 
+  const handleGuardarPin = async () => {
+    if (nuevoPin.length >= 4 && operadorParaPin) {
+      await establecerPinOperador(operadorParaPin, nuevoPin);
+      setShowConfigurarPinModal(false);
+      setOperadorParaPin(null);
+      setNuevoPin("");
+    }
+  };
+
+  const handleEliminarPin = async () => {
+    if (tienePinOperadorSync(operadorParaPin)) {
+      if (confirm(`¿Eliminar el PIN de ${operadorParaPin}?`)) {
+        await eliminarPinOperador(operadorParaPin);
+      }
+    }
+    setShowConfigurarPinModal(false);
+    setOperadorParaPin(null);
+    setNuevoPin("");
+  };
+
   const coloresTipo = colores[tipoSeleccionado] || { chica: {}, grande: {} };
   const todosColores = new Set([
     ...Object.keys(coloresTipo.chica || {}),
@@ -1252,10 +1272,7 @@ export default function MaterialesPage() {
                     minLength={4}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && nuevoPin.length >= 4) {
-                        establecerPinOperador(operadorParaPin, nuevoPin);
-                        setShowConfigurarPinModal(false);
-                        setOperadorParaPin(null);
-                        setNuevoPin("");
+                        handleGuardarPin();
                       }
                       if (e.key === "Escape") {
                         setShowConfigurarPinModal(false);
@@ -1276,29 +1293,13 @@ export default function MaterialesPage() {
 
                 <div className="flex gap-3 pt-2">
                   <button
-                    onClick={() => {
-                      if (tienePinOperadorSync(operadorParaPin)) {
-                        if (confirm(`¿Eliminar el PIN de ${operadorParaPin}?`)) {
-                          eliminarPinOperador(operadorParaPin);
-                        }
-                      }
-                      setShowConfigurarPinModal(false);
-                      setOperadorParaPin(null);
-                      setNuevoPin("");
-                    }}
+                    onClick={handleEliminarPin}
                     className="flex-1 bg-[#2d3748] hover:bg-[#4a5568] text-white font-bold py-3.5 px-4 rounded-xl transition-all duration-200 border border-[#4a5568] hover:border-[#6a7488] hover-lift"
                   >
                     {tienePinOperadorSync(operadorParaPin) ? "Eliminar PIN" : "Cancelar"}
                   </button>
                   <button
-                    onClick={() => {
-                      if (nuevoPin.length >= 4) {
-                        establecerPinOperador(operadorParaPin, nuevoPin);
-                        setShowConfigurarPinModal(false);
-                        setOperadorParaPin(null);
-                        setNuevoPin("");
-                      }
-                    }}
+                    onClick={handleGuardarPin}
                     disabled={nuevoPin.length < 4}
                     className="flex-1 bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] text-white font-bold py-3.5 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-[#00d4ff]/30 hover:shadow-[#00d4ff]/50 hover-lift disabled:from-[#2d3748] disabled:to-[#1a2332] disabled:cursor-not-allowed"
                   >
