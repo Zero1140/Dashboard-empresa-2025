@@ -226,15 +226,17 @@ export async function restarStockCategoria(categoriaId: string, itemNombre: stri
 }
 
 /**
- * Versión síncrona para compatibilidad
+ * Versión síncrona para compatibilidad (solo modifica datos locales, NO guarda)
+ * NOTA: Esta función NO guarda en Supabase. Para guardar, usar restarStockCategoria() async.
  */
-export function restarStockCategoriaSync(categoriaId: string, itemNombre: string, cantidad: number): void {
+export function restarStockCategoriaSync(categoriaId: string, itemNombre: string, cantidad: number): StockCategoria {
   const stock = obtenerStockCategoriasSync();
   if (!stock[categoriaId] || stock[categoriaId][itemNombre] === undefined) {
-    return;
+    return stock;
   }
   stock[categoriaId][itemNombre] = Math.max(0, stock[categoriaId][itemNombre] - cantidad);
-  guardarStockCategorias(stock);
+  // NO guardar aquí - las funciones sync solo modifican datos locales
+  return stock;
 }
 
 /**

@@ -283,15 +283,17 @@ export async function establecerStock(tipo: string, color: string, cantidad: num
   await guardarStock(stock);
 }
 
-// Versión síncrona para compatibilidad
-export function establecerStockSync(tipo: string, color: string, cantidad: number): void {
+// Versión síncrona para compatibilidad (solo modifica datos locales, NO guarda)
+// NOTA: Esta función NO guarda en Supabase. Para guardar, usar establecerStock() async.
+export function establecerStockSync(tipo: string, color: string, cantidad: number): StockPorTipo {
   let stock = obtenerStockSync();
   if (!stock[tipo]) {
     stock[tipo] = {};
   }
   stock[tipo][color] = Math.max(0, cantidad);
   stock = asegurarStockCompleto(stock);
-  guardarStock(stock);
+  // NO guardar aquí - las funciones sync solo modifican datos locales
+  return stock;
 }
 
 // Limpiar stock
