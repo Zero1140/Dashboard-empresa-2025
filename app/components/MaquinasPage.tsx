@@ -120,14 +120,22 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     const actualizarImpresiones = async () => {
       try {
         const impresionesData = await obtenerImpresiones();
-      setImpresiones(impresionesData);
+        setImpresiones(impresionesData);
+      } catch (error: any) {
+        console.error('Error al actualizar impresiones:', error);
+        if (error?.name === 'SupabaseNotConfiguredError' && onSupabaseError) {
+          onSupabaseError('NOT_CONFIGURED');
+        } else if (error?.name === 'SupabaseConnectionError' && onSupabaseError) {
+          onSupabaseError('CONNECTION_ERROR');
+        }
+      }
     };
     
     actualizarImpresiones();
     const interval = setInterval(actualizarImpresiones, 2000);
-
+    
     return () => clearInterval(interval);
-  }, []);
+  }, [onSupabaseError]);
 
   // Suscripción Realtime a contador de etiquetas
   useRealtimeSync({
