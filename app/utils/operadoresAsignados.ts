@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
-const STORAGE_KEY_OPERADORES_ASIGNADOS = "operadores_asignados";
 const OPERADORES_ASIGNADOS_ID = "asignaciones_global";
 
 export type OperadoresAsignados = Record<number, string>;
@@ -9,7 +9,7 @@ export type OperadoresAsignados = Record<number, string>;
  * Carga operadores asignados desde Supabase
  */
 async function cargarOperadoresAsignadosDesdeSupabase(): Promise<OperadoresAsignados> {
-  if (!isSupabaseConfigured()) return {};
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -19,31 +19,25 @@ async function cargarOperadoresAsignadosDesdeSupabase(): Promise<OperadoresAsign
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Error al cargar operadores asignados de Supabase:', error);
-      return {};
+      throw new SupabaseConnectionError(`Error al cargar operadores asignados de Supabase: ${error.message}`);
     }
     
     if (!data || !data.asignaciones_data) return {};
     
-    const asignaciones = data.asignaciones_data as OperadoresAsignados;
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_OPERADORES_ASIGNADOS, JSON.stringify(asignaciones));
-    }
-    
-    return asignaciones;
+    return data.asignaciones_data as OperadoresAsignados;
   } catch (error) {
-    console.error('Error al cargar operadores asignados de Supabase:', error);
-    return {};
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar operadores asignados de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda operadores asignados en Supabase
  */
-async function guardarOperadoresAsignadosEnSupabase(asignaciones: OperadoresAsignados): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarOperadoresAsignadosEnSupabase(asignaciones: OperadoresAsignados): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -55,14 +49,13 @@ async function guardarOperadoresAsignadosEnSupabase(asignaciones: OperadoresAsig
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar operadores asignados en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar operadores asignados en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar operadores asignados en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar operadores asignados en Supabase: ${error}`);
   }
 }
 
@@ -72,25 +65,7 @@ async function guardarOperadoresAsignadosEnSupabase(asignaciones: OperadoresAsig
 export async function obtenerOperadoresAsignados(): Promise<OperadoresAsignados> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const asignaciones = await cargarOperadoresAsignadosDesdeSupabase();
-    if (Object.keys(asignaciones).length > 0) {
-      return asignaciones;
-    }
-  }
-  
-  // Fallback a localStorage
-  const asignacionesGuardadas = localStorage.getItem(STORAGE_KEY_OPERADORES_ASIGNADOS);
-  if (asignacionesGuardadas) {
-    try {
-      return JSON.parse(asignacionesGuardadas);
-    } catch (e) {
-      console.error("Error al cargar operadores asignados:", e);
-      return {};
-    }
-  }
-  return {};
+  return await cargarOperadoresAsignadosDesdeSupabase();
 }
 
 /**
@@ -98,15 +73,12 @@ export async function obtenerOperadoresAsignados(): Promise<OperadoresAsignados>
  */
 export function obtenerOperadoresAsignadosSync(): OperadoresAsignados {
   if (typeof window === "undefined") return {};
-  const asignacionesGuardadas = localStorage.getItem(STORAGE_KEY_OPERADORES_ASIGNADOS);
-  if (asignacionesGuardadas) {
-    try {
-      return JSON.parse(asignacionesGuardadas);
-    } catch (e) {
-      console.error("Error al cargar operadores asignados:", e);
-      return {};
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerOperadoresAsignadosSync() devolverá un objeto vacío.');
+    return {};
   }
+  
   return {};
 }
 
@@ -116,10 +88,6 @@ export function obtenerOperadoresAsignadosSync(): OperadoresAsignados {
 export async function guardarOperadoresAsignados(asignaciones: OperadoresAsignados): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero (para respuesta inmediata)
-  localStorage.setItem(STORAGE_KEY_OPERADORES_ASIGNADOS, JSON.stringify(asignaciones));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarOperadoresAsignadosEnSupabase(asignaciones);
 }
 
@@ -130,6 +98,7 @@ export function suscribirOperadoresAsignadosRealtime(
   callback: (asignaciones: OperadoresAsignados) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -144,9 +113,12 @@ export function suscribirOperadoresAsignadosRealtime(
         filter: `id=eq.${OPERADORES_ASIGNADOS_ID}`
       },
       async () => {
-        // Recargar desde Supabase cuando hay cambios
-        const nuevasAsignaciones = await cargarOperadoresAsignadosDesdeSupabase();
-        callback(nuevasAsignaciones);
+        try {
+          const nuevasAsignaciones = await cargarOperadoresAsignadosDesdeSupabase();
+          callback(nuevasAsignaciones);
+        } catch (error) {
+          console.error('Error al recargar operadores asignados en Realtime:', error);
+        }
       }
     )
     .subscribe();

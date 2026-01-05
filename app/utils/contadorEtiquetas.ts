@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
-const STORAGE_KEY_CONTADOR_ETIQUETAS = "gst3d_contador_etiquetas";
 const CONTADOR_ID = "contador_global";
 
 export interface ContadorEtiquetas {
@@ -11,8 +11,8 @@ export interface ContadorEtiquetas {
 /**
  * Carga contador de etiquetas desde Supabase
  */
-async function cargarContadorDesdeSupabase(): Promise<ContadorEtiquetas | null> {
-  if (!isSupabaseConfigured()) return null;
+async function cargarContadorDesdeSupabase(): Promise<ContadorEtiquetas> {
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -22,34 +22,28 @@ async function cargarContadorDesdeSupabase(): Promise<ContadorEtiquetas | null> 
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Error al cargar contador de etiquetas de Supabase:', error);
-      return null;
+      throw new SupabaseConnectionError(`Error al cargar contador de etiquetas de Supabase: ${error.message}`);
     }
     
-    if (!data) return null;
+    if (!data) return { chicas: 0, grandes: 0 };
     
-    const contador = {
+    return {
       chicas: data.chicas || 0,
       grandes: data.grandes || 0,
     };
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_CONTADOR_ETIQUETAS, JSON.stringify(contador));
-    }
-    
-    return contador;
   } catch (error) {
-    console.error('Error al cargar contador de etiquetas de Supabase:', error);
-    return null;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar contador de etiquetas de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda contador de etiquetas en Supabase
  */
-async function guardarContadorEnSupabase(contador: ContadorEtiquetas): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarContadorEnSupabase(contador: ContadorEtiquetas): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -62,14 +56,13 @@ async function guardarContadorEnSupabase(contador: ContadorEtiquetas): Promise<b
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar contador de etiquetas en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar contador de etiquetas en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar contador de etiquetas en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar contador de etiquetas en Supabase: ${error}`);
   }
 }
 
@@ -79,25 +72,7 @@ async function guardarContadorEnSupabase(contador: ContadorEtiquetas): Promise<b
 export async function obtenerContadoresEtiquetas(): Promise<ContadorEtiquetas> {
   if (typeof window === "undefined") return { chicas: 0, grandes: 0 };
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const contador = await cargarContadorDesdeSupabase();
-    if (contador) {
-      return contador;
-    }
-  }
-  
-  // Fallback a localStorage
-  const stored = localStorage.getItem(STORAGE_KEY_CONTADOR_ETIQUETAS);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error("Error al cargar contador de etiquetas:", e);
-      return { chicas: 0, grandes: 0 };
-    }
-  }
-  return { chicas: 0, grandes: 0 };
+  return await cargarContadorDesdeSupabase();
 }
 
 /**
@@ -105,15 +80,12 @@ export async function obtenerContadoresEtiquetas(): Promise<ContadorEtiquetas> {
  */
 export function obtenerContadoresEtiquetasSync(): ContadorEtiquetas {
   if (typeof window === "undefined") return { chicas: 0, grandes: 0 };
-  const stored = localStorage.getItem(STORAGE_KEY_CONTADOR_ETIQUETAS);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error("Error al cargar contador de etiquetas:", e);
-      return { chicas: 0, grandes: 0 };
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerContadoresEtiquetasSync() devolverá valores por defecto.');
+    return { chicas: 0, grandes: 0 };
   }
+  
   return { chicas: 0, grandes: 0 };
 }
 
@@ -123,10 +95,6 @@ export function obtenerContadoresEtiquetasSync(): ContadorEtiquetas {
 export async function guardarContadoresEtiquetas(contador: ContadorEtiquetas): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero
-  localStorage.setItem(STORAGE_KEY_CONTADOR_ETIQUETAS, JSON.stringify(contador));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarContadorEnSupabase(contador);
   
   // Disparar evento local
@@ -159,13 +127,7 @@ export function suscribirContadorEtiquetasRealtime(
   callback: (contador: ContadorEtiquetas) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
-    const handler = () => {
-      obtenerContadoresEtiquetas().then(callback);
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener("contadorEtiquetasActualizado", handler);
-      return () => window.removeEventListener("contadorEtiquetasActualizado", handler);
-    }
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -180,12 +142,14 @@ export function suscribirContadorEtiquetasRealtime(
         filter: `id=eq.${CONTADOR_ID}`
       },
       async () => {
-        const nuevoContador = await cargarContadorDesdeSupabase();
-        if (nuevoContador) {
+        try {
+          const nuevoContador = await cargarContadorDesdeSupabase();
           callback(nuevoContador);
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("contadorEtiquetasActualizado"));
           }
+        } catch (error) {
+          console.error('Error al recargar contador de etiquetas en Realtime:', error);
         }
       }
     )

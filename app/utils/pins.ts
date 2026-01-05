@@ -3,8 +3,8 @@
  */
 
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
-const STORAGE_KEY_PINS_OPERADORES = "gst3d_pins_operadores";
 const PINS_ID = "pins_global";
 
 export interface PinOperador {
@@ -21,8 +21,8 @@ export interface PinsOperadores {
 /**
  * Carga PINs desde Supabase
  */
-async function cargarPinsDesdeSupabase(): Promise<PinsOperadores | null> {
-  if (!isSupabaseConfigured()) return null;
+async function cargarPinsDesdeSupabase(): Promise<PinsOperadores> {
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -32,31 +32,25 @@ async function cargarPinsDesdeSupabase(): Promise<PinsOperadores | null> {
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Error al cargar PINs de operadores de Supabase:', error);
-      return null;
+      throw new SupabaseConnectionError(`Error al cargar PINs de operadores de Supabase: ${error.message}`);
     }
     
-    if (!data || !data.pins_data) return null;
+    if (!data || !data.pins_data) return {};
     
-    const pins = data.pins_data as PinsOperadores;
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_PINS_OPERADORES, JSON.stringify(pins));
-    }
-    
-    return pins;
+    return data.pins_data as PinsOperadores;
   } catch (error) {
-    console.error('Error al cargar PINs de operadores de Supabase:', error);
-    return null;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar PINs de operadores de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda PINs en Supabase
  */
-async function guardarPinsEnSupabase(pins: PinsOperadores): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarPinsEnSupabase(pins: PinsOperadores): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -68,14 +62,13 @@ async function guardarPinsEnSupabase(pins: PinsOperadores): Promise<boolean> {
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar PINs de operadores en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar PINs de operadores en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar PINs de operadores en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar PINs de operadores en Supabase: ${error}`);
   }
 }
 
@@ -85,25 +78,7 @@ async function guardarPinsEnSupabase(pins: PinsOperadores): Promise<boolean> {
 export async function obtenerPinsOperadores(): Promise<PinsOperadores> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const pins = await cargarPinsDesdeSupabase();
-    if (pins) {
-      return pins;
-    }
-  }
-  
-  // Fallback a localStorage
-  const stored = localStorage.getItem(STORAGE_KEY_PINS_OPERADORES);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error("Error al cargar PINs de operadores:", e);
-      return {};
-    }
-  }
-  return {};
+  return await cargarPinsDesdeSupabase();
 }
 
 /**
@@ -111,15 +86,12 @@ export async function obtenerPinsOperadores(): Promise<PinsOperadores> {
  */
 export function obtenerPinsOperadoresSync(): PinsOperadores {
   if (typeof window === "undefined") return {};
-  const stored = localStorage.getItem(STORAGE_KEY_PINS_OPERADORES);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error("Error al cargar PINs de operadores:", e);
-      return {};
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerPinsOperadoresSync() devolverá un objeto vacío.');
+    return {};
   }
+  
   return {};
 }
 
@@ -129,10 +101,6 @@ export function obtenerPinsOperadoresSync(): PinsOperadores {
 async function guardarPinsOperadores(pins: PinsOperadores): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero
-  localStorage.setItem(STORAGE_KEY_PINS_OPERADORES, JSON.stringify(pins));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarPinsEnSupabase(pins);
 }
 
@@ -234,13 +202,7 @@ export function suscribirPinsOperadoresRealtime(
   callback: (pins: PinsOperadores) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
-    const handler = () => {
-      obtenerPinsOperadores().then(callback);
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener("pinsActualizados", handler);
-      return () => window.removeEventListener("pinsActualizados", handler);
-    }
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -255,12 +217,14 @@ export function suscribirPinsOperadoresRealtime(
         filter: `id=eq.${PINS_ID}`
       },
       async () => {
-        const nuevosPins = await cargarPinsDesdeSupabase();
-        if (nuevosPins) {
+        try {
+          const nuevosPins = await cargarPinsDesdeSupabase();
           callback(nuevosPins);
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("pinsActualizados"));
           }
+        } catch (error) {
+          console.error('Error al recargar PINs de operadores en Realtime:', error);
         }
       }
     )

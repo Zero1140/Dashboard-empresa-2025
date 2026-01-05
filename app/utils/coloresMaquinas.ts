@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
-const STORAGE_KEY_COLORES_MAQUINAS = "gst3d_colores_maquinas";
 const COLORES_MAQUINAS_ID = "colores_maquinas_global";
 
 export type ColoresPorMaquina = Record<number, { chica: string; grande: string }>;
@@ -9,7 +9,7 @@ export type ColoresPorMaquina = Record<number, { chica: string; grande: string }
  * Carga colores por máquina desde Supabase
  */
 async function cargarColoresMaquinasDesdeSupabase(): Promise<ColoresPorMaquina> {
-  if (!isSupabaseConfigured()) return {};
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -19,31 +19,25 @@ async function cargarColoresMaquinasDesdeSupabase(): Promise<ColoresPorMaquina> 
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Error al cargar colores de máquinas de Supabase:', error);
-      return {};
+      throw new SupabaseConnectionError(`Error al cargar colores de máquinas de Supabase: ${error.message}`);
     }
     
     if (!data || !data.colores_data) return {};
     
-    const colores = data.colores_data as ColoresPorMaquina;
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_COLORES_MAQUINAS, JSON.stringify(colores));
-    }
-    
-    return colores;
+    return data.colores_data as ColoresPorMaquina;
   } catch (error) {
-    console.error('Error al cargar colores de máquinas de Supabase:', error);
-    return {};
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar colores de máquinas de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda colores por máquina en Supabase
  */
-async function guardarColoresMaquinasEnSupabase(colores: ColoresPorMaquina): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarColoresMaquinasEnSupabase(colores: ColoresPorMaquina): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -55,14 +49,13 @@ async function guardarColoresMaquinasEnSupabase(colores: ColoresPorMaquina): Pro
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar colores de máquinas en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar colores de máquinas en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar colores de máquinas en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar colores de máquinas en Supabase: ${error}`);
   }
 }
 
@@ -72,25 +65,7 @@ async function guardarColoresMaquinasEnSupabase(colores: ColoresPorMaquina): Pro
 export async function obtenerColoresMaquinas(): Promise<ColoresPorMaquina> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const colores = await cargarColoresMaquinasDesdeSupabase();
-    if (Object.keys(colores).length > 0) {
-      return colores;
-    }
-  }
-  
-  // Fallback a localStorage
-  const coloresGuardados = localStorage.getItem(STORAGE_KEY_COLORES_MAQUINAS);
-  if (coloresGuardados) {
-    try {
-      return JSON.parse(coloresGuardados);
-    } catch (e) {
-      console.error("Error al cargar colores de máquinas:", e);
-      return {};
-    }
-  }
-  return {};
+  return await cargarColoresMaquinasDesdeSupabase();
 }
 
 /**
@@ -98,15 +73,12 @@ export async function obtenerColoresMaquinas(): Promise<ColoresPorMaquina> {
  */
 export function obtenerColoresMaquinasSync(): ColoresPorMaquina {
   if (typeof window === "undefined") return {};
-  const coloresGuardados = localStorage.getItem(STORAGE_KEY_COLORES_MAQUINAS);
-  if (coloresGuardados) {
-    try {
-      return JSON.parse(coloresGuardados);
-    } catch (e) {
-      console.error("Error al cargar colores de máquinas:", e);
-      return {};
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerColoresMaquinasSync() devolverá un objeto vacío.');
+    return {};
   }
+  
   return {};
 }
 
@@ -116,10 +88,6 @@ export function obtenerColoresMaquinasSync(): ColoresPorMaquina {
 export async function guardarColoresMaquinas(colores: ColoresPorMaquina): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero (para respuesta inmediata)
-  localStorage.setItem(STORAGE_KEY_COLORES_MAQUINAS, JSON.stringify(colores));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarColoresMaquinasEnSupabase(colores);
 }
 
@@ -130,6 +98,7 @@ export function suscribirColoresMaquinasRealtime(
   callback: (colores: ColoresPorMaquina) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -144,9 +113,12 @@ export function suscribirColoresMaquinasRealtime(
         filter: `id=eq.${COLORES_MAQUINAS_ID}`
       },
       async () => {
-        // Recargar desde Supabase cuando hay cambios
-        const nuevosColores = await cargarColoresMaquinasDesdeSupabase();
-        callback(nuevosColores);
+        try {
+          const nuevosColores = await cargarColoresMaquinasDesdeSupabase();
+          callback(nuevosColores);
+        } catch (error) {
+          console.error('Error al recargar colores de máquinas en Realtime:', error);
+        }
       }
     )
     .subscribe();
