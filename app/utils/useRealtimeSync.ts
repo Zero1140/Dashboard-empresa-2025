@@ -8,6 +8,7 @@ import { suscribirOperadoresPersonalizadosRealtime, suscribirOperadoresEliminado
 import { suscribirColoresPersonalizadosRealtime, suscribirColoresEliminadosRealtime } from './colores';
 import { suscribirContadorEtiquetasRealtime } from './contadorEtiquetas';
 import { suscribirPinsOperadoresRealtime } from './pins';
+import { suscribirStockMinimosRealtime, StockMinimosMateriales, StockMinimosCategorias } from './stockMinimos';
 import { CategoriasData } from './categorias';
 import { StockPorTipo } from './stock';
 import { StockCategoria } from './stockCategorias';
@@ -28,6 +29,7 @@ interface RealtimeCallbacks {
   onColoresEliminadosChange?: (eliminados: Record<string, { chica: string[]; grande: string[] }>) => void;
   onContadorEtiquetasChange?: (contador: ContadorEtiquetas) => void;
   onPinsOperadoresChange?: (pins: PinsOperadores) => void;
+  onStockMinimosChange?: (data: { materiales: StockMinimosMateriales; categorias: StockMinimosCategorias }) => void;
 }
 
 /**
@@ -103,6 +105,12 @@ export function useRealtimeSync(callbacks: RealtimeCallbacks) {
       unsubscribeFunctions.push(unsubscribe);
     }
 
+    // Suscripción a stock mínimos
+    if (callbacks.onStockMinimosChange) {
+      const unsubscribe = suscribirStockMinimosRealtime(callbacks.onStockMinimosChange);
+      unsubscribeFunctions.push(unsubscribe);
+    }
+
     // Cleanup: desuscribir todas las suscripciones
     return () => {
       unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
@@ -119,6 +127,7 @@ export function useRealtimeSync(callbacks: RealtimeCallbacks) {
     callbacks.onColoresEliminadosChange,
     callbacks.onContadorEtiquetasChange,
     callbacks.onPinsOperadoresChange,
+    callbacks.onStockMinimosChange,
   ]);
 }
 
