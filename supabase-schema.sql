@@ -76,16 +76,16 @@ CREATE TABLE IF NOT EXISTS operadores_eliminados (
 
 -- Tabla de PINs de operadores
 CREATE TABLE IF NOT EXISTS pins_operadores (
-  operador TEXT PRIMARY KEY,
-  pin TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
+  id TEXT PRIMARY KEY DEFAULT 'pins_global',
+  pins_data JSONB NOT NULL DEFAULT '{}',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Tabla de stock mínimos
 CREATE TABLE IF NOT EXISTS stock_minimos (
   id TEXT PRIMARY KEY DEFAULT 'minimos_global',
-  minimos_data JSONB NOT NULL DEFAULT '{}',
+  materiales_data JSONB NOT NULL DEFAULT '{}',
+  categorias_data JSONB NOT NULL DEFAULT '{}',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
