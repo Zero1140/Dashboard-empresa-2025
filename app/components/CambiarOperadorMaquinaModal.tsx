@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { obtenerOperadoresCombinados } from "../utils/operadores";
-import { tienePinOperador, verificarPinOperador } from "../utils/pins";
+import { tienePinOperadorSync, verificarPinOperadorSync } from "../utils/pins";
 
 interface CambiarOperadorMaquinaModalProps {
   maquinaId: number;
@@ -42,7 +42,7 @@ export default function CambiarOperadorMaquinaModal({
     setNuevoOperador(operador);
     setError("");
     // Si el operador tiene PIN configurado y no es supervisor, mostrar campo de PIN
-    if (operador && tienePinOperador(operador) && !modoEdicion) {
+    if (operador && tienePinOperadorSync(operador) && !modoEdicion) {
       setMostrarPin(true);
       setPinOperador("");
     } else {
@@ -58,13 +58,13 @@ export default function CambiarOperadorMaquinaModal({
     }
 
     // Si el operador tiene PIN y no es supervisor, verificar PIN
-    if (tienePinOperador(nuevoOperador) && !modoEdicion) {
+    if (tienePinOperadorSync(nuevoOperador) && !modoEdicion) {
       if (!pinOperador) {
         setError("Por favor, ingresa el PIN del operador");
         return;
       }
       
-      if (!verificarPinOperador(nuevoOperador, pinOperador)) {
+      if (!verificarPinOperadorSync(nuevoOperador, pinOperador)) {
         setError("PIN incorrecto. Por favor, verifica e intenta nuevamente");
         setPinOperador("");
         return;
@@ -133,14 +133,14 @@ export default function CambiarOperadorMaquinaModal({
                 <option value="">-- Selecciona operador --</option>
                 {obtenerOperadoresCombinados().map((op) => (
                   <option key={op} value={op}>
-                    {op} {tienePinOperador(op) && !modoEdicion ? "🔐" : ""}
+                    {op} {tienePinOperadorSync(op) && !modoEdicion ? "🔐" : ""}
                   </option>
                 ))}
               </select>
             </div>
 
             {/* Campo de PIN (solo si el operador tiene PIN y no es supervisor) */}
-            {mostrarPin && nuevoOperador && tienePinOperador(nuevoOperador) && !modoEdicion && (
+            {mostrarPin && nuevoOperador && tienePinOperadorSync(nuevoOperador) && !modoEdicion && (
               <div>
                 <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
                   🔐 PIN del Operador {nuevoOperador}:

@@ -7,7 +7,7 @@ import { obtenerOperadoresCombinados, agregarOperador, eliminarOperador } from "
 import { obtenerCategoriasArray, obtenerCategoriasArraySync, agregarCategoria, eliminarCategoria, agregarItemACategoria, eliminarItemDeCategoria, Categoria } from "../utils/categorias";
 import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { obtenerMinimoMaterial, obtenerMinimoCategoria, establecerMinimoMaterial, establecerMinimoCategoria, eliminarMinimoMaterial, eliminarMinimoCategoria } from "../utils/stockMinimos";
-import { obtenerPinsOperadores, establecerPinOperador, eliminarPinOperador, tienePinOperador } from "../utils/pins";
+import { obtenerPinsOperadores, establecerPinOperador, eliminarPinOperador, tienePinOperadorSync } from "../utils/pins";
 
 const STORAGE_KEY_COLORES_PERSONALIZADOS = "gst3d_colores_personalizados";
 
@@ -401,7 +401,7 @@ export default function MaterialesPage() {
                       {esOriginal && (
                         <span className="text-[#718096] text-xs bg-[#1a2332]/50 px-2 py-0.5 rounded-md border border-[#2d3748] inline-block">Sistema</span>
                       )}
-                      {tienePinOperador(operador) ? (
+                      {tienePinOperadorSync(operador) ? (
                         <span className="text-[#00ff88] text-xs bg-[#00ff88]/10 px-2 py-0.5 rounded-md border border-[#00ff88]/30 inline-block flex items-center gap-1">
                           <span>🔐</span>
                           <span>PIN configurado</span>
@@ -1280,7 +1280,7 @@ export default function MaterialesPage() {
                   <p className="text-[#718096] text-xs mt-2">
                     💡 El operador usará este PIN para iniciar sesión y asignar operadores a las máquinas. Mínimo 4 caracteres.
                   </p>
-                  {tienePinOperador(operadorParaPin) && (
+                  {tienePinOperadorSync(operadorParaPin) && (
                     <p className="text-[#ffb800] text-xs mt-2 font-semibold">
                       ⚠️ Ya existe un PIN configurado. Al guardar se reemplazará.
                     </p>
@@ -1290,7 +1290,7 @@ export default function MaterialesPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => {
-                      if (tienePinOperador(operadorParaPin)) {
+                      if (tienePinOperadorSync(operadorParaPin)) {
                         if (confirm(`¿Eliminar el PIN de ${operadorParaPin}?`)) {
                           eliminarPinOperador(operadorParaPin);
                         }
@@ -1301,7 +1301,7 @@ export default function MaterialesPage() {
                     }}
                     className="flex-1 bg-[#2d3748] hover:bg-[#4a5568] text-white font-bold py-3.5 px-4 rounded-xl transition-all duration-200 border border-[#4a5568] hover:border-[#6a7488] hover-lift"
                   >
-                    {tienePinOperador(operadorParaPin) ? "Eliminar PIN" : "Cancelar"}
+                    {tienePinOperadorSync(operadorParaPin) ? "Eliminar PIN" : "Cancelar"}
                   </button>
                   <button
                     onClick={() => {
