@@ -220,7 +220,28 @@ export default function MachineCard({
       </div>
 
       <div className="space-y-5 relative z-10">
-        {/* Selector unificado de color (se usa para ambas etiquetas) */}
+        {/* Selector de material (primero) */}
+        <div>
+          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
+            📦 Material
+          </label>
+          <select
+            value={materialSeleccionado}
+            onChange={(e) => {
+              setMaterialSeleccionado(e.target.value);
+              setColorSeleccionado(""); // Limpiar color al cambiar material
+            }}
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
+          >
+            {materialesDisponibles.map((material) => (
+              <option key={material} value={material}>
+                {material}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Selector unificado de color (se usa para ambas etiquetas) - Solo del material seleccionado */}
         <div>
           <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
             🎨 Color (Chicas y Grandes)
@@ -229,10 +250,11 @@ export default function MachineCard({
             <select
               value={colorSeleccionado}
               onChange={(e) => handleColorChange(e.target.value)}
-              className="w-full px-4 py-3 pl-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
+              disabled={!materialSeleccionado}
+              className="w-full px-4 py-3 pl-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="">-- Selecciona color --</option>
-              {todosColoresBase.map((opcion) => {
+              {coloresDelMaterial.map((opcion) => {
                 const colorHex = getColorHex(opcion.color, opcion.tipo, true);
                 return (
                   <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
@@ -245,7 +267,7 @@ export default function MachineCard({
               <div className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg border-2 border-[#2d3748] shadow-md flex-shrink-0"
                 style={{ backgroundColor: (() => {
                   const [tipo, colorBase] = colorSeleccionado.split("::");
-                  return getColorHex(colorBase || "", tipo || tipoSeleccionado, true);
+                  return getColorHex(colorBase || "", tipo || materialSeleccionado, true);
                 })() }}
               />
             )}
@@ -254,6 +276,12 @@ export default function MachineCard({
             <p className="text-[#718096] text-xs mt-2 flex items-center gap-1">
               <span>💡</span>
               Este color se aplicará a etiquetas chicas y grandes
+            </p>
+          )}
+          {!materialSeleccionado && (
+            <p className="text-[#718096] text-xs mt-2 flex items-center gap-1">
+              <span>⚠️</span>
+              Primero selecciona un material
             </p>
           )}
         </div>
