@@ -1,7 +1,6 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
-const STORAGE_KEY_STOCK_MINIMOS_MATERIALES = "gst3d_stock_minimos_materiales";
-const STORAGE_KEY_STOCK_MINIMOS_CATEGORIAS = "gst3d_stock_minimos_categorias";
 const STOCK_MINIMOS_ID = "minimos_global";
 
 export interface StockMinimosMateriales {
@@ -22,8 +21,8 @@ export interface StockMinimosCategorias {
 async function cargarStockMinimosDesdeSupabase(): Promise<{
   materiales: StockMinimosMateriales;
   categorias: StockMinimosCategorias;
-} | null> {
-  if (!isSupabaseConfigured()) return null;
+}> {
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -32,24 +31,24 @@ async function cargarStockMinimosDesdeSupabase(): Promise<{
       .eq('id', STOCK_MINIMOS_ID)
       .single();
     
-    if (error || !data) {
-      return null;
+    if (error && error.code !== 'PGRST116') {
+      throw new SupabaseConnectionError(`Error al cargar stock mínimos desde Supabase: ${error.message}`);
+    }
+    
+    if (!data) {
+      return { materiales: {}, categorias: {} };
     }
     
     // Parsear datos JSONB
     const materiales = (data.materiales_data as any) || {};
     const categorias = (data.categorias_data as any) || {};
     
-    // Guardar en localStorage como cache
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_STOCK_MINIMOS_MATERIALES, JSON.stringify(materiales));
-      localStorage.setItem(STORAGE_KEY_STOCK_MINIMOS_CATEGORIAS, JSON.stringify(categorias));
-    }
-    
     return { materiales, categorias };
   } catch (error) {
-    console.error('Error al cargar stock mínimos desde Supabase:', error);
-    return null;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar stock mínimos desde Supabase: ${error}`);
   }
 }
 
@@ -59,8 +58,8 @@ async function cargarStockMinimosDesdeSupabase(): Promise<{
 async function guardarStockMinimosEnSupabase(
   materiales: StockMinimosMateriales,
   categorias: StockMinimosCategorias
-): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -73,14 +72,13 @@ async function guardarStockMinimosEnSupabase(
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar stock mínimos en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar stock mínimos en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar stock mínimos en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar stock mínimos en Supabase: ${error}`);
   }
 }
 
@@ -90,25 +88,8 @@ async function guardarStockMinimosEnSupabase(
 export async function obtenerStockMinimosMateriales(): Promise<StockMinimosMateriales> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const datos = await cargarStockMinimosDesdeSupabase();
-    if (datos) {
-      return datos.materiales;
-    }
-  }
-  
-  // Fallback a localStorage
-  const minimosGuardados = localStorage.getItem(STORAGE_KEY_STOCK_MINIMOS_MATERIALES);
-  if (minimosGuardados) {
-    try {
-      return JSON.parse(minimosGuardados);
-    } catch (e) {
-      console.error("Error al cargar stock mínimos de materiales:", e);
-      return {};
-    }
-  }
-  return {};
+  const datos = await cargarStockMinimosDesdeSupabase();
+  return datos.materiales;
 }
 
 /**
@@ -116,15 +97,12 @@ export async function obtenerStockMinimosMateriales(): Promise<StockMinimosMater
  */
 export function obtenerStockMinimosMaterialesSync(): StockMinimosMateriales {
   if (typeof window === "undefined") return {};
-  const minimosGuardados = localStorage.getItem(STORAGE_KEY_STOCK_MINIMOS_MATERIALES);
-  if (minimosGuardados) {
-    try {
-      return JSON.parse(minimosGuardados);
-    } catch (e) {
-      console.error("Error al cargar stock mínimos de materiales:", e);
-      return {};
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerStockMinimosMaterialesSync() devolverá un objeto vacío.');
+    return {};
   }
+  
   return {};
 }
 
@@ -134,13 +112,10 @@ export function obtenerStockMinimosMaterialesSync(): StockMinimosMateriales {
 export async function guardarStockMinimosMateriales(minimos: StockMinimosMateriales): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero (para respuesta inmediata)
-  localStorage.setItem(STORAGE_KEY_STOCK_MINIMOS_MATERIALES, JSON.stringify(minimos));
-  
   // Cargar categorías actuales para guardar ambas
   const categorias = await obtenerStockMinimosCategorias();
   
-  // Guardar en Supabase (asíncrono)
+  // Guardar en Supabase
   await guardarStockMinimosEnSupabase(minimos, categorias);
   
   // Disparar evento local
@@ -197,25 +172,8 @@ export function obtenerMinimoMaterialSync(tipo: string, color: string): number {
 export async function obtenerStockMinimosCategorias(): Promise<StockMinimosCategorias> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const datos = await cargarStockMinimosDesdeSupabase();
-    if (datos) {
-      return datos.categorias;
-    }
-  }
-  
-  // Fallback a localStorage
-  const minimosGuardados = localStorage.getItem(STORAGE_KEY_STOCK_MINIMOS_CATEGORIAS);
-  if (minimosGuardados) {
-    try {
-      return JSON.parse(minimosGuardados);
-    } catch (e) {
-      console.error("Error al cargar stock mínimos de categorías:", e);
-      return {};
-    }
-  }
-  return {};
+  const datos = await cargarStockMinimosDesdeSupabase();
+  return datos.categorias;
 }
 
 /**
@@ -223,15 +181,12 @@ export async function obtenerStockMinimosCategorias(): Promise<StockMinimosCateg
  */
 export function obtenerStockMinimosCategoriasSync(): StockMinimosCategorias {
   if (typeof window === "undefined") return {};
-  const minimosGuardados = localStorage.getItem(STORAGE_KEY_STOCK_MINIMOS_CATEGORIAS);
-  if (minimosGuardados) {
-    try {
-      return JSON.parse(minimosGuardados);
-    } catch (e) {
-      console.error("Error al cargar stock mínimos de categorías:", e);
-      return {};
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerStockMinimosCategoriasSync() devolverá un objeto vacío.');
+    return {};
   }
+  
   return {};
 }
 
@@ -241,13 +196,10 @@ export function obtenerStockMinimosCategoriasSync(): StockMinimosCategorias {
 export async function guardarStockMinimosCategorias(minimos: StockMinimosCategorias): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero (para respuesta inmediata)
-  localStorage.setItem(STORAGE_KEY_STOCK_MINIMOS_CATEGORIAS, JSON.stringify(minimos));
-  
   // Cargar materiales actuales para guardar ambas
   const materiales = await obtenerStockMinimosMateriales();
   
-  // Guardar en Supabase (asíncrono)
+  // Guardar en Supabase
   await guardarStockMinimosEnSupabase(materiales, minimos);
   
   // Disparar evento local
@@ -380,18 +332,7 @@ export function suscribirStockMinimosRealtime(
   callback: (data: { materiales: StockMinimosMateriales; categorias: StockMinimosCategorias }) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
-    // Si no hay Supabase, solo escuchar eventos locales
-    const handler = () => {
-      obtenerStockMinimosMateriales().then((materiales) => {
-        obtenerStockMinimosCategorias().then((categorias) => {
-          callback({ materiales, categorias });
-        });
-      });
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener("stockMinimosActualizados", handler);
-      return () => window.removeEventListener("stockMinimosActualizados", handler);
-    }
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -406,10 +347,11 @@ export function suscribirStockMinimosRealtime(
         filter: `id=eq.${STOCK_MINIMOS_ID}`
       },
       async () => {
-        // Recargar stock mínimos desde Supabase cuando hay cambios
-        const datos = await cargarStockMinimosDesdeSupabase();
-        if (datos) {
+        try {
+          const datos = await cargarStockMinimosDesdeSupabase();
           callback(datos);
+        } catch (error) {
+          console.error('Error al recargar stock mínimos en Realtime:', error);
         }
       }
     )
