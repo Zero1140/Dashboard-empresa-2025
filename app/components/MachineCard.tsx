@@ -103,6 +103,15 @@ export default function MachineCard({
     return `${tipo}::${color}`;
   };
 
+  const getColorHex = (color: string, tipo: string, esChica: boolean): string => {
+    const coloresCombinados = obtenerColoresCombinadosSync();
+    if (esChica) {
+      return coloresCombinados[tipo]?.chica?.[color] || coloresCombinados[tipo]?.grande?.[color] || "#808080";
+    } else {
+      return coloresCombinados[tipo]?.grande?.[color] || coloresCombinados[tipo]?.chica?.[color] || "#808080";
+    }
+  };
+
   const handleImprimir = () => {
     if (!etiquetaChica || !etiquetaGrande || !operador || !tipoMaterialChica || !tipoMaterialGrande) {
       alert("Por favor, completa todos los campos antes de imprimir");
@@ -175,18 +184,31 @@ export default function MachineCard({
           <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
             🏷️ Etiqueta Chica
           </label>
-          <select
-            value={etiquetaChica}
-            onChange={(e) => handleEtiquetaChicaChange(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
-          >
-            <option value="">-- Selecciona color --</option>
-            {todasEtiquetasChicas.map((opcion) => (
-              <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
-                {getDisplayName(opcion.color, opcion.tipo)}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={etiquetaChica}
+              onChange={(e) => handleEtiquetaChicaChange(e.target.value)}
+              className="w-full px-4 py-3 pl-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
+            >
+              <option value="">-- Selecciona color --</option>
+              {todasEtiquetasChicas.map((opcion) => {
+                const colorHex = getColorHex(opcion.color, opcion.tipo, true);
+                return (
+                  <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
+                    {getDisplayName(opcion.color, opcion.tipo)}
+                  </option>
+                );
+              })}
+            </select>
+            {etiquetaChica && (
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg border-2 border-[#2d3748] shadow-md flex-shrink-0"
+                style={{ backgroundColor: (() => {
+                  const [tipo, color] = etiquetaChica.includes("::") ? etiquetaChica.split("::") : [tipoMaterialChica, etiquetaChica];
+                  return getColorHex(color || etiquetaChica, tipo || tipoSeleccionado, true);
+                })() }}
+              />
+            )}
+          </div>
         </div>
 
         {/* Selector de color etiqueta grande */}
@@ -194,18 +216,31 @@ export default function MachineCard({
           <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
             🏷️ Etiqueta Grande
           </label>
-          <select
-            value={etiquetaGrande}
-            onChange={(e) => handleEtiquetaGrandeChange(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
-          >
-            <option value="">-- Selecciona color --</option>
-            {todasEtiquetasGrandes.map((opcion) => (
-              <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
-                {getDisplayName(opcion.color, opcion.tipo)}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={etiquetaGrande}
+              onChange={(e) => handleEtiquetaGrandeChange(e.target.value)}
+              className="w-full px-4 py-3 pl-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
+            >
+              <option value="">-- Selecciona color --</option>
+              {todasEtiquetasGrandes.map((opcion) => {
+                const colorHex = getColorHex(opcion.color, opcion.tipo, false);
+                return (
+                  <option key={getValueKey(opcion.color, opcion.tipo)} value={getValueKey(opcion.color, opcion.tipo)}>
+                    {getDisplayName(opcion.color, opcion.tipo)}
+                  </option>
+                );
+              })}
+            </select>
+            {etiquetaGrande && (
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg border-2 border-[#2d3748] shadow-md flex-shrink-0"
+                style={{ backgroundColor: (() => {
+                  const [tipo, color] = etiquetaGrande.includes("::") ? etiquetaGrande.split("::") : [tipoMaterialGrande, etiquetaGrande];
+                  return getColorHex(color || etiquetaGrande, tipo || tipoSeleccionado, false);
+                })() }}
+              />
+            )}
+          </div>
         </div>
 
         {/* Selector de cantidad etiquetas chicas */}

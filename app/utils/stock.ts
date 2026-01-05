@@ -172,6 +172,29 @@ async function guardarStock(stock: StockPorTipo): Promise<void> {
 
 // Sumar al stock (versión asíncrona)
 export async function sumarStock(tipo: string, color: string, cantidad: number): Promise<void> {
+  // Intentar usar función atómica de Supabase si está disponible
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.rpc('sumar_stock_atomico', {
+        p_tipo: tipo,
+        p_color: color,
+        p_cantidad: cantidad
+      });
+      
+      if (!error) {
+        // Éxito con función atómica
+        return;
+      } else {
+        // Si falla la función atómica, usar método tradicional
+        console.warn('Función atómica no disponible, usando método tradicional:', error);
+      }
+    } catch (error) {
+      // Si la función no existe, usar método tradicional
+      console.warn('Función atómica no disponible, usando método tradicional:', error);
+    }
+  }
+  
+  // Método tradicional (fallback)
   let stock = await obtenerStock();
   if (!stock[tipo]) {
     stock[tipo] = {};

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { obtenerOperadoresCombinadosSync } from "../utils/operadores";
+import { obtenerOperadoresCombinadosSync, tienePinOperadorSync, verificarPinOperadorSync } from "../utils/operadores";
+import NumericKeypad from "./NumericKeypad";
 import { tienePinOperadorSync, verificarPinOperadorSync } from "../utils/pins";
 
 interface CambiarOperadorMaquinaModalProps {
@@ -139,30 +140,27 @@ export default function CambiarOperadorMaquinaModal({
               </select>
             </div>
 
-            {/* Campo de PIN (solo si el operador tiene PIN y no es supervisor) */}
+            {/* Campo de PIN con teclado numérico (solo si el operador tiene PIN y no es supervisor) */}
             {mostrarPin && nuevoOperador && tienePinOperadorSync(nuevoOperador) && !modoEdicion && (
               <div>
                 <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
                   🔐 PIN del Operador {nuevoOperador}:
                 </label>
-                <input
-                  type="password"
+                <NumericKeypad
                   value={pinOperador}
-                  onChange={(e) => {
-                    setPinOperador(e.target.value);
+                  onChange={(value) => {
+                    setPinOperador(value);
                     setError("");
                   }}
-                  className="w-full bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] focus:outline-none focus:ring-2 focus:ring-[#00d4ff] focus:border-[#00d4ff] placeholder-[#718096] shadow-lg hover:border-[#00d4ff]/50 transition-all duration-200"
+                  maxLength={10}
                   placeholder="Ingresa el PIN del operador"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && nuevoOperador && pinOperador) {
+                  autoFocus={true}
+                  onEnter={() => {
+                    if (nuevoOperador && pinOperador) {
                       handleConfirmarCambio();
                     }
-                    if (e.key === "Escape") {
-                      handleClose();
-                    }
                   }}
+                  onEscape={handleClose}
                 />
                 <p className="text-[#718096] text-xs mt-2">
                   💡 El operador seleccionado tiene PIN configurado. Ingresa su PIN para confirmar.

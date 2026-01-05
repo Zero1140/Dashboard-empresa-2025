@@ -8,6 +8,7 @@ import { obtenerCategoriasArray, obtenerCategoriasArraySync, agregarCategoria, e
 import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { obtenerMinimoMaterial, obtenerMinimoCategoria, establecerMinimoMaterial, establecerMinimoCategoria, eliminarMinimoMaterial, eliminarMinimoCategoria } from "../utils/stockMinimos";
 import { obtenerPinsOperadores, establecerPinOperador, eliminarPinOperador, tienePinOperadorSync } from "../utils/pins";
+import NumericKeypad from "./NumericKeypad";
 
 const STORAGE_KEY_COLORES_PERSONALIZADOS = "gst3d_colores_personalizados";
 
@@ -1262,23 +1263,21 @@ export default function MaterialesPage() {
                   <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
                     PIN / Contraseña:
                   </label>
-                  <input
-                    type="password"
+                  <NumericKeypad
                     value={nuevoPin}
-                    onChange={(e) => setNuevoPin(e.target.value)}
-                    className="w-full bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] focus:outline-none focus:ring-2 focus:ring-[#00d4ff] focus:border-[#00d4ff] placeholder-[#718096] shadow-lg hover:border-[#00d4ff]/50 transition-all duration-200"
+                    onChange={setNuevoPin}
+                    maxLength={10}
                     placeholder="Ingresa el PIN (mínimo 4 caracteres)"
-                    autoFocus
-                    minLength={4}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && nuevoPin.length >= 4) {
+                    autoFocus={true}
+                    onEnter={() => {
+                      if (nuevoPin.length >= 4) {
                         handleGuardarPin();
                       }
-                      if (e.key === "Escape") {
-                        setShowConfigurarPinModal(false);
-                        setOperadorParaPin(null);
-                        setNuevoPin("");
-                      }
+                    }}
+                    onEscape={() => {
+                      setShowConfigurarPinModal(false);
+                      setOperadorParaPin(null);
+                      setNuevoPin("");
                     }}
                   />
                   <p className="text-[#718096] text-xs mt-2">
