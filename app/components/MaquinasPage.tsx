@@ -441,20 +441,19 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     // Descontar siempre de Cajas de 1k y Bolsas Selladas
     // Cada bobina (1 chica + 1 grande) descuenta 1 caja y 1 bolsa
     // Si se imprimen múltiples bobinas, se descuenta 1 por cada bobina
+    // NOTA: bobinasCreadas ya fue calculado arriba
     try {
       const categorias = await obtenerCategoriasArray();
       const categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
       const categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
       
-      // Calcular cuántas bobinas se crearon (mínimo entre chicas y grandes)
-      // Ya que 1 bobina = 1 chica + 1 grande
-      const bobinasCreadas = Math.min(cantidadChicas, cantidadGrandes);
-      
       if (categoriaCajas && bobinasCreadas > 0) {
         await restarStockCategoria(categoriaCajas.id, ITEM_CAJA_1K, bobinasCreadas);
+        console.log(`Se descontaron ${bobinasCreadas} caja(s) de 1k`);
       }
       if (categoriaBolsas && bobinasCreadas > 0) {
         await restarStockCategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA, bobinasCreadas);
+        console.log(`Se descontaron ${bobinasCreadas} bolsa(s) sellada(s)`);
       }
     } catch (err) {
       console.error('Error al descontar cajas/bolsas:', err);
