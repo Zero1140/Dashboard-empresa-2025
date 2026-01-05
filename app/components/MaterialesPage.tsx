@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { coloresPorTipo, limpiarNombre, OPERADORES } from "../data";
 import { obtenerColoresCombinados, obtenerColoresCombinadosSync, obtenerColoresPersonalizados, eliminarColor, guardarColoresPersonalizados } from "../utils/colores";
-import { obtenerOperadoresCombinados, agregarOperador, eliminarOperador } from "../utils/operadores";
+import { obtenerOperadoresCombinados, obtenerOperadoresCombinadosSync, agregarOperador, eliminarOperador } from "../utils/operadores";
 import { obtenerCategoriasArray, obtenerCategoriasArraySync, agregarCategoria, eliminarCategoria, agregarItemACategoria, eliminarItemDeCategoria, Categoria } from "../utils/categorias";
 import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { obtenerMinimoMaterial, obtenerMinimoCategoria, establecerMinimoMaterial, establecerMinimoCategoria, eliminarMinimoMaterial, eliminarMinimoCategoria } from "../utils/stockMinimos";
@@ -71,10 +71,10 @@ export default function MaterialesPage() {
     
     // Cargar operadores, categorías y PINs
     const cargarDatos = async () => {
-      setOperadores(obtenerOperadoresCombinados());
+      setOperadores(await obtenerOperadoresCombinados());
       const cats = await obtenerCategoriasArray();
       setCategorias(cats);
-      setPins(obtenerPinsOperadores());
+      setPins(await obtenerPinsOperadores());
     };
     cargarDatos();
   }, []);
@@ -83,8 +83,8 @@ export default function MaterialesPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    const handleOperadoresActualizados = () => {
-      setOperadores(obtenerOperadoresCombinados());
+    const handleOperadoresActualizados = async () => {
+      setOperadores(await obtenerOperadoresCombinados());
     };
     
     const handleCategoriasActualizadas = async () => {
