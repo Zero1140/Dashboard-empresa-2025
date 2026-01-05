@@ -55,8 +55,8 @@ export default function MachineCard({
     }
     return "";
   });
-  const [cantidadChicas, setCantidadChicas] = useState<number>(8);
-  const [cantidadGrandes, setCantidadGrandes] = useState<number>(8);
+  // Un solo selector de cantidad de bobinas (1 bobina = 1 chica + 1 grande)
+  const [cantidadBobinas, setCantidadBobinas] = useState<number>(8);
   const [showCambiarOperadorModal, setShowCambiarOperadorModal] = useState<boolean>(false);
 
   // Actualizar cuando cambien los colores iniciales
@@ -134,21 +134,23 @@ export default function MachineCard({
       alert("No se puede imprimir cuando la máquina está en estado 'Línea Libre'. Por favor, asigna un operador primero.");
       return;
     }
-    if (cantidadChicas < 0 || cantidadChicas > 10 || cantidadGrandes < 0 || cantidadGrandes > 10) {
-      alert("La cantidad de etiquetas debe estar entre 0 y 10");
+    if (cantidadBobinas < 0 || cantidadBobinas > 10) {
+      alert("La cantidad de bobinas debe estar entre 0 y 10");
       return;
     }
-    if (cantidadChicas === 0 && cantidadGrandes === 0) {
-      alert("Debes imprimir al menos una etiqueta (chica o grande)");
+    if (cantidadBobinas === 0) {
+      alert("Debes imprimir al menos una bobina");
       return;
     }
     
     // Construir etiquetas: color base para chica, color base + "_GRANDE" para grande
+    // 1 bobina = 1 chica + 1 grande
     const [tipo, colorBase] = colorSeleccionado.split("::");
     const etiquetaChica = `${tipo}::${colorBase}`;
     const etiquetaGrande = `${tipo}::${colorBase}_GRANDE`;
     
-    onImprimir(maquinaId, etiquetaChica, etiquetaGrande, operador, tipoMaterial, cantidadChicas, cantidadGrandes);
+    // Cantidad de chicas y grandes es igual a la cantidad de bobinas
+    onImprimir(maquinaId, etiquetaChica, etiquetaGrande, operador, tipoMaterial, cantidadBobinas, cantidadBobinas);
   };
 
   const handleColorChange = (value: string) => {
@@ -230,40 +232,28 @@ export default function MachineCard({
           )}
         </div>
 
-        {/* Selector de cantidad etiquetas chicas */}
+        {/* Selector unificado de cantidad de bobinas */}
         <div>
           <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
-            📊 Cantidad Etiquetas Chicas
+            📊 Cantidad de Bobinas
           </label>
           <select
-            value={cantidadChicas}
-            onChange={(e) => setCantidadChicas(parseInt(e.target.value))}
+            value={cantidadBobinas}
+            onChange={(e) => setCantidadBobinas(parseInt(e.target.value))}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
           >
             {Array.from({ length: 11 }, (_, i) => i).map((num) => (
               <option key={num} value={num}>
-                {num === 0 ? "0 (sin imprimir)" : `${num} ${num === 1 ? "etiqueta" : "etiquetas"}`}
+                {num === 0 ? "0 (sin imprimir)" : `${num} ${num === 1 ? "bobina" : "bobinas"} (${num} chica + ${num} grande)`}
               </option>
             ))}
           </select>
-        </div>
-
-        {/* Selector de cantidad etiquetas grandes */}
-        <div>
-          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
-            📊 Cantidad Etiquetas Grandes
-          </label>
-          <select
-            value={cantidadGrandes}
-            onChange={(e) => setCantidadGrandes(parseInt(e.target.value))}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
-          >
-            {Array.from({ length: 11 }, (_, i) => i).map((num) => (
-              <option key={num} value={num}>
-                {num === 0 ? "0 (sin imprimir)" : `${num} ${num === 1 ? "etiqueta" : "etiquetas"}`}
-              </option>
-            ))}
-          </select>
+          {cantidadBobinas > 0 && (
+            <p className="text-[#718096] text-xs mt-2 flex items-center gap-1">
+              <span>💡</span>
+              Se imprimirán {cantidadBobinas} etiqueta(s) chica(s) y {cantidadBobinas} etiqueta(s) grande(s)
+            </p>
+          )}
         </div>
 
         {/* Operador asignado */}
@@ -330,11 +320,11 @@ export default function MachineCard({
           onClick={handleImprimir}
           disabled={!colorSeleccionado || !operador || !tipoMaterial || esLineaLibre(operador)}
           className="w-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] disabled:from-[#2d3748] disabled:to-[#1a2332] disabled:cursor-not-allowed text-white font-bold py-4 px-4 rounded-xl transition-all duration-200 mt-6 shadow-lg shadow-[#00d4ff]/30 hover:shadow-[#00d4ff]/50 disabled:shadow-none hover-lift flex items-center justify-center gap-2"
-          title={esLineaLibre(operador) ? "No se puede imprimir en estado Línea Libre" : `Imprime ${cantidadChicas} etiquetas chicas y ${cantidadGrandes} etiquetas grandes`}
+          title={esLineaLibre(operador) ? "No se puede imprimir en estado Línea Libre" : `Imprime ${cantidadBobinas} bobina(s) (${cantidadBobinas} chica + ${cantidadBobinas} grande)`}
         >
           <span className="text-xl">🖨️</span>
           <span>Imprimir Etiquetas</span>
-          <span className="text-xs opacity-75">({cantidadChicas}+{cantidadGrandes})</span>
+          <span className="text-xs opacity-75">({cantidadBobinas} bobina{cantidadBobinas !== 1 ? 's' : ''})</span>
         </button>
       </div>
 

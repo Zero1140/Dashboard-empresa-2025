@@ -163,10 +163,17 @@ export default function StockPage({ onSupabaseError }: StockPageProps = {}) {
 
   const coloresCombinados = obtenerColoresCombinadosSync();
   const coloresTipo = coloresCombinados[tipoSeleccionado] || { chica: {}, grande: {} };
-  const todosColores = new Set([
-    ...Object.keys(coloresTipo.chica || {}),
-    ...Object.keys(coloresTipo.grande || {}),
-  ]);
+  
+  // Filtrar colores para mostrar solo colores base (sin _GRANDE) y evitar duplicados
+  const todosColores = new Set<string>();
+  Object.keys(coloresTipo.chica || {}).forEach(color => {
+    const colorBase = color.replace(/_GRANDE$/, "");
+    todosColores.add(colorBase);
+  });
+  Object.keys(coloresTipo.grande || {}).forEach(color => {
+    const colorBase = color.replace(/_GRANDE$/, "");
+    todosColores.add(colorBase);
+  });
 
   // Obtener stock del tipo seleccionado, inicializar si no existe
   const stockTipo = stock[tipoSeleccionado] || {};
@@ -336,18 +343,25 @@ export default function StockPage({ onSupabaseError }: StockPageProps = {}) {
           <div className="grid grid-cols-2 gap-3">
             {Array.from(todosColores)
               .sort((a, b) => a.localeCompare(b))
-              .map((color) => {
-                const stockColor = stockTipo[color] || 0;
+              .map((colorBase) => {
+                // Buscar stock del color base (puede estar como colorBase o colorBase_GRANDE)
+                const stockColorBase = stockTipo[colorBase] || 0;
+                const stockColorGrande = stockTipo[`${colorBase}_GRANDE`] || 0;
+                // Sumar ambos si existen (para consolidar stock histórico)
+                const stockColor = stockColorBase + stockColorGrande;
+                
                 const isEditing =
-                  editingColor?.tipo === tipoSeleccionado && editingColor?.color === color;
+                  editingColor?.tipo === tipoSeleccionado && editingColor?.color === colorBase;
+                // Obtener color hex del color base (sin _GRANDE)
                 const colorHex =
-                  coloresTipo.chica[color] || coloresTipo.grande[color] || "#808080";
-                const minimo = obtenerMinimoMaterialSync(tipoSeleccionado, color);
+                  coloresTipo.chica[colorBase] || coloresTipo.grande[colorBase] || 
+                  coloresTipo.chica[`${colorBase}_GRANDE`] || coloresTipo.grande[`${colorBase}_GRANDE`] || "#808080";
+                const minimo = obtenerMinimoMaterialSync(tipoSeleccionado, colorBase);
                 const tieneAlerta = minimo > 0 && stockColor < minimo;
 
                 return (
                   <div
-                    key={color}
+                    key={colorBase}
                     className={`rounded-lg p-3 border transition-all duration-200 hover-lift shadow-md ${
                       tieneAlerta
                         ? "bg-gradient-to-br from-[#ff4757]/10 to-[#cc3846]/10 border-[#ff4757]/50 hover:border-[#ff4757]/70"
@@ -364,7 +378,7 @@ export default function StockPage({ onSupabaseError }: StockPageProps = {}) {
                       {/* Nombre del color */}
                       <div className="flex-1 min-w-0">
                         <h3 className="text-white font-semibold text-sm truncate">
-                          {limpiarNombre(color, tipoSeleccionado)}
+                          {limpiarNombre(colorBase, tipoSeleccionado)}
                         </h3>
                       </div>
                       
