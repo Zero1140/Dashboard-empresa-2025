@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { limpiarNombre, esLineaLibre } from "../data";
-import { obtenerColoresCombinados } from "../utils/colores";
+import { obtenerColoresCombinadosSync } from "../utils/colores";
 import CambiarOperadorMaquinaModal from "./CambiarOperadorMaquinaModal";
 
 interface MachineCardProps {
@@ -63,7 +63,7 @@ export default function MachineCard({
 
   // Obtener todos los colores de todos los materiales (incluyendo personalizados)
   const todasEtiquetasChicas = useMemo(() => {
-    const coloresCombinados = obtenerColoresCombinados();
+    const coloresCombinados = obtenerColoresCombinadosSync();
     const opciones: ColorOption[] = [];
     Object.keys(coloresCombinados).forEach((tipo) => {
       const colores = coloresCombinados[tipo].chica || {};
@@ -79,7 +79,7 @@ export default function MachineCard({
   }, []);
 
   const todasEtiquetasGrandes = useMemo(() => {
-    const coloresCombinados = obtenerColoresCombinados();
+    const coloresCombinados = obtenerColoresCombinadosSync();
     const opciones: ColorOption[] = [];
     Object.keys(coloresCombinados).forEach((tipo) => {
       const colores = coloresCombinados[tipo].grande || {};
