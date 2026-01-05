@@ -174,9 +174,10 @@ export async function sumarStockCategoria(categoriaId: string, itemNombre: strin
 }
 
 /**
- * Versión síncrona para compatibilidad
+ * Versión síncrona para compatibilidad (solo modifica datos locales, NO guarda)
+ * NOTA: Esta función NO guarda en Supabase. Para guardar, usar sumarStockCategoria() async.
  */
-export function sumarStockCategoriaSync(categoriaId: string, itemNombre: string, cantidad: number): void {
+export function sumarStockCategoriaSync(categoriaId: string, itemNombre: string, cantidad: number): StockCategoria {
   const stock = obtenerStockCategoriasSync();
   if (!stock[categoriaId]) {
     stock[categoriaId] = {};
@@ -185,7 +186,8 @@ export function sumarStockCategoriaSync(categoriaId: string, itemNombre: string,
     stock[categoriaId][itemNombre] = 0;
   }
   stock[categoriaId][itemNombre] += cantidad;
-  guardarStockCategorias(stock);
+  // NO guardar aquí - las funciones sync solo modifican datos locales
+  return stock;
 }
 
 /**
