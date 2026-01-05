@@ -7,7 +7,7 @@ import { obtenerStock, obtenerStockSync, establecerStock, suscribirStockRealtime
 import { obtenerCategoriasArray, obtenerCategoriasArraySync, suscribirCategoriasRealtime } from "../utils/categorias";
 import { obtenerStockCategorias, obtenerStockCategoriasSync, establecerStockCategoria, suscribirStockCategoriasRealtime, StockCategoria } from "../utils/stockCategorias";
 import { useRealtimeSync } from "../utils/useRealtimeSync";
-import { obtenerMinimoMaterial, obtenerMinimoCategoria, obtenerAlertasStock, AlertaStock } from "../utils/stockMinimos";
+import { obtenerMinimoMaterialSync, obtenerMinimoCategoriaSync, obtenerAlertasStock, AlertaStock } from "../utils/stockMinimos";
 
 export default function StockPage() {
   const [vistaActiva, setVistaActiva] = useState<"materiales" | "categorias">("materiales");
@@ -329,7 +329,7 @@ export default function StockPage() {
                   editingColor?.tipo === tipoSeleccionado && editingColor?.color === color;
                 const colorHex =
                   coloresTipo.chica[color] || coloresTipo.grande[color] || "#808080";
-                const minimo = obtenerMinimoMaterial(tipoSeleccionado, color);
+                const minimo = obtenerMinimoMaterialSync(tipoSeleccionado, color);
                 const tieneAlerta = minimo > 0 && stockColor < minimo;
 
                 return (
@@ -492,7 +492,7 @@ export default function StockPage() {
                         ?.items.map((item) => {
                           const stockItem = stockCategorias[categoriaSeleccionada]?.[item] || 0;
                           const isEditing = editingItem?.categoriaId === categoriaSeleccionada && editingItem?.itemNombre === item;
-                          const minimo = obtenerMinimoCategoria(categoriaSeleccionada, item);
+                          const minimo = obtenerMinimoCategoriaSync(categoriaSeleccionada, item);
                           const tieneAlerta = minimo > 0 && stockItem < minimo;
 
                           return (

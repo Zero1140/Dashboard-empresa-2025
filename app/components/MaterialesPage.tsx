@@ -226,13 +226,13 @@ export default function MaterialesPage() {
     }
   };
 
-  const handleAgregarCategoria = () => {
+  const handleAgregarCategoria = async () => {
     if (!nuevaCategoria.trim()) {
       alert("Por favor, ingresa un nombre de categoría");
       return;
     }
 
-    const categoriaId = agregarCategoria(nuevaCategoria);
+    const categoriaId = await agregarCategoria(nuevaCategoria);
     setNuevaCategoria("");
     setShowAgregarCategoriaModal(false);
     
@@ -263,9 +263,9 @@ export default function MaterialesPage() {
     setShowAgregarItemModal(true);
   };
 
-  const confirmarAgregarItem = (continuar: boolean = false) => {
+  const confirmarAgregarItem = async (continuar: boolean = false) => {
     if (categoriaParaItem && nuevoItem.trim()) {
-      agregarItemACategoria(categoriaParaItem, nuevoItem);
+      await agregarItemACategoria(categoriaParaItem, nuevoItem);
       setNuevoItem("");
       
       if (!continuar) {
@@ -276,8 +276,29 @@ export default function MaterialesPage() {
     }
   };
 
-  const handleEliminarItem = (categoriaId: string, itemNombre: string) => {
-    eliminarItemDeCategoria(categoriaId, itemNombre);
+  const handleEliminarItem = async (categoriaId: string, itemNombre: string) => {
+    await eliminarItemDeCategoria(categoriaId, itemNombre);
+  };
+
+  const handleGuardarMinimo = async () => {
+    if (!itemParaMinimo) return;
+    const minimo = parseInt(valorMinimo) || 0;
+    if (itemParaMinimo.tipo === "material" && itemParaMinimo.tipoMaterial && itemParaMinimo.color) {
+      if (minimo > 0) {
+        await establecerMinimoMaterial(itemParaMinimo.tipoMaterial, itemParaMinimo.color, minimo);
+      } else {
+        await eliminarMinimoMaterial(itemParaMinimo.tipoMaterial, itemParaMinimo.color);
+      }
+    } else if (itemParaMinimo.tipo === "categoria" && itemParaMinimo.categoriaId && itemParaMinimo.itemNombre) {
+      if (minimo > 0) {
+        await establecerMinimoCategoria(itemParaMinimo.categoriaId, itemParaMinimo.itemNombre, minimo);
+      } else {
+        await eliminarMinimoCategoria(itemParaMinimo.categoriaId, itemParaMinimo.itemNombre);
+      }
+    }
+    setShowConfigurarMinimoModal(false);
+    setItemParaMinimo(null);
+    setValorMinimo("");
   };
 
   const coloresTipo = colores[tipoSeleccionado] || { chica: {}, grande: {} };
@@ -618,8 +639,8 @@ export default function MaterialesPage() {
                       {/* Botones de acción */}
                       <div className="flex gap-1.5 flex-shrink-0">
                         <button
-                          onClick={() => {
-                            const minimoActual = obtenerMinimoMaterial(tipoSeleccionado, color);
+                          onClick={async () => {
+                            const minimoActual = await obtenerMinimoMaterial(tipoSeleccionado, color);
                             setItemParaMinimo({ tipo: "material", tipoMaterial: tipoSeleccionado, color });
                             setValorMinimo(minimoActual > 0 ? minimoActual.toString() : "");
                             setShowConfigurarMinimoModal(true);
@@ -1156,23 +1177,7 @@ export default function MaterialesPage() {
                     min="0"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
-                        const minimo = parseInt(valorMinimo) || 0;
-                        if (itemParaMinimo.tipo === "material" && itemParaMinimo.tipoMaterial && itemParaMinimo.color) {
-                          if (minimo > 0) {
-                            establecerMinimoMaterial(itemParaMinimo.tipoMaterial, itemParaMinimo.color, minimo);
-                          } else {
-                            eliminarMinimoMaterial(itemParaMinimo.tipoMaterial, itemParaMinimo.color);
-                          }
-                        } else if (itemParaMinimo.tipo === "categoria" && itemParaMinimo.categoriaId && itemParaMinimo.itemNombre) {
-                          if (minimo > 0) {
-                            establecerMinimoCategoria(itemParaMinimo.categoriaId, itemParaMinimo.itemNombre, minimo);
-                          } else {
-                            eliminarMinimoCategoria(itemParaMinimo.categoriaId, itemParaMinimo.itemNombre);
-                          }
-                        }
-                        setShowConfigurarMinimoModal(false);
-                        setItemParaMinimo(null);
-                        setValorMinimo("");
+                        handleGuardarMinimo();
                       }
                       if (e.key === "Escape") {
                         setShowConfigurarMinimoModal(false);
