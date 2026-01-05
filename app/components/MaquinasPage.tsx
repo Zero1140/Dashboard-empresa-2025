@@ -351,11 +351,16 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     const tipoChica = etiquetaChica.includes("::") ? etiquetaChica.split("::")[0] : tipoMaterial;
     const tipoGrande = etiquetaGrande.includes("::") ? etiquetaGrande.split("::")[0] : tipoMaterial;
 
+    // IMPORTANTE: Obtener el color base (sin _GRANDE) para el stock
+    // Una bobina = 1 chica + 1 grande, pero el stock es del mismo color base
+    const colorBase = colorChica.replace(/_GRANDE$/, ""); // Remover _GRANDE si existe
+    const tipoMaterialBase = tipoChica; // Usar el tipo del color chica como base
+
     // Guardar impresión con las cantidades seleccionadas
     const impresion: ImpresionEtiqueta = {
       id: `${maquinaId}_${Date.now()}_${Math.random()}`,
       maquinaId,
-      tipoMaterial: tipoChica, // Usar el tipo del color chico como principal
+      tipoMaterial: tipoMaterialBase,
       etiquetaChica: colorChica,
       etiquetaGrande: colorGrande,
       operador,
@@ -373,11 +378,19 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       setImpresiones([...impresiones, impresion]);
     });
 
-    // Sumar al stock con las cantidades seleccionadas (asíncrono)
-    // IMPORTANTE: Usar await para evitar condiciones de carrera
+    // Sumar al stock del color BASE (sin _GRANDE)
+    // Una bobina = 1 chica + 1 grande, pero el stock es del mismo color
+    // Calcular cuántas bobinas se crearon (mínimo entre chicas y grandes)
+    const bobinasCreadas = Math.min(cantidadChicas, cantidadGrandes);
+    
+    // IMPORTANTE: Solo sumar al stock si se crearon bobinas completas
+    // El stock se suma por bobina, no por etiqueta individual
     try {
-      await sumarStock(tipoChica, colorChica, cantidadChicas);
-      await sumarStock(tipoGrande, colorGrande, cantidadGrandes);
+      if (bobinasCreadas > 0) {
+        // Sumar al stock del color base (sin _GRANDE) la cantidad de bobinas creadas
+        await sumarStock(tipoMaterialBase, colorBase, bobinasCreadas);
+        console.log(`Se sumaron ${bobinasCreadas} bobina(s) al stock de ${tipoMaterialBase} ${colorBase}`);
+      }
     } catch (err) {
       console.error('Error al sumar stock:', err);
       alert('Error al actualizar el stock. Por favor, verifica la conexión.');
