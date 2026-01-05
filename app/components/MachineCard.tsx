@@ -112,8 +112,12 @@ export default function MachineCard({
       alert("No se puede imprimir cuando la máquina está en estado 'Línea Libre'. Por favor, asigna un operador primero.");
       return;
     }
-    if (cantidadChicas < 1 || cantidadChicas > 10 || cantidadGrandes < 1 || cantidadGrandes > 10) {
-      alert("La cantidad de etiquetas debe estar entre 1 y 10");
+    if (cantidadChicas < 0 || cantidadChicas > 10 || cantidadGrandes < 0 || cantidadGrandes > 10) {
+      alert("La cantidad de etiquetas debe estar entre 0 y 10");
+      return;
+    }
+    if (cantidadChicas === 0 && cantidadGrandes === 0) {
+      alert("Debes imprimir al menos una etiqueta (chica o grande)");
       return;
     }
     onImprimir(maquinaId, etiquetaChica, etiquetaGrande, operador, tipoMaterialChica, cantidadChicas, cantidadGrandes);
@@ -214,9 +218,9 @@ export default function MachineCard({
             onChange={(e) => setCantidadChicas(parseInt(e.target.value))}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
           >
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+            {Array.from({ length: 11 }, (_, i) => i).map((num) => (
               <option key={num} value={num}>
-                {num} {num === 1 ? "etiqueta" : "etiquetas"}
+                {num === 0 ? "0 (sin imprimir)" : `${num} ${num === 1 ? "etiqueta" : "etiquetas"}`}
               </option>
             ))}
           </select>
@@ -232,9 +236,9 @@ export default function MachineCard({
             onChange={(e) => setCantidadGrandes(parseInt(e.target.value))}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
           >
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+            {Array.from({ length: 11 }, (_, i) => i).map((num) => (
               <option key={num} value={num}>
-                {num} {num === 1 ? "etiqueta" : "etiquetas"}
+                {num === 0 ? "0 (sin imprimir)" : `${num} ${num === 1 ? "etiqueta" : "etiquetas"}`}
               </option>
             ))}
           </select>

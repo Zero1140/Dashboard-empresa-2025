@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { obtenerColoresCombinadosSync } from "../utils/colores";
+import { puedeImprimir, registrarIntentoImpresion, obtenerTiempoRestante, formatearTiempoRestante } from "../utils/rateLimiting";
 import MachineCard from "./MachineCard";
 import { guardarImpresion, guardarCambioOperador, obtenerImpresiones, obtenerImpresionesSync, guardarCambioColor } from "../utils/storage";
 import { sumarStock } from "../utils/stock";
@@ -293,6 +294,22 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
     // Validar que no se intente imprimir cuando está en Línea Libre
     if (esLineaLibre(operador)) {
       alert("No se puede imprimir cuando la máquina está en estado 'Línea Libre'. Por favor, asigna un operador primero.");
+      return;
+    }
+    
+    // Verificar rate limiting (máximo 2 clicks por hora por máquina)
+    if (!puedeImprimir(maquinaId)) {
+      const tiempoRestante = obtenerTiempoRestante(maquinaId);
+      const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
+      alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nSolo se permiten 2 impresiones por hora por máquina.\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+      return;
+    }
+    
+    // Registrar intento de impresión
+    if (!registrarIntentoImpresion(maquinaId)) {
+      const tiempoRestante = obtenerTiempoRestante(maquinaId);
+      const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
+      alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nSolo se permiten 2 impresiones por hora por máquina.\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
       return;
     }
     

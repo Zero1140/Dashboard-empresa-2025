@@ -351,6 +351,7 @@ export const SUPERVISORES = [
   "Juan Pablo Leo",
   "Julian",
   "Leo",
+  "Maxi G",
 ];
 
 // Operador especial que indica que la máquina está libre (no se puede imprimir)
