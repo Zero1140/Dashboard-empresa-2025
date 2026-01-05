@@ -171,6 +171,29 @@ export function obtenerStockItemSync(categoriaId: string, itemNombre: string): n
  * Suma stock a un item en una categoría (versión asíncrona)
  */
 export async function sumarStockCategoria(categoriaId: string, itemNombre: string, cantidad: number): Promise<void> {
+  // Intentar usar función atómica de Supabase si está disponible
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.rpc('sumar_stock_categoria_atomico', {
+        p_categoria_id: categoriaId,
+        p_item_nombre: itemNombre,
+        p_cantidad: cantidad
+      });
+      
+      if (!error) {
+        // Éxito con función atómica
+        return;
+      } else {
+        // Si falla la función atómica, usar método tradicional
+        console.warn('Función atómica no disponible, usando método tradicional:', error);
+      }
+    } catch (error) {
+      // Si la función no existe, usar método tradicional
+      console.warn('Función atómica no disponible, usando método tradicional:', error);
+    }
+  }
+  
+  // Método tradicional (fallback)
   const stock = await obtenerStockCategorias();
   if (!stock[categoriaId]) {
     stock[categoriaId] = {};
@@ -201,6 +224,29 @@ export function sumarStockCategoriaSync(categoriaId: string, itemNombre: string,
  * Resta stock de un item en una categoría (versión asíncrona)
  */
 export async function restarStockCategoria(categoriaId: string, itemNombre: string, cantidad: number): Promise<void> {
+  // Intentar usar función atómica de Supabase si está disponible
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.rpc('restar_stock_categoria_atomico', {
+        p_categoria_id: categoriaId,
+        p_item_nombre: itemNombre,
+        p_cantidad: cantidad
+      });
+      
+      if (!error) {
+        // Éxito con función atómica
+        return;
+      } else {
+        // Si falla la función atómica, usar método tradicional
+        console.warn('Función atómica no disponible, usando método tradicional:', error);
+      }
+    } catch (error) {
+      // Si la función no existe, usar método tradicional
+      console.warn('Función atómica no disponible, usando método tradicional:', error);
+    }
+  }
+  
+  // Método tradicional (fallback)
   const stock = await obtenerStockCategorias();
   if (!stock[categoriaId] || stock[categoriaId][itemNombre] === undefined) {
     return;
