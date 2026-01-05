@@ -1203,25 +1203,7 @@ export default function MaterialesPage() {
                     Cancelar
                   </button>
                   <button
-                    onClick={() => {
-                      const minimo = parseInt(valorMinimo) || 0;
-                      if (itemParaMinimo.tipo === "material" && itemParaMinimo.tipoMaterial && itemParaMinimo.color) {
-                        if (minimo > 0) {
-                          establecerMinimoMaterial(itemParaMinimo.tipoMaterial, itemParaMinimo.color, minimo);
-                        } else {
-                          eliminarMinimoMaterial(itemParaMinimo.tipoMaterial, itemParaMinimo.color);
-                        }
-                      } else if (itemParaMinimo.tipo === "categoria" && itemParaMinimo.categoriaId && itemParaMinimo.itemNombre) {
-                        if (minimo > 0) {
-                          establecerMinimoCategoria(itemParaMinimo.categoriaId, itemParaMinimo.itemNombre, minimo);
-                        } else {
-                          eliminarMinimoCategoria(itemParaMinimo.categoriaId, itemParaMinimo.itemNombre);
-                        }
-                      }
-                      setShowConfigurarMinimoModal(false);
-                      setItemParaMinimo(null);
-                      setValorMinimo("");
-                    }}
+                    onClick={handleGuardarMinimo}
                     className="flex-1 bg-gradient-to-r from-[#ffb800] to-[#ff9500] hover:from-[#ffc933] hover:to-[#ffb800] text-white font-bold py-3.5 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-[#ffb800]/30 hover:shadow-[#ffb800]/50 hover-lift"
                   >
                     Guardar
