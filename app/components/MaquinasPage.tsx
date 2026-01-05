@@ -330,12 +330,14 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
     });
 
     // Sumar al stock con las cantidades seleccionadas (asíncrono)
-    sumarStock(tipoChica, colorChica, cantidadChicas).catch(err => 
-      console.error('Error al sumar stock:', err)
-    );
-    sumarStock(tipoGrande, colorGrande, cantidadGrandes).catch(err => 
-      console.error('Error al sumar stock:', err)
-    );
+    // IMPORTANTE: Usar await para evitar condiciones de carrera
+    try {
+      await sumarStock(tipoChica, colorChica, cantidadChicas);
+      await sumarStock(tipoGrande, colorGrande, cantidadGrandes);
+    } catch (err) {
+      console.error('Error al sumar stock:', err);
+      alert('Error al actualizar el stock. Por favor, verifica la conexión.');
+    }
 
     // Incrementar contador de etiquetas (asíncrono)
     incrementarContadorEtiquetas(cantidadChicas, cantidadGrandes).then(async () => {
@@ -382,7 +384,8 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
     // Descontar siempre de Cajas de 1k y Bolsas Selladas
     // Cada bobina (1 chica + 1 grande) descuenta 1 caja y 1 bolsa
     // Si se imprimen múltiples bobinas, se descuenta 1 por cada bobina
-    obtenerCategoriasArray().then(categorias => {
+    try {
+      const categorias = await obtenerCategoriasArray();
       const categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
       const categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
       
@@ -391,18 +394,15 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
       const bobinasCreadas = Math.min(cantidadChicas, cantidadGrandes);
       
       if (categoriaCajas && bobinasCreadas > 0) {
-        restarStockCategoria(categoriaCajas.id, ITEM_CAJA_1K, bobinasCreadas).catch(err => 
-          console.error('Error al restar stock categoría:', err)
-        );
+        await restarStockCategoria(categoriaCajas.id, ITEM_CAJA_1K, bobinasCreadas);
       }
       if (categoriaBolsas && bobinasCreadas > 0) {
-        restarStockCategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA, bobinasCreadas).catch(err => 
-          console.error('Error al restar stock categoría:', err)
-        );
+        await restarStockCategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA, bobinasCreadas);
       }
-    }).catch(err => {
-      console.error('Error al obtener categorías:', err);
-    });
+    } catch (err) {
+      console.error('Error al descontar cajas/bolsas:', err);
+      // No mostrar alerta aquí para no interrumpir el flujo, pero registrar el error
+    }
 
     // Simular impresión (aquí se conectaría con la API del backend)
     console.log(

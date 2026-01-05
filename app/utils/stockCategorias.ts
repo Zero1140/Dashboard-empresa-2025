@@ -152,10 +152,18 @@ export function establecerStockCategoriaSync(categoriaId: string, itemNombre: st
 }
 
 /**
- * Obtiene el stock de un item en una categoría
+ * Obtiene el stock de un item en una categoría (versión asíncrona)
  */
-export function obtenerStockItem(categoriaId: string, itemNombre: string): number {
-  const stock = obtenerStockCategorias();
+export async function obtenerStockItem(categoriaId: string, itemNombre: string): Promise<number> {
+  const stock = await obtenerStockCategorias();
+  return stock[categoriaId]?.[itemNombre] || 0;
+}
+
+/**
+ * Versión síncrona para compatibilidad (puede devolver datos desactualizados)
+ */
+export function obtenerStockItemSync(categoriaId: string, itemNombre: string): number {
+  const stock = obtenerStockCategoriasSync();
   return stock[categoriaId]?.[itemNombre] || 0;
 }
 
