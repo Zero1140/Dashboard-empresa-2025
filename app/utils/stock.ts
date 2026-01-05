@@ -224,6 +224,29 @@ export function sumarStockSync(tipo: string, color: string, cantidad: number): v
 
 // Restar del stock (versión asíncrona)
 export async function restarStock(tipo: string, color: string, cantidad: number): Promise<void> {
+  // Intentar usar función atómica de Supabase si está disponible
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.rpc('restar_stock_atomico', {
+        p_tipo: tipo,
+        p_color: color,
+        p_cantidad: cantidad
+      });
+      
+      if (!error) {
+        // Éxito con función atómica
+        return;
+      } else {
+        // Si falla la función atómica, usar método tradicional
+        console.warn('Función atómica no disponible, usando método tradicional:', error);
+      }
+    } catch (error) {
+      // Si la función no existe, usar método tradicional
+      console.warn('Función atómica no disponible, usando método tradicional:', error);
+    }
+  }
+  
+  // Método tradicional (fallback)
   let stock = await obtenerStock();
   if (!stock[tipo] || stock[tipo][color] === undefined) {
     return;
@@ -247,6 +270,29 @@ export function restarStockSync(tipo: string, color: string, cantidad: number): 
 
 // Establecer stock manualmente (versión asíncrona)
 export async function establecerStock(tipo: string, color: string, cantidad: number): Promise<void> {
+  // Intentar usar función atómica de Supabase si está disponible
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.rpc('establecer_stock_atomico', {
+        p_tipo: tipo,
+        p_color: color,
+        p_cantidad: cantidad
+      });
+      
+      if (!error) {
+        // Éxito con función atómica
+        return;
+      } else {
+        // Si falla la función atómica, usar método tradicional
+        console.warn('Función atómica no disponible, usando método tradicional:', error);
+      }
+    } catch (error) {
+      // Si la función no existe, usar método tradicional
+      console.warn('Función atómica no disponible, usando método tradicional:', error);
+    }
+  }
+  
+  // Método tradicional (fallback)
   let stock = await obtenerStock();
   if (!stock[tipo]) {
     stock[tipo] = {};
