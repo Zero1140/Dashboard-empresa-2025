@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { obtenerOperadoresCombinados } from "../utils/operadores";
+import { obtenerOperadoresCombinadosSync } from "../utils/operadores";
 import { tienePinOperadorSync, verificarPinOperadorSync } from "../utils/pins";
 
 interface CambiarOperadorMaquinaModalProps {
@@ -131,7 +131,7 @@ export default function CambiarOperadorMaquinaModal({
                 className="w-full bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] focus:outline-none focus:ring-2 focus:ring-[#00d4ff] focus:border-[#00d4ff] cursor-pointer font-medium shadow-lg hover:border-[#00d4ff]/50 transition-all duration-200"
               >
                 <option value="">-- Selecciona operador --</option>
-                {obtenerOperadoresCombinados().map((op) => (
+                {obtenerOperadoresCombinadosSync().map((op) => (
                   <option key={op} value={op}>
                     {op} {tienePinOperadorSync(op) && !modoEdicion ? "🔐" : ""}
                   </option>
