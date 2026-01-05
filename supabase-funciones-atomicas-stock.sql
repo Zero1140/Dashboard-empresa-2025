@@ -317,3 +317,13 @@ COMMENT ON FUNCTION establecer_stock_atomico IS 'Establece stock de manera atóm
 COMMENT ON FUNCTION sumar_stock_categoria_atomico IS 'Suma stock de categoría de manera atómica usando FOR UPDATE para evitar condiciones de carrera';
 COMMENT ON FUNCTION restar_stock_categoria_atomico IS 'Resta stock de categoría de manera atómica usando FOR UPDATE para evitar condiciones de carrera';
 
+-- ============================================================================
+-- OTORGAR PERMISOS NECESARIOS
+-- ============================================================================
+-- Estas funciones deben ser ejecutables por usuarios autenticados y anónimos
+GRANT EXECUTE ON FUNCTION sumar_stock_atomico TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION restar_stock_atomico TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION establecer_stock_atomico TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION sumar_stock_categoria_atomico TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION restar_stock_categoria_atomico TO authenticated, anon;
+
