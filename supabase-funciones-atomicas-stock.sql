@@ -7,13 +7,6 @@
 -- IMPORTANTE: Ejecutar este script en el SQL Editor de Supabase
 -- ============================================================================
 
--- Otorgar permisos necesarios
-GRANT EXECUTE ON FUNCTION sumar_stock_atomico TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION restar_stock_atomico TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION establecer_stock_atomico TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION sumar_stock_categoria_atomico TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION restar_stock_categoria_atomico TO authenticated, anon;
-
 -- Función para sumar stock de manera atómica
 CREATE OR REPLACE FUNCTION sumar_stock_atomico(
   p_tipo TEXT,
