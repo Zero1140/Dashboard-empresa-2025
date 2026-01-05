@@ -92,8 +92,8 @@ export default function MaterialesPage() {
       setCategorias(nuevasCategorias);
     };
     
-    const handlePinsActualizados = () => {
-      setPins(obtenerPinsOperadores());
+    const handlePinsActualizados = async () => {
+      setPins(await obtenerPinsOperadores());
     };
     
     window.addEventListener("operadoresActualizados", handleOperadoresActualizados);
