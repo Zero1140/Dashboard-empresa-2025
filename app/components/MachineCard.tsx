@@ -38,6 +38,14 @@ export default function MachineCard({
   onCambiarColorChica,
   onCambiarColorGrande,
 }: MachineCardProps) {
+  // Estado para material seleccionado (por máquina)
+  const [materialSeleccionado, setMaterialSeleccionado] = useState<string>(() => {
+    if (colorChicaInicial) {
+      return colorChicaInicial.split("::")[0];
+    }
+    return tipoSeleccionado || "PLA"; // Usar el tipo global o PLA por defecto
+  });
+  
   // Estado unificado: un solo color para ambas etiquetas
   const [colorSeleccionado, setColorSeleccionado] = useState<string>(() => {
     // Si hay colores iniciales, usar el de chica como base (sin _GRANDE)
@@ -49,12 +57,8 @@ export default function MachineCard({
     }
     return "";
   });
-  const [tipoMaterial, setTipoMaterial] = useState<string>(() => {
-    if (colorChicaInicial) {
-      return colorChicaInicial.split("::")[0];
-    }
-    return "";
-  });
+  
+  const [tipoMaterial, setTipoMaterial] = useState<string>(materialSeleccionado);
   // Un solo selector de cantidad de bobinas (1 bobina = 1 chica + 1 grande)
   const [cantidadBobinas, setCantidadBobinas] = useState<number>(8);
   const [showCambiarOperadorModal, setShowCambiarOperadorModal] = useState<boolean>(false);
@@ -65,39 +69,55 @@ export default function MachineCard({
       const [tipo, color] = colorChicaInicial.split("::");
       const colorBase = color.replace(/_GRANDE$/, "");
       setColorSeleccionado(`${tipo}::${colorBase}`);
+      setMaterialSeleccionado(tipo);
       setTipoMaterial(tipo);
     }
   }, [colorChicaInicial, colorGrandeInicial]);
+  
+  // Limpiar color cuando cambie el material
+  useEffect(() => {
+    if (materialSeleccionado) {
+      setTipoMaterial(materialSeleccionado);
+      // Si el color seleccionado no pertenece al material actual, limpiarlo
+      if (colorSeleccionado && !colorSeleccionado.startsWith(`${materialSeleccionado}::`)) {
+        setColorSeleccionado("");
+      }
+    }
+  }, [materialSeleccionado]);
 
-  // Obtener todos los colores base (sin _GRANDE) de todos los materiales
-  // Un solo selector que muestra colores base, se usa para ambas variantes
-  const todosColoresBase = useMemo(() => {
+  // Obtener colores base (sin _GRANDE) SOLO del material seleccionado
+  const coloresDelMaterial = useMemo(() => {
+    if (!materialSeleccionado) return [];
+    
     const coloresCombinados = obtenerColoresCombinadosSync();
     const opciones: ColorOption[] = [];
     const coloresVistos = new Set<string>(); // Para evitar duplicados
     
-    Object.keys(coloresCombinados).forEach((tipo) => {
-      // Primero obtener colores de chica
-      const coloresChica = coloresCombinados[tipo].chica || {};
-      Object.keys(coloresChica).forEach((color) => {
-        const colorBase = color.replace(/_GRANDE$/, "");
-        const key = `${tipo}::${colorBase}`;
-        if (!coloresVistos.has(key)) {
-          opciones.push({ color: colorBase, tipo, esChica: true });
-          coloresVistos.add(key);
-        }
-      });
-      
-      // Luego obtener colores de grande (por si hay alguno que no esté en chica)
-      const coloresGrande = coloresCombinados[tipo].grande || {};
-      Object.keys(coloresGrande).forEach((color) => {
-        const colorBase = color.replace(/_GRANDE$/, "");
-        const key = `${tipo}::${colorBase}`;
-        if (!coloresVistos.has(key)) {
-          opciones.push({ color: colorBase, tipo, esChica: false });
-          coloresVistos.add(key);
-        }
-      });
+    const tipo = materialSeleccionado;
+    const coloresTipo = coloresCombinados[tipo];
+    
+    if (!coloresTipo) return [];
+    
+    // Primero obtener colores de chica
+    const coloresChica = coloresTipo.chica || {};
+    Object.keys(coloresChica).forEach((color) => {
+      const colorBase = color.replace(/_GRANDE$/, "");
+      const key = `${tipo}::${colorBase}`;
+      if (!coloresVistos.has(key)) {
+        opciones.push({ color: colorBase, tipo, esChica: true });
+        coloresVistos.add(key);
+      }
+    });
+    
+    // Luego obtener colores de grande (por si hay alguno que no esté en chica)
+    const coloresGrande = coloresTipo.grande || {};
+    Object.keys(coloresGrande).forEach((color) => {
+      const colorBase = color.replace(/_GRANDE$/, "");
+      const key = `${tipo}::${colorBase}`;
+      if (!coloresVistos.has(key)) {
+        opciones.push({ color: colorBase, tipo, esChica: false });
+        coloresVistos.add(key);
+      }
     });
     
     return opciones.sort((a, b) => {
@@ -105,6 +125,12 @@ export default function MachineCard({
       const nombreB = limpiarNombre(b.color, b.tipo);
       return nombreA.localeCompare(nombreB);
     });
+  }, [materialSeleccionado]);
+  
+  // Obtener lista de materiales disponibles
+  const materialesDisponibles = useMemo(() => {
+    const coloresCombinados = obtenerColoresCombinadosSync();
+    return Object.keys(coloresCombinados).sort();
   }, []);
 
   const getDisplayName = (color: string, tipo: string) => {
