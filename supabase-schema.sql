@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS impresiones (
   timestamp BIGINT NOT NULL,
   cantidad_chicas INTEGER DEFAULT 8,
   cantidad_grandes INTEGER DEFAULT 8,
+  estado TEXT DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'impresa', 'error')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -21,6 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_impresiones_maquina ON impresiones(maquina_id);
 CREATE INDEX IF NOT EXISTS idx_impresiones_operador ON impresiones(operador);
 CREATE INDEX IF NOT EXISTS idx_impresiones_timestamp ON impresiones(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_impresiones_fecha ON impresiones(fecha DESC);
+CREATE INDEX IF NOT EXISTS idx_impresiones_estado ON impresiones(estado) WHERE estado = 'pendiente';
 
 -- Tabla de cambios de operador
 CREATE TABLE IF NOT EXISTS cambios_operador (

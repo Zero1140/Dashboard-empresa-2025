@@ -2,9 +2,20 @@
 
 Este documento contiene las instrucciones específicas para configurar Supabase y habilitar Realtime en todas las tablas necesarias.
 
-## ⚠️ IMPORTANTE: Verificar y Corregir el Schema
+## ⚠️ IMPORTANTE: Script SQL Completo Disponible
 
-Antes de habilitar Realtime, necesitas verificar y corregir algunas tablas en Supabase para que coincidan con el código implementado.
+Se ha creado un archivo `supabase-migration-completa.sql` que contiene TODO el schema necesario, incluyendo:
+- Todas las tablas con la estructura correcta
+- El campo `estado` en la tabla `impresiones`
+- Todas las políticas RLS
+- Inicialización de registros globales
+- Habilitación de Realtime
+
+**Recomendación:** Usa el archivo `supabase-migration-completa.sql` para una configuración completa y sin errores.
+
+## ⚠️ IMPORTANTE: Verificar y Corregir el Schema (Solo si ya tienes tablas creadas)
+
+Si ya tienes tablas creadas en Supabase, necesitas verificar y corregir algunas tablas para que coincidan con el código implementado.
 
 ### 1. Verificar/Corregir Tabla `pins_operadores`
 
@@ -72,7 +83,25 @@ ON stock_minimos FOR ALL
 USING (true) WITH CHECK (true);
 ```
 
-## Paso 1: Habilitar Realtime en Todas las Tablas
+## Paso 0: Ejecutar Script Completo (RECOMENDADO)
+
+Si es la primera vez que configuras Supabase o quieres empezar desde cero:
+
+1. Ve al **SQL Editor** de Supabase
+2. Copia y pega el contenido completo del archivo `supabase-migration-completa.sql`
+3. Ejecuta el script completo
+4. Verifica que no hay errores
+
+Este script incluye:
+- ✅ Todas las tablas con la estructura correcta
+- ✅ El campo `estado` en impresiones
+- ✅ Todas las políticas RLS
+- ✅ Inicialización de registros globales
+- ✅ Habilitación de Realtime
+
+**Si ya ejecutaste este script completo, puedes saltar al Paso 6 (Verificar).**
+
+## Paso 1: Habilitar Realtime en Todas las Tablas (Solo si no usaste el script completo)
 
 Ve al **SQL Editor** de Supabase y ejecuta el siguiente script completo:
 
