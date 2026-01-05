@@ -1,6 +1,5 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
-
-const STORAGE_KEY_CATEGORIAS = "gst3d_categorias";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
 export interface Categoria {
   id: string;
@@ -16,7 +15,7 @@ export interface CategoriasData {
  * Carga categorías desde Supabase
  */
 async function cargarCategoriasDesdeSupabase(): Promise<CategoriasData> {
-  if (!isSupabaseConfigured()) return {};
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -25,8 +24,7 @@ async function cargarCategoriasDesdeSupabase(): Promise<CategoriasData> {
       .order('created_at', { ascending: true });
     
     if (error) {
-      console.error('Error al cargar categorías de Supabase:', error);
-      return {};
+      throw new SupabaseConnectionError(`Error al cargar categorías de Supabase: ${error.message}`);
     }
     
     if (!data || data.length === 0) return {};
@@ -41,23 +39,20 @@ async function cargarCategoriasDesdeSupabase(): Promise<CategoriasData> {
       };
     });
     
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_CATEGORIAS, JSON.stringify(categorias));
-    }
-    
     return categorias;
   } catch (error) {
-    console.error('Error al cargar categorías de Supabase:', error);
-    return {};
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar categorías de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda categorías en Supabase
  */
-async function guardarCategoriasEnSupabase(categorias: CategoriasData): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarCategoriasEnSupabase(categorias: CategoriasData): Promise<void> {
+  requireSupabase();
   
   try {
     // Convertir objeto a array para Supabase
@@ -67,81 +62,61 @@ async function guardarCategoriasEnSupabase(categorias: CategoriasData): Promise<
       items: cat.items || [],
     }));
     
-    if (categoriasArray.length === 0) return true;
+    if (categoriasArray.length === 0) return;
     
     const { error } = await supabase
       .from('categorias')
       .upsert(categoriasArray, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar categorías en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar categorías en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar categorías en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar categorías en Supabase: ${error}`);
   }
 }
 
 /**
- * Obtiene todas las categorías (desde Supabase si está configurado, sino desde localStorage)
+ * Obtiene todas las categorías desde Supabase
  */
 export async function obtenerCategorias(): Promise<CategoriasData> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const categorias = await cargarCategoriasDesdeSupabase();
-    if (Object.keys(categorias).length > 0) {
-      return categorias;
-    }
-  }
-  
-  // Fallback a localStorage
-  const categoriasGuardadas = localStorage.getItem(STORAGE_KEY_CATEGORIAS);
-  if (categoriasGuardadas) {
-    try {
-      return JSON.parse(categoriasGuardadas);
-    } catch (e) {
-      console.error("Error al cargar categorías:", e);
-      return {};
-    }
-  }
-  return {};
+  return await cargarCategoriasDesdeSupabase();
 }
 
 /**
- * Versión síncrona para compatibilidad (solo localStorage)
+ * Versión síncrona para compatibilidad (solo lectura, puede devolver datos desactualizados)
+ * NOTA: Esta función solo debe usarse para lectura. Para escritura, usar las versiones asíncronas.
  */
 export function obtenerCategoriasSync(): CategoriasData {
   if (typeof window === "undefined") return {};
-  const categoriasGuardadas = localStorage.getItem(STORAGE_KEY_CATEGORIAS);
-  if (categoriasGuardadas) {
-    try {
-      return JSON.parse(categoriasGuardadas);
-    } catch (e) {
-      console.error("Error al cargar categorías:", e);
-      return {};
-    }
+  
+  // Intentar obtener desde Supabase de forma síncrona (limitado)
+  // En producción, esto debería estar en un estado de React o contexto
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerCategoriasSync() devolverá un objeto vacío.');
+    return {};
   }
+  
+  // Para sincronización, necesitamos que el componente use el hook useRealtimeSync
+  // Esta función solo devuelve un objeto vacío como fallback
   return {};
 }
 
 /**
- * Guarda las categorías (en Supabase y localStorage)
+ * Guarda las categorías en Supabase
  */
 export async function guardarCategorias(categorias: CategoriasData): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero (para respuesta inmediata)
-  localStorage.setItem(STORAGE_KEY_CATEGORIAS, JSON.stringify(categorias));
-  
-  // Guardar en Supabase (asíncrono)
+  // Guardar SOLO en Supabase
   await guardarCategoriasEnSupabase(categorias);
   
-  // Disparar evento local
+  // Disparar evento local para notificar cambios
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("categoriasActualizadas"));
   }
@@ -173,13 +148,18 @@ export async function eliminarCategoria(categoriaId: string): Promise<void> {
   delete categorias[categoriaId];
   await guardarCategorias(categorias);
   
-  // Eliminar de Supabase también
-  if (isSupabaseConfigured()) {
-    try {
-      await supabase.from('categorias').delete().eq('id', categoriaId);
-    } catch (error) {
-      console.error('Error al eliminar categoría de Supabase:', error);
+  // Eliminar de Supabase
+  requireSupabase();
+  try {
+    const { error } = await supabase.from('categorias').delete().eq('id', categoriaId);
+    if (error) {
+      throw new SupabaseConnectionError(`Error al eliminar categoría de Supabase: ${error.message}`);
     }
+  } catch (error) {
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al eliminar categoría de Supabase: ${error}`);
   }
 }
 
@@ -232,14 +212,7 @@ export function suscribirCategoriasRealtime(
   callback: (categorias: CategoriasData) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
-    // Si no hay Supabase, solo escuchar eventos locales
-    const handler = () => {
-      obtenerCategorias().then(callback);
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener("categoriasActualizadas", handler);
-      return () => window.removeEventListener("categoriasActualizadas", handler);
-    }
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -253,12 +226,16 @@ export function suscribirCategoriasRealtime(
         table: 'categorias'
       },
       async () => {
-        // Recargar categorías desde Supabase cuando hay cambios
-        const nuevasCategorias = await cargarCategoriasDesdeSupabase();
-        callback(nuevasCategorias);
-        // Disparar evento local también
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("categoriasActualizadas"));
+        try {
+          // Recargar categorías desde Supabase cuando hay cambios
+          const nuevasCategorias = await cargarCategoriasDesdeSupabase();
+          callback(nuevasCategorias);
+          // Disparar evento local también
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("categoriasActualizadas"));
+          }
+        } catch (error) {
+          console.error('Error al recargar categorías en Realtime:', error);
         }
       }
     )

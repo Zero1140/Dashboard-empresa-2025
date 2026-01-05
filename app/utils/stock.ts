@@ -1,7 +1,7 @@
 import { obtenerColoresCombinadosSync } from "./colores";
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
-const STORAGE_KEY_STOCK = "gst3d_stock";
 const STOCK_ID = "stock_global";
 
 export interface StockColor {
@@ -20,7 +20,7 @@ export interface StockPorTipo {
  * Carga stock desde Supabase
  */
 async function cargarStockDesdeSupabase(): Promise<StockPorTipo> {
-  if (!isSupabaseConfigured()) return {};
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -30,31 +30,29 @@ async function cargarStockDesdeSupabase(): Promise<StockPorTipo> {
       .single();
     
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error al cargar stock de Supabase:', error);
-      return {};
+      throw new SupabaseConnectionError(`Error al cargar stock de Supabase: ${error.message}`);
     }
     
-    if (!data || !data.stock_data) return {};
+    if (!data || !data.stock_data) {
+      // Si no hay datos, inicializar stock vacío
+      return inicializarStock();
+    }
     
     const stock = data.stock_data as StockPorTipo;
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify(stock));
-    }
-    
     return asegurarStockCompleto(stock);
   } catch (error) {
-    console.error('Error al cargar stock de Supabase:', error);
-    return {};
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar stock de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda stock en Supabase
  */
-async function guardarStockEnSupabase(stock: StockPorTipo): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarStockEnSupabase(stock: StockPorTipo): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -66,14 +64,13 @@ async function guardarStockEnSupabase(stock: StockPorTipo): Promise<boolean> {
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar stock en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar stock en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar stock en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar stock en Supabase: ${error}`);
   }
 }
 
@@ -81,42 +78,24 @@ async function guardarStockEnSupabase(stock: StockPorTipo): Promise<boolean> {
 export async function obtenerStock(): Promise<StockPorTipo> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const stock = await cargarStockDesdeSupabase();
-    if (Object.keys(stock).length > 0) {
-      return stock;
-    }
-  }
-  
-  // Fallback a localStorage
-  const stored = localStorage.getItem(STORAGE_KEY_STOCK);
-  if (!stored) {
-    // Inicializar stock en 0 para todos los colores
-    return inicializarStock();
-  }
-  try {
-    const stock = JSON.parse(stored);
-    // Asegurar que todos los colores existan
-    return asegurarStockCompleto(stock);
-  } catch {
-    return inicializarStock();
-  }
+  return await cargarStockDesdeSupabase();
 }
 
-// Versión síncrona para compatibilidad
+// Versión síncrona para compatibilidad (solo lectura, puede devolver datos desactualizados)
+// NOTA: Esta función solo debe usarse para lectura. Para escritura, usar las versiones asíncronas.
 export function obtenerStockSync(): StockPorTipo {
   if (typeof window === "undefined") return {};
-  const stored = localStorage.getItem(STORAGE_KEY_STOCK);
-  if (!stored) {
+  
+  // Intentar obtener desde Supabase de forma síncrona (limitado)
+  // En producción, esto debería estar en un estado de React o contexto
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerStockSync() devolverá un objeto vacío.');
     return {};
   }
-  try {
-    const stock = JSON.parse(stored);
-    return asegurarStockCompleto(stock);
-  } catch {
-    return {};
-  }
+  
+  // Para sincronización, necesitamos que el componente use el hook useRealtimeSync
+  // Esta función solo devuelve un objeto vacío como fallback
+  return {};
 }
 
 // Inicializar stock en 0
@@ -163,10 +142,7 @@ function asegurarStockCompleto(stock: StockPorTipo): StockPorTipo {
 async function guardarStock(stock: StockPorTipo): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero (para respuesta inmediata)
-  localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify(stock));
-  
-  // Guardar en Supabase (asíncrono)
+  // Guardar SOLO en Supabase
   await guardarStockEnSupabase(stock);
 }
 
@@ -319,15 +295,19 @@ export function establecerStockSync(tipo: string, color: string, cantidad: numbe
 // Limpiar stock
 export async function limpiarStock(): Promise<void> {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(STORAGE_KEY_STOCK);
   
-  // Limpiar en Supabase también
-  if (isSupabaseConfigured()) {
-    try {
-      await supabase.from('stock').delete().eq('id', STOCK_ID);
-    } catch (error) {
-      console.error('Error al limpiar stock de Supabase:', error);
+  requireSupabase();
+  
+  try {
+    const { error } = await supabase.from('stock').delete().eq('id', STOCK_ID);
+    if (error) {
+      throw new SupabaseConnectionError(`Error al limpiar stock de Supabase: ${error.message}`);
     }
+  } catch (error) {
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al limpiar stock de Supabase: ${error}`);
   }
 }
 
@@ -338,6 +318,7 @@ export function suscribirStockRealtime(
   callback: (stock: StockPorTipo) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -352,9 +333,13 @@ export function suscribirStockRealtime(
         filter: `id=eq.${STOCK_ID}`
       },
       async () => {
-        // Recargar stock desde Supabase cuando hay cambios
-        const nuevoStock = await cargarStockDesdeSupabase();
-        callback(nuevoStock);
+        try {
+          // Recargar stock desde Supabase cuando hay cambios
+          const nuevoStock = await cargarStockDesdeSupabase();
+          callback(nuevoStock);
+        } catch (error) {
+          console.error('Error al recargar stock en Realtime:', error);
+        }
       }
     )
     .subscribe();

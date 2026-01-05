@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { requireSupabase, SupabaseNotConfiguredError, SupabaseConnectionError } from "./supabaseError";
 
-const STORAGE_KEY_STOCK_CATEGORIAS = "gst3d_stock_categorias";
 const STOCK_CATEGORIAS_ID = "categorias_global";
 
 export interface StockCategoria {
@@ -13,7 +13,7 @@ export interface StockCategoria {
  * Carga stock de categorías desde Supabase
  */
 async function cargarStockCategoriasDesdeSupabase(): Promise<StockCategoria> {
-  if (!isSupabaseConfigured()) return {};
+  requireSupabase();
   
   try {
     const { data, error } = await supabase
@@ -23,31 +23,25 @@ async function cargarStockCategoriasDesdeSupabase(): Promise<StockCategoria> {
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Error al cargar stock de categorías de Supabase:', error);
-      return {};
+      throw new SupabaseConnectionError(`Error al cargar stock de categorías de Supabase: ${error.message}`);
     }
     
     if (!data || !data.stock_data) return {};
     
-    const stock = data.stock_data as StockCategoria;
-    
-    // Guardar en localStorage como caché
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_STOCK_CATEGORIAS, JSON.stringify(stock));
-    }
-    
-    return stock;
+    return data.stock_data as StockCategoria;
   } catch (error) {
-    console.error('Error al cargar stock de categorías de Supabase:', error);
-    return {};
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al cargar stock de categorías de Supabase: ${error}`);
   }
 }
 
 /**
  * Guarda stock de categorías en Supabase
  */
-async function guardarStockCategoriasEnSupabase(stock: StockCategoria): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+async function guardarStockCategoriasEnSupabase(stock: StockCategoria): Promise<void> {
+  requireSupabase();
   
   try {
     const { error } = await supabase
@@ -59,14 +53,13 @@ async function guardarStockCategoriasEnSupabase(stock: StockCategoria): Promise<
       }, { onConflict: 'id' });
     
     if (error) {
-      console.error('Error al guardar stock de categorías en Supabase:', error);
-      return false;
+      throw new SupabaseConnectionError(`Error al guardar stock de categorías en Supabase: ${error.message}`);
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error al guardar stock de categorías en Supabase:', error);
-    return false;
+    if (error instanceof SupabaseNotConfiguredError || error instanceof SupabaseConnectionError) {
+      throw error;
+    }
+    throw new SupabaseConnectionError(`Error al guardar stock de categorías en Supabase: ${error}`);
   }
 }
 
@@ -76,25 +69,7 @@ async function guardarStockCategoriasEnSupabase(stock: StockCategoria): Promise<
 export async function obtenerStockCategorias(): Promise<StockCategoria> {
   if (typeof window === "undefined") return {};
   
-  // Intentar cargar desde Supabase primero
-  if (isSupabaseConfigured()) {
-    const stock = await cargarStockCategoriasDesdeSupabase();
-    if (Object.keys(stock).length > 0) {
-      return stock;
-    }
-  }
-  
-  // Fallback a localStorage
-  const stockGuardado = localStorage.getItem(STORAGE_KEY_STOCK_CATEGORIAS);
-  if (stockGuardado) {
-    try {
-      return JSON.parse(stockGuardado);
-    } catch (e) {
-      console.error("Error al cargar stock de categorías:", e);
-      return {};
-    }
-  }
-  return {};
+  return await cargarStockCategoriasDesdeSupabase();
 }
 
 /**
@@ -102,15 +77,12 @@ export async function obtenerStockCategorias(): Promise<StockCategoria> {
  */
 export function obtenerStockCategoriasSync(): StockCategoria {
   if (typeof window === "undefined") return {};
-  const stockGuardado = localStorage.getItem(STORAGE_KEY_STOCK_CATEGORIAS);
-  if (stockGuardado) {
-    try {
-      return JSON.parse(stockGuardado);
-    } catch (e) {
-      console.error("Error al cargar stock de categorías:", e);
-      return {};
-    }
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase no está configurado. obtenerStockCategoriasSync() devolverá un objeto vacío.');
+    return {};
   }
+  
   return {};
 }
 
@@ -120,10 +92,6 @@ export function obtenerStockCategoriasSync(): StockCategoria {
 async function guardarStockCategorias(stock: StockCategoria): Promise<void> {
   if (typeof window === "undefined") return;
   
-  // Guardar en localStorage primero (para respuesta inmediata)
-  localStorage.setItem(STORAGE_KEY_STOCK_CATEGORIAS, JSON.stringify(stock));
-  
-  // Guardar en Supabase (asíncrono)
   await guardarStockCategoriasEnSupabase(stock);
 }
 
@@ -274,6 +242,7 @@ export function suscribirStockCategoriasRealtime(
   callback: (stock: StockCategoria) => void
 ): () => void {
   if (!isSupabaseConfigured()) {
+    console.error('Supabase no está configurado. No se puede suscribir a cambios en tiempo real.');
     return () => {};
   }
   
@@ -288,9 +257,12 @@ export function suscribirStockCategoriasRealtime(
         filter: `id=eq.${STOCK_CATEGORIAS_ID}`
       },
       async () => {
-        // Recargar stock desde Supabase cuando hay cambios
-        const nuevoStock = await cargarStockCategoriasDesdeSupabase();
-        callback(nuevoStock);
+        try {
+          const nuevoStock = await cargarStockCategoriasDesdeSupabase();
+          callback(nuevoStock);
+        } catch (error) {
+          console.error('Error al recargar stock de categorías en Realtime:', error);
+        }
       }
     )
     .subscribe();
