@@ -148,7 +148,7 @@ export default function StockPage() {
     }
   };
 
-  const coloresCombinados = obtenerColoresCombinados();
+  const coloresCombinados = obtenerColoresCombinadosSync();
   const coloresTipo = coloresCombinados[tipoSeleccionado] || { chica: {}, grande: {} };
   const todosColores = new Set([
     ...Object.keys(coloresTipo.chica || {}),

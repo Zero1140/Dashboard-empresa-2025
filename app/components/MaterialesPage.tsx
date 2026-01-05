@@ -311,7 +311,7 @@ export default function MaterialesPage() {
   };
 
   const handleEliminarPin = async () => {
-    if (tienePinOperadorSync(operadorParaPin)) {
+    if (operadorParaPin && tienePinOperadorSync(operadorParaPin)) {
       if (confirm(`¿Eliminar el PIN de ${operadorParaPin}?`)) {
         await eliminarPinOperador(operadorParaPin);
       }

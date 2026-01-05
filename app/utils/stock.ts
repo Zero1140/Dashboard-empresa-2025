@@ -1,4 +1,4 @@
-import { obtenerColoresCombinados } from "./colores";
+import { obtenerColoresCombinadosSync } from "./colores";
 import { supabase, isSupabaseConfigured } from "./supabase";
 
 const STORAGE_KEY_STOCK = "gst3d_stock";
@@ -123,7 +123,7 @@ export function obtenerStockSync(): StockPorTipo {
 async function inicializarStock(): Promise<StockPorTipo> {
   const stock: StockPorTipo = {};
   // Usar colores combinados para incluir colores personalizados
-  const coloresCombinados = obtenerColoresCombinados();
+  const coloresCombinados = obtenerColoresCombinadosSync();
   Object.keys(coloresCombinados).forEach((tipo) => {
     stock[tipo] = {};
     const coloresChica = Object.keys(coloresCombinados[tipo].chica || {});
@@ -141,7 +141,7 @@ async function inicializarStock(): Promise<StockPorTipo> {
 function asegurarStockCompleto(stock: StockPorTipo): StockPorTipo {
   const stockCompleto: StockPorTipo = { ...stock };
   // Usar colores combinados para incluir colores personalizados
-  const coloresCombinados = obtenerColoresCombinados();
+  const coloresCombinados = obtenerColoresCombinadosSync();
   Object.keys(coloresCombinados).forEach((tipo) => {
     if (!stockCompleto[tipo]) {
       stockCompleto[tipo] = {};
