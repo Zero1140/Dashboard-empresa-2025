@@ -33,9 +33,10 @@ const ITEM_BOLSA_SELLADA = "Bolsa Sellada";
 interface MaquinasPageProps {
   modoEdicion: boolean;
   supervisorActual: string | null;
+  onSupabaseError?: (error: "NOT_CONFIGURED" | "CONNECTION_ERROR") => void;
 }
 
-export default function MaquinasPage({ modoEdicion, supervisorActual }: MaquinasPageProps) {
+export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabaseError }: MaquinasPageProps) {
   const [tipoSeleccionado, setTipoSeleccionado] = useState<string>("PLA");
   const [operadoresAsignados, setOperadoresAsignados] = useState<Record<number, string>>({
     1: "",
@@ -53,27 +54,37 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
   // Estado para almacenar colores seleccionados por máquina
   const [coloresPorMaquina, setColoresPorMaquina] = useState<Record<number, { chica: string; grande: string }>>({});
 
-  // Cargar estado desde Supabase/localStorage al iniciar
+  // Cargar estado desde Supabase al iniciar
   useEffect(() => {
     const cargarDatosIniciales = async () => {
-      // Cargar operadores asignados desde Supabase
-      const asignaciones = await obtenerOperadoresAsignados();
-      if (Object.keys(asignaciones).length > 0) {
-        setOperadoresAsignados(asignaciones);
-      }
+      try {
+        // Cargar operadores asignados desde Supabase
+        const asignaciones = await obtenerOperadoresAsignados();
+        if (Object.keys(asignaciones).length > 0) {
+          setOperadoresAsignados(asignaciones);
+        }
 
-      // Cargar colores desde Supabase
-      const colores = await obtenerColoresMaquinas();
-      if (Object.keys(colores).length > 0) {
-        setColoresPorMaquina(colores);
-      }
+        // Cargar colores desde Supabase
+        const colores = await obtenerColoresMaquinas();
+        if (Object.keys(colores).length > 0) {
+          setColoresPorMaquina(colores);
+        }
 
-      // Cargar impresiones (usar versión síncrona para carga inicial)
-      setImpresiones(obtenerImpresionesSync());
+        // Cargar impresiones
+        const impresionesData = await obtenerImpresiones();
+        setImpresiones(impresionesData);
+      } catch (error: any) {
+        console.error('Error al cargar datos iniciales:', error);
+        if (error?.name === 'SupabaseNotConfiguredError' && onSupabaseError) {
+          onSupabaseError('NOT_CONFIGURED');
+        } else if (error?.name === 'SupabaseConnectionError' && onSupabaseError) {
+          onSupabaseError('CONNECTION_ERROR');
+        }
+      }
     };
 
     cargarDatosIniciales();
-  }, []);
+  }, [onSupabaseError]);
 
   // Suscripción Realtime para sincronización en tiempo real
   useRealtimeSync({
@@ -85,22 +96,30 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
     },
   });
 
-  // Cargar datos iniciales
+  // Cargar contadores de etiquetas
   useEffect(() => {
-    const cargarDatosIniciales = async () => {
-      const impresionesData = await obtenerImpresiones();
-      setImpresiones(impresionesData);
-      const contadores = await obtenerContadoresEtiquetas();
-      setContadoresEtiquetas(contadores);
+    const cargarContadores = async () => {
+      try {
+        const contadores = await obtenerContadoresEtiquetas();
+        setContadoresEtiquetas(contadores);
+      } catch (error: any) {
+        console.error('Error al cargar contadores:', error);
+        if (error?.name === 'SupabaseNotConfiguredError' && onSupabaseError) {
+          onSupabaseError('NOT_CONFIGURED');
+        } else if (error?.name === 'SupabaseConnectionError' && onSupabaseError) {
+          onSupabaseError('CONNECTION_ERROR');
+        }
+      }
     };
     
-    cargarDatosIniciales();
-  }, []);
+    cargarContadores();
+  }, [onSupabaseError]);
 
   // Actualizar impresiones cada 2 segundos (polling)
   useEffect(() => {
     const actualizarImpresiones = async () => {
-      const impresionesData = await obtenerImpresiones();
+      try {
+        const impresionesData = await obtenerImpresiones();
       setImpresiones(impresionesData);
     };
     

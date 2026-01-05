@@ -9,7 +9,11 @@ import { obtenerStockCategorias, obtenerStockCategoriasSync, establecerStockCate
 import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { obtenerMinimoMaterialSync, obtenerMinimoCategoriaSync, obtenerAlertasStock, AlertaStock } from "../utils/stockMinimos";
 
-export default function StockPage() {
+interface StockPageProps {
+  onSupabaseError?: (error: "NOT_CONFIGURED" | "CONNECTION_ERROR") => void;
+}
+
+export default function StockPage({ onSupabaseError }: StockPageProps = {}) {
   const [vistaActiva, setVistaActiva] = useState<"materiales" | "categorias">("materiales");
   const [tipoSeleccionado, setTipoSeleccionado] = useState<string>("PLA");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>("");
@@ -24,19 +28,28 @@ export default function StockPage() {
   // Cargar stock desde Supabase al iniciar
   useEffect(() => {
     const cargarDatos = async () => {
-      const nuevoStock = await obtenerStock();
-      const nuevoStockCategorias = await obtenerStockCategorias();
-      const cats = await obtenerCategoriasArray();
-      
-      setStock(nuevoStock);
-      setStockCategorias(nuevoStockCategorias);
-      setCategorias(cats);
-      if (cats.length > 0 && !categoriaSeleccionada) {
-        setCategoriaSeleccionada(cats[0].id);
+      try {
+        const nuevoStock = await obtenerStock();
+        const nuevoStockCategorias = await obtenerStockCategorias();
+        const cats = await obtenerCategoriasArray();
+        
+        setStock(nuevoStock);
+        setStockCategorias(nuevoStockCategorias);
+        setCategorias(cats);
+        if (cats.length > 0 && !categoriaSeleccionada) {
+          setCategoriaSeleccionada(cats[0].id);
+        }
+      } catch (error: any) {
+        console.error('Error al cargar datos de stock:', error);
+        if (error?.name === 'SupabaseNotConfiguredError' && onSupabaseError) {
+          onSupabaseError('NOT_CONFIGURED');
+        } else if (error?.name === 'SupabaseConnectionError' && onSupabaseError) {
+          onSupabaseError('CONNECTION_ERROR');
+        }
       }
     };
     cargarDatos();
-  }, []);
+  }, [onSupabaseError, categoriaSeleccionada]);
 
   // Suscripción Realtime para sincronización en tiempo real
   useRealtimeSync({

@@ -19,7 +19,11 @@ interface ColorPersonalizado {
   variante: "chica" | "grande" | "ambas";
 }
 
-export default function MaterialesPage() {
+interface MaterialesPageProps {
+  onSupabaseError?: (error: "NOT_CONFIGURED" | "CONNECTION_ERROR") => void;
+}
+
+export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps = {}) {
   const [coloresPersonalizados, setColoresPersonalizados] = useState<Record<string, {
     chica: Record<string, string>;
     grande: Record<string, string>;
@@ -72,13 +76,22 @@ export default function MaterialesPage() {
     
     // Cargar operadores, categorías y PINs
     const cargarDatos = async () => {
-      setOperadores(await obtenerOperadoresCombinados());
-      const cats = await obtenerCategoriasArray();
-      setCategorias(cats);
-      setPins(await obtenerPinsOperadores());
+      try {
+        setOperadores(await obtenerOperadoresCombinados());
+        const cats = await obtenerCategoriasArray();
+        setCategorias(cats);
+        setPins(await obtenerPinsOperadores());
+      } catch (error: any) {
+        console.error('Error al cargar datos de materiales:', error);
+        if (error?.name === 'SupabaseNotConfiguredError' && onSupabaseError) {
+          onSupabaseError('NOT_CONFIGURED');
+        } else if (error?.name === 'SupabaseConnectionError' && onSupabaseError) {
+          onSupabaseError('CONNECTION_ERROR');
+        }
+      }
     };
     cargarDatos();
-  }, []);
+  }, [onSupabaseError]);
 
   // Escuchar cambios en operadores, categorías y PINs
   useEffect(() => {

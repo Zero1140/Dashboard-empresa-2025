@@ -5,7 +5,11 @@ import { obtenerImpresiones, obtenerCambiosOperador, obtenerCambiosColor, obtene
 import { ImpresionEtiqueta, CambioOperador, CambioColor, EstadisticasMaquina, Accion } from "../types";
 import { limpiarNombre } from "../data";
 
-export default function InformacionPage() {
+interface InformacionPageProps {
+  onSupabaseError?: (error: "NOT_CONFIGURED" | "CONNECTION_ERROR") => void;
+}
+
+export default function InformacionPage({ onSupabaseError }: InformacionPageProps = {}) {
   const [filtroMaquina, setFiltroMaquina] = useState<number | "todas">("todas");
   const [vistaActiva, setVistaActiva] = useState<"estadisticas" | "acciones">("acciones");
   const [impresiones, setImpresiones] = useState<ImpresionEtiqueta[]>([]);
@@ -15,24 +19,27 @@ export default function InformacionPage() {
   // Cargar datos al montar el componente
   useEffect(() => {
     const cargarDatos = async () => {
-      const [impresionesData, cambiosOperadorData, cambiosColorData] = await Promise.all([
-        obtenerImpresiones(),
-        obtenerCambiosOperador(),
-        obtenerCambiosColor(),
-      ]);
-      setImpresiones(impresionesData);
-      setCambiosOperador(cambiosOperadorData);
-      setCambiosColor(cambiosColorData);
+      try {
+        const [impresionesData, cambiosOperadorData, cambiosColorData] = await Promise.all([
+          obtenerImpresiones(),
+          obtenerCambiosOperador(),
+          obtenerCambiosColor(),
+        ]);
+        setImpresiones(impresionesData);
+        setCambiosOperador(cambiosOperadorData);
+        setCambiosColor(cambiosColorData);
+      } catch (error: any) {
+        console.error('Error al cargar datos de información:', error);
+        if (error?.name === 'SupabaseNotConfiguredError' && onSupabaseError) {
+          onSupabaseError('NOT_CONFIGURED');
+        } else if (error?.name === 'SupabaseConnectionError' && onSupabaseError) {
+          onSupabaseError('CONNECTION_ERROR');
+        }
+      }
     };
 
-    // Cargar datos síncronos primero para mostrar algo inmediatamente
-    setImpresiones(obtenerImpresionesSync());
-    setCambiosOperador(obtenerCambiosOperadorSync());
-    setCambiosColor(obtenerCambiosColorSync());
-
-    // Luego cargar datos asíncronos de Supabase si está configurado
     cargarDatos();
-  }, []);
+  }, [onSupabaseError]);
 
   // Crear listado cronológico de acciones
   const accionesCronologicas = useMemo(() => {

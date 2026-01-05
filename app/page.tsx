@@ -7,6 +7,8 @@ import InformacionPage from "./components/InformacionPage";
 import StockPage from "./components/StockPage";
 import MaterialesPage from "./components/MaterialesPage";
 import LoginModal from "./components/LoginModal";
+import SupabaseError from "./components/SupabaseError";
+import { isSupabaseConfigured } from "./utils/supabase";
 
 const STORAGE_KEY_SUPERVISOR = "gst3d_supervisor";
 
@@ -15,6 +17,14 @@ export default function Home() {
   const [modoEdicion, setModoEdicion] = useState<boolean>(false);
   const [supervisorActual, setSupervisorActual] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [supabaseError, setSupabaseError] = useState<"NOT_CONFIGURED" | "CONNECTION_ERROR" | null>(null);
+
+  // Verificar configuración de Supabase al iniciar
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setSupabaseError("NOT_CONFIGURED");
+    }
+  }, []);
 
   // Cargar estado de supervisor al iniciar
   useEffect(() => {
@@ -66,6 +76,11 @@ export default function Home() {
     setPaginaActual("maquinas");
   };
 
+  // Si hay error de Supabase, mostrar pantalla de error
+  if (supabaseError) {
+    return <SupabaseError type={supabaseError} />;
+  }
+
   return (
     <div className="min-h-screen text-white flex relative overflow-hidden">
       {/* Fondo con efecto de fábrica */}
@@ -89,10 +104,10 @@ export default function Home() {
 
       {/* Contenido Principal */}
       <div className="flex-1 overflow-auto relative z-10">
-        {paginaActual === "maquinas" && <MaquinasPage modoEdicion={modoEdicion} supervisorActual={supervisorActual} />}
-        {paginaActual === "informacion" && modoEdicion && <InformacionPage />}
-        {paginaActual === "stock" && modoEdicion && <StockPage />}
-        {paginaActual === "materiales" && modoEdicion && <MaterialesPage />}
+        {paginaActual === "maquinas" && <MaquinasPage modoEdicion={modoEdicion} supervisorActual={supervisorActual} onSupabaseError={setSupabaseError} />}
+        {paginaActual === "informacion" && modoEdicion && <InformacionPage onSupabaseError={setSupabaseError} />}
+        {paginaActual === "stock" && modoEdicion && <StockPage onSupabaseError={setSupabaseError} />}
+        {paginaActual === "materiales" && modoEdicion && <MaterialesPage onSupabaseError={setSupabaseError} />}
       </div>
 
       {/* Modal de Login */}
