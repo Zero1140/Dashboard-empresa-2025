@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { obtenerOperadoresCombinadosSync, tienePinOperadorSync, verificarPinOperadorSync } from "../utils/operadores";
-import NumericKeypad from "./NumericKeypad";
+import { obtenerOperadoresCombinadosSync } from "../utils/operadores";
 import { tienePinOperadorSync, verificarPinOperadorSync } from "../utils/pins";
+import NumericKeypad from "./NumericKeypad";
 
 interface CambiarOperadorMaquinaModalProps {
   maquinaId: number;
