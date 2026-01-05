@@ -357,10 +357,17 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
   };
 
   const coloresTipo = colores[tipoSeleccionado] || { chica: {}, grande: {} };
-  const todosColores = new Set([
-    ...Object.keys(coloresTipo.chica || {}),
-    ...Object.keys(coloresTipo.grande || {}),
-  ]);
+  
+  // Filtrar colores para mostrar solo colores base (sin _GRANDE) y evitar duplicados
+  const todosColores = new Set<string>();
+  Object.keys(coloresTipo.chica || {}).forEach(color => {
+    const colorBase = color.replace(/_GRANDE$/, "");
+    todosColores.add(colorBase);
+  });
+  Object.keys(coloresTipo.grande || {}).forEach(color => {
+    const colorBase = color.replace(/_GRANDE$/, "");
+    todosColores.add(colorBase);
+  });
 
   return (
     <div className="p-6 lg:p-8 space-y-6 lg:space-y-8 animate-fade-in-up">
@@ -653,16 +660,24 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {Array.from(todosColores)
               .sort((a, b) => a.localeCompare(b))
-              .map((color, index) => {
-                const colorHex = coloresTipo.chica[color] || coloresTipo.grande[color] || "#808080";
-                const esChica = !!coloresTipo.chica[color];
-                const esGrande = !!coloresTipo.grande[color];
-                const esPersonalizado = coloresPersonalizados[tipoSeleccionado]?.chica[color] || 
-                                       coloresPersonalizados[tipoSeleccionado]?.grande[color];
+              .map((colorBase, index) => {
+                // Buscar color hex del color base (puede estar como colorBase o colorBase_GRANDE)
+                const colorHex = coloresTipo.chica[colorBase] || coloresTipo.grande[colorBase] || 
+                                coloresTipo.chica[`${colorBase}_GRANDE`] || coloresTipo.grande[`${colorBase}_GRANDE`] || "#808080";
+                
+                // Verificar si existe en chica o grande (con o sin _GRANDE)
+                const esChica = !!(coloresTipo.chica[colorBase] || coloresTipo.chica[`${colorBase}_GRANDE`]);
+                const esGrande = !!(coloresTipo.grande[colorBase] || coloresTipo.grande[`${colorBase}_GRANDE`]);
+                
+                // Verificar si es personalizado (en chica o grande, con o sin _GRANDE)
+                const esPersonalizado = !!(coloresPersonalizados[tipoSeleccionado]?.chica[colorBase] || 
+                                          coloresPersonalizados[tipoSeleccionado]?.grande[colorBase] ||
+                                          coloresPersonalizados[tipoSeleccionado]?.chica[`${colorBase}_GRANDE`] || 
+                                          coloresPersonalizados[tipoSeleccionado]?.grande[`${colorBase}_GRANDE`]);
 
                 return (
                   <div
-                    key={color}
+                    key={colorBase}
                     className="card-elegant rounded-xl p-4 group/item animate-fade-in-up"
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
@@ -676,7 +691,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                       {/* Nombre del color */}
                       <div className="flex-1 min-w-0">
                         <h3 className="text-white font-semibold text-sm truncate mb-1.5">
-                          {limpiarNombre(color, tipoSeleccionado)}
+                          {limpiarNombre(colorBase, tipoSeleccionado)}
                         </h3>
                         <div className="flex flex-wrap gap-1.5">
                           {esChica && (
@@ -695,8 +710,8 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                       <div className="flex gap-1.5 flex-shrink-0">
                         <button
                           onClick={async () => {
-                            const minimoActual = await obtenerMinimoMaterial(tipoSeleccionado, color);
-                            setItemParaMinimo({ tipo: "material", tipoMaterial: tipoSeleccionado, color });
+                            const minimoActual = await obtenerMinimoMaterial(tipoSeleccionado, colorBase);
+                            setItemParaMinimo({ tipo: "material", tipoMaterial: tipoSeleccionado, color: colorBase });
                             setValorMinimo(minimoActual > 0 ? minimoActual.toString() : "");
                             setShowConfigurarMinimoModal(true);
                           }}
@@ -706,11 +721,15 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                           ⚙️
                         </button>
                         <button
-                          onClick={() => handleEliminarColor(
-                            tipoSeleccionado,
-                            esChica ? "chica" : "grande",
-                            color
-                          )}
+                          onClick={() => {
+                            // Eliminar ambas variantes si existen
+                            if (esChica) {
+                              handleEliminarColor(tipoSeleccionado, "chica", colorBase);
+                            }
+                            if (esGrande) {
+                              handleEliminarColor(tipoSeleccionado, "grande", `${colorBase}_GRANDE`);
+                            }
+                          }}
                           className="opacity-0 group-hover/item:opacity-100 bg-gradient-to-r from-[#ff4757] to-[#cc3846] hover:from-[#ff5f6d] hover:to-[#ff4757] text-white px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover-lift"
                           title="Eliminar color"
                         >
