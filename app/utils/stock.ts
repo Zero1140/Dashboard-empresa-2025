@@ -1,6 +1,8 @@
 import { obtenerColoresCombinados } from "./colores";
+import { supabase, isSupabaseConfigured } from "./supabase";
 
 const STORAGE_KEY_STOCK = "gst3d_stock";
+const STOCK_ID = "stock_global";
 
 export interface StockColor {
   tipo: string;
@@ -14,9 +16,80 @@ export interface StockPorTipo {
   };
 }
 
-// Obtener stock actual
-export function obtenerStock(): StockPorTipo {
+/**
+ * Carga stock desde Supabase
+ */
+async function cargarStockDesdeSupabase(): Promise<StockPorTipo> {
+  if (!isSupabaseConfigured()) return {};
+  
+  try {
+    const { data, error } = await supabase
+      .from('stock')
+      .select('stock_data')
+      .eq('id', STOCK_ID)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('Error al cargar stock de Supabase:', error);
+      return {};
+    }
+    
+    if (!data || !data.stock_data) return {};
+    
+    const stock = data.stock_data as StockPorTipo;
+    
+    // Guardar en localStorage como caché
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify(stock));
+    }
+    
+    return asegurarStockCompleto(stock);
+  } catch (error) {
+    console.error('Error al cargar stock de Supabase:', error);
+    return {};
+  }
+}
+
+/**
+ * Guarda stock en Supabase
+ */
+async function guardarStockEnSupabase(stock: StockPorTipo): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  
+  try {
+    const { error } = await supabase
+      .from('stock')
+      .upsert({
+        id: STOCK_ID,
+        stock_data: stock,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    
+    if (error) {
+      console.error('Error al guardar stock en Supabase:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error al guardar stock en Supabase:', error);
+    return false;
+  }
+}
+
+// Obtener stock actual (versión asíncrona)
+export async function obtenerStock(): Promise<StockPorTipo> {
   if (typeof window === "undefined") return {};
+  
+  // Intentar cargar desde Supabase primero
+  if (isSupabaseConfigured()) {
+    const stock = await cargarStockDesdeSupabase();
+    if (Object.keys(stock).length > 0) {
+      return stock;
+    }
+  }
+  
+  // Fallback a localStorage
   const stored = localStorage.getItem(STORAGE_KEY_STOCK);
   if (!stored) {
     // Inicializar stock en 0 para todos los colores
@@ -31,8 +104,23 @@ export function obtenerStock(): StockPorTipo {
   }
 }
 
+// Versión síncrona para compatibilidad
+export function obtenerStockSync(): StockPorTipo {
+  if (typeof window === "undefined") return {};
+  const stored = localStorage.getItem(STORAGE_KEY_STOCK);
+  if (!stored) {
+    return {};
+  }
+  try {
+    const stock = JSON.parse(stored);
+    return asegurarStockCompleto(stock);
+  } catch {
+    return {};
+  }
+}
+
 // Inicializar stock en 0
-function inicializarStock(): StockPorTipo {
+async function inicializarStock(): Promise<StockPorTipo> {
   const stock: StockPorTipo = {};
   // Usar colores combinados para incluir colores personalizados
   const coloresCombinados = obtenerColoresCombinados();
@@ -45,7 +133,7 @@ function inicializarStock(): StockPorTipo {
       stock[tipo][color] = 0;
     });
   });
-  guardarStock(stock);
+  await guardarStock(stock);
   return stock;
 }
 
@@ -67,19 +155,24 @@ function asegurarStockCompleto(stock: StockPorTipo): StockPorTipo {
       }
     });
   });
-  guardarStock(stockCompleto);
+  // No guardar aquí, se guardará cuando se llame explícitamente
   return stockCompleto;
 }
 
-// Guardar stock
-function guardarStock(stock: StockPorTipo): void {
+// Guardar stock (versión asíncrona)
+async function guardarStock(stock: StockPorTipo): Promise<void> {
   if (typeof window === "undefined") return;
+  
+  // Guardar en localStorage primero (para respuesta inmediata)
   localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify(stock));
+  
+  // Guardar en Supabase (asíncrono)
+  await guardarStockEnSupabase(stock);
 }
 
-// Sumar al stock
-export function sumarStock(tipo: string, color: string, cantidad: number): void {
-  let stock = obtenerStock();
+// Sumar al stock (versión asíncrona)
+export async function sumarStock(tipo: string, color: string, cantidad: number): Promise<void> {
+  let stock = await obtenerStock();
   if (!stock[tipo]) {
     stock[tipo] = {};
   }
@@ -89,22 +182,49 @@ export function sumarStock(tipo: string, color: string, cantidad: number): void 
   stock[tipo][color] += cantidad;
   // Asegurar que el stock esté completo (incluye colores personalizados)
   stock = asegurarStockCompleto(stock);
+  await guardarStock(stock);
 }
 
-// Restar del stock
-export function restarStock(tipo: string, color: string, cantidad: number): void {
-  let stock = obtenerStock();
+// Versión síncrona para compatibilidad
+export function sumarStockSync(tipo: string, color: string, cantidad: number): void {
+  let stock = obtenerStockSync();
+  if (!stock[tipo]) {
+    stock[tipo] = {};
+  }
+  if (stock[tipo][color] === undefined) {
+    stock[tipo][color] = 0;
+  }
+  stock[tipo][color] += cantidad;
+  stock = asegurarStockCompleto(stock);
+  guardarStock(stock);
+}
+
+// Restar del stock (versión asíncrona)
+export async function restarStock(tipo: string, color: string, cantidad: number): Promise<void> {
+  let stock = await obtenerStock();
   if (!stock[tipo] || stock[tipo][color] === undefined) {
     return;
   }
   stock[tipo][color] = Math.max(0, stock[tipo][color] - cantidad);
   // Asegurar que el stock esté completo (incluye colores personalizados)
   stock = asegurarStockCompleto(stock);
+  await guardarStock(stock);
 }
 
-// Establecer stock manualmente
-export function establecerStock(tipo: string, color: string, cantidad: number): void {
-  let stock = obtenerStock();
+// Versión síncrona para compatibilidad
+export function restarStockSync(tipo: string, color: string, cantidad: number): void {
+  let stock = obtenerStockSync();
+  if (!stock[tipo] || stock[tipo][color] === undefined) {
+    return;
+  }
+  stock[tipo][color] = Math.max(0, stock[tipo][color] - cantidad);
+  stock = asegurarStockCompleto(stock);
+  guardarStock(stock);
+}
+
+// Establecer stock manualmente (versión asíncrona)
+export async function establecerStock(tipo: string, color: string, cantidad: number): Promise<void> {
+  let stock = await obtenerStock();
   if (!stock[tipo]) {
     stock[tipo] = {};
   }
@@ -113,12 +233,66 @@ export function establecerStock(tipo: string, color: string, cantidad: number): 
   // Asegurar que el stock esté completo después de establecer un valor
   // Esto garantiza que nuevos colores personalizados se incluyan
   stock = asegurarStockCompleto(stock);
+  await guardarStock(stock);
+}
+
+// Versión síncrona para compatibilidad
+export function establecerStockSync(tipo: string, color: string, cantidad: number): void {
+  let stock = obtenerStockSync();
+  if (!stock[tipo]) {
+    stock[tipo] = {};
+  }
+  stock[tipo][color] = Math.max(0, cantidad);
+  stock = asegurarStockCompleto(stock);
+  guardarStock(stock);
 }
 
 // Limpiar stock
-export function limpiarStock(): void {
+export async function limpiarStock(): Promise<void> {
   if (typeof window === "undefined") return;
   localStorage.removeItem(STORAGE_KEY_STOCK);
+  
+  // Limpiar en Supabase también
+  if (isSupabaseConfigured()) {
+    try {
+      await supabase.from('stock').delete().eq('id', STOCK_ID);
+    } catch (error) {
+      console.error('Error al limpiar stock de Supabase:', error);
+    }
+  }
+}
+
+/**
+ * Suscripción Realtime a cambios en stock
+ */
+export function suscribirStockRealtime(
+  callback: (stock: StockPorTipo) => void
+): () => void {
+  if (!isSupabaseConfigured()) {
+    return () => {};
+  }
+  
+  const subscription = supabase
+    .channel('stock_changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*', // INSERT, UPDATE, DELETE
+        schema: 'public',
+        table: 'stock',
+        filter: `id=eq.${STOCK_ID}`
+      },
+      async () => {
+        // Recargar stock desde Supabase cuando hay cambios
+        const nuevoStock = await cargarStockDesdeSupabase();
+        callback(nuevoStock);
+      }
+    )
+    .subscribe();
+  
+  return () => {
+    subscription.unsubscribe();
+  };
 }
 
 

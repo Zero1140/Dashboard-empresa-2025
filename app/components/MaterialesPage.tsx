@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { coloresPorTipo, limpiarNombre, OPERADORES } from "../data";
-import { obtenerColoresCombinados, obtenerColoresPersonalizados, eliminarColor } from "../utils/colores";
+import { obtenerColoresCombinados, obtenerColoresCombinadosSync, obtenerColoresPersonalizados, eliminarColor, guardarColoresPersonalizados } from "../utils/colores";
 import { obtenerOperadoresCombinados, agregarOperador, eliminarOperador } from "../utils/operadores";
-import { obtenerCategoriasArray, agregarCategoria, eliminarCategoria, agregarItemACategoria, eliminarItemDeCategoria, Categoria } from "../utils/categorias";
+import { obtenerCategoriasArray, obtenerCategoriasArraySync, agregarCategoria, eliminarCategoria, agregarItemACategoria, eliminarItemDeCategoria, Categoria } from "../utils/categorias";
+import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { obtenerMinimoMaterial, obtenerMinimoCategoria, establecerMinimoMaterial, establecerMinimoCategoria, eliminarMinimoMaterial, eliminarMinimoCategoria } from "../utils/stockMinimos";
 import { obtenerPinsOperadores, establecerPinOperador, eliminarPinOperador, tienePinOperador } from "../utils/pins";
 
@@ -69,9 +70,13 @@ export default function MaterialesPage() {
     }
     
     // Cargar operadores, categorías y PINs
-    setOperadores(obtenerOperadoresCombinados());
-    setCategorias(obtenerCategoriasArray());
-    setPins(obtenerPinsOperadores());
+    const cargarDatos = async () => {
+      setOperadores(obtenerOperadoresCombinados());
+      const cats = await obtenerCategoriasArray();
+      setCategorias(cats);
+      setPins(obtenerPinsOperadores());
+    };
+    cargarDatos();
   }, []);
 
   // Escuchar cambios en operadores, categorías y PINs
@@ -82,8 +87,9 @@ export default function MaterialesPage() {
       setOperadores(obtenerOperadoresCombinados());
     };
     
-    const handleCategoriasActualizadas = () => {
-      setCategorias(obtenerCategoriasArray());
+    const handleCategoriasActualizadas = async () => {
+      const nuevasCategorias = await obtenerCategoriasArray();
+      setCategorias(nuevasCategorias);
     };
     
     const handlePinsActualizados = () => {
@@ -101,8 +107,16 @@ export default function MaterialesPage() {
     };
   }, []);
 
-  // Combinar colores originales con personalizados
-  const colores = obtenerColoresCombinados();
+  // Suscripción Realtime para categorías
+  useRealtimeSync({
+    onCategoriasChange: async (nuevasCategoriasData) => {
+      const nuevasCategorias = Object.values(nuevasCategoriasData);
+      setCategorias(nuevasCategorias);
+    },
+  });
+
+  // Combinar colores originales con personalizados (versión síncrona para renderizado)
+  const colores = obtenerColoresCombinadosSync();
 
   const handleAgregarColor = () => {
     if (!nuevoColor.nombre.trim() || !nuevoColor.hex) {
@@ -128,14 +142,10 @@ export default function MaterialesPage() {
     }
 
     setColoresPersonalizados(nuevosColores);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_COLORES_PERSONALIZADOS, JSON.stringify(nuevosColores));
-    }
-    
-    // Disparar evento para actualizar otros componentes
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("coloresActualizados"));
-    }
+    // Guardar en Supabase (asíncrono)
+    guardarColoresPersonalizados(nuevosColores).catch(err => 
+      console.error('Error al guardar colores personalizados:', err)
+    );
     
     // Resetear formulario
     setNuevoColor({
@@ -177,25 +187,28 @@ export default function MaterialesPage() {
       }
 
       setColoresPersonalizados(nuevosColores);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY_COLORES_PERSONALIZADOS, JSON.stringify(nuevosColores));
-      }
+      // Guardar en Supabase (asíncrono)
+      guardarColoresPersonalizados(nuevosColores).catch(err => 
+        console.error('Error al guardar colores personalizados:', err)
+      );
     } else {
       // Si es un color original, marcarlo como eliminado
-      eliminarColor(colorAEliminar.tipo, colorAEliminar.variante, colorAEliminar.nombre);
+      eliminarColor(colorAEliminar.tipo, colorAEliminar.variante, colorAEliminar.nombre).catch(err => 
+        console.error('Error al eliminar color:', err)
+      );
     }
     
     setShowEliminarModal(false);
     setColorAEliminar(null);
   };
 
-  const handleAgregarOperador = () => {
+  const handleAgregarOperador = async () => {
     if (!nuevoOperador.trim()) {
       alert("Por favor, ingresa un nombre de operador");
       return;
     }
 
-    agregarOperador(nuevoOperador);
+    await agregarOperador(nuevoOperador);
     setNuevoOperador("");
     setShowAgregarOperadorModal(false);
   };
@@ -205,9 +218,9 @@ export default function MaterialesPage() {
     setShowEliminarOperadorModal(true);
   };
 
-  const confirmarEliminarOperador = () => {
+  const confirmarEliminarOperador = async () => {
     if (operadorAEliminar) {
-      eliminarOperador(operadorAEliminar);
+      await eliminarOperador(operadorAEliminar);
       setShowEliminarOperadorModal(false);
       setOperadorAEliminar(null);
     }
@@ -236,9 +249,9 @@ export default function MaterialesPage() {
     setShowEliminarCategoriaModal(true);
   };
 
-  const confirmarEliminarCategoria = () => {
+  const confirmarEliminarCategoria = async () => {
     if (categoriaAEliminar) {
-      eliminarCategoria(categoriaAEliminar);
+      await eliminarCategoria(categoriaAEliminar);
       setShowEliminarCategoriaModal(false);
       setCategoriaAEliminar(null);
     }

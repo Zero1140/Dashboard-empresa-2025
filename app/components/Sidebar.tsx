@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { obtenerAlertasStock } from "../utils/stockMinimos";
-import { obtenerStock } from "../utils/stock";
-import { obtenerStockCategorias } from "../utils/stockCategorias";
-import { obtenerCategoriasArray } from "../utils/categorias";
+import { obtenerStockSync } from "../utils/stock";
+import { obtenerStockCategoriasSync } from "../utils/stockCategorias";
+import { obtenerCategoriasArraySync } from "../utils/categorias";
 import { obtenerColoresCombinados } from "../utils/colores";
 
 interface SidebarProps {
@@ -30,9 +30,9 @@ export default function Sidebar({
   useEffect(() => {
     const calcularAlertas = () => {
       if (modoEdicion) {
-        const stock = obtenerStock();
-        const stockCategorias = obtenerStockCategorias();
-        const categorias = obtenerCategoriasArray();
+        const stock = obtenerStockSync();
+        const stockCategorias = obtenerStockCategoriasSync();
+        const categorias = obtenerCategoriasArraySync();
         const coloresCombinados = obtenerColoresCombinados();
         const alertas = obtenerAlertasStock(stock, stockCategorias, coloresCombinados, categorias);
         setAlertasCount(alertas.length);

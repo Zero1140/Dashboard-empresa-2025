@@ -5,8 +5,12 @@ import { obtenerColoresCombinados } from "../utils/colores";
 import MachineCard from "./MachineCard";
 import { guardarImpresion, guardarCambioOperador, obtenerImpresiones, obtenerImpresionesSync, guardarCambioColor } from "../utils/storage";
 import { sumarStock } from "../utils/stock";
-import { restarStockCategoria, obtenerStockItem } from "../utils/stockCategorias";
-import { obtenerCategoriasArray, agregarCategoria, agregarItemACategoria } from "../utils/categorias";
+import { restarStockCategoria, obtenerStockItem, restarStockCategoriaSync } from "../utils/stockCategorias";
+import { obtenerCategoriasArray, agregarCategoria, agregarItemACategoria, obtenerCategoriasArraySync } from "../utils/categorias";
+import { obtenerOperadoresAsignados, guardarOperadoresAsignados } from "../utils/operadoresAsignados";
+import { obtenerColoresMaquinas, guardarColoresMaquinas } from "../utils/coloresMaquinas";
+import { obtenerContadoresEtiquetas, incrementarContadorEtiquetas, obtenerContadoresEtiquetasSync } from "../utils/contadorEtiquetas";
+import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { ImpresionEtiqueta, CambioOperador, CambioColor } from "../types";
 import { limpiarNombre, esLineaLibre } from "../data";
 
@@ -48,45 +52,67 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
   // Estado para almacenar colores seleccionados por máquina
   const [coloresPorMaquina, setColoresPorMaquina] = useState<Record<number, { chica: string; grande: string }>>({});
 
-  // Cargar estado desde localStorage al iniciar
+  // Cargar estado desde Supabase/localStorage al iniciar
   useEffect(() => {
-    // Cargar operadores asignados
-    const asignacionesGuardadas = localStorage.getItem("operadores_asignados");
-    if (asignacionesGuardadas) {
-      try {
-        setOperadoresAsignados(JSON.parse(asignacionesGuardadas));
-      } catch (e) {
-        console.error("Error al cargar asignaciones:", e);
+    const cargarDatosIniciales = async () => {
+      // Cargar operadores asignados desde Supabase
+      const asignaciones = await obtenerOperadoresAsignados();
+      if (Object.keys(asignaciones).length > 0) {
+        setOperadoresAsignados(asignaciones);
       }
-    }
 
-    // Cargar colores guardados
-    const coloresGuardados = localStorage.getItem(STORAGE_KEY_COLORES_MAQUINAS);
-    if (coloresGuardados) {
-      try {
-        setColoresPorMaquina(JSON.parse(coloresGuardados));
-      } catch (e) {
-        console.error("Error al cargar colores:", e);
+      // Cargar colores desde Supabase
+      const colores = await obtenerColoresMaquinas();
+      if (Object.keys(colores).length > 0) {
+        setColoresPorMaquina(colores);
       }
-    }
 
-    // Cargar impresiones (usar versión síncrona para carga inicial)
-    setImpresiones(obtenerImpresionesSync());
+      // Cargar impresiones (usar versión síncrona para carga inicial)
+      setImpresiones(obtenerImpresionesSync());
+    };
+
+    cargarDatosIniciales();
   }, []);
 
-  // Actualizar impresiones y contadores cuando cambien
+  // Suscripción Realtime para sincronización en tiempo real
+  useRealtimeSync({
+    onOperadoresAsignadosChange: (asignaciones) => {
+      setOperadoresAsignados(asignaciones);
+    },
+    onColoresMaquinasChange: (colores) => {
+      setColoresPorMaquina(colores);
+    },
+  });
+
+  // Cargar datos iniciales
   useEffect(() => {
-    const actualizarDatos = async () => {
+    const cargarDatosIniciales = async () => {
       const impresionesData = await obtenerImpresiones();
       setImpresiones(impresionesData);
-      setContadoresEtiquetas(obtenerContadoresEtiquetas());
+      const contadores = await obtenerContadoresEtiquetas();
+      setContadoresEtiquetas(contadores);
     };
     
-    actualizarDatos();
-    const interval = setInterval(actualizarDatos, 2000); // Actualizar cada 2 segundos
+    cargarDatosIniciales();
+  }, []);
+
+  // Actualizar impresiones cada 2 segundos (polling)
+  useEffect(() => {
+    const actualizarImpresiones = async () => {
+      const impresionesData = await obtenerImpresiones();
+      setImpresiones(impresionesData);
+    };
+    
+    actualizarImpresiones();
+    const interval = setInterval(actualizarImpresiones, 2000);
 
     return () => clearInterval(interval);
   }, []);
+
+  // Suscripción Realtime a contador de etiquetas
+  useRealtimeSync({
+    onContadorEtiquetasChange: setContadoresEtiquetas,
+  });
 
   // Calcular conteo de etiquetas por operador - SOLO DEL DÍA ACTUAL
   const conteoPorOperador = useMemo(() => {
@@ -120,7 +146,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
     return conteo;
   }, [impresiones]);
 
-  const handleCambiarOperador = (maquinaId: number, nuevoOperador: string) => {
+  const handleCambiarOperador = async (maquinaId: number, nuevoOperador: string) => {
     const operadorAnterior = operadoresAsignados[maquinaId] || "-";
     const ahora = new Date();
 
@@ -130,7 +156,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
       [maquinaId]: nuevoOperador,
     };
     setOperadoresAsignados(nuevasAsignaciones);
-    localStorage.setItem("operadores_asignados", JSON.stringify(nuevasAsignaciones));
+    await guardarOperadoresAsignados(nuevasAsignaciones);
 
     // Guardar cambio de operador en historial
     const cambio: CambioOperador = {
@@ -147,7 +173,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
     });
   };
 
-  const handleCambiarColorChica = (maquinaId: number, color: string) => {
+  const handleCambiarColorChica = async (maquinaId: number, color: string) => {
     const colorAnterior = coloresPorMaquina[maquinaId]?.chica || "";
     const ahora = new Date();
 
@@ -160,7 +186,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
       },
     };
     setColoresPorMaquina(nuevosColores);
-    localStorage.setItem(STORAGE_KEY_COLORES_MAQUINAS, JSON.stringify(nuevosColores));
+    await guardarColoresMaquinas(nuevosColores);
 
     // Guardar cambio de color en historial
     const cambio: CambioColor = {
@@ -176,7 +202,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
     guardarCambioColor(cambio);
   };
 
-  const handleCambiarColorGrande = (maquinaId: number, color: string) => {
+  const handleCambiarColorGrande = async (maquinaId: number, color: string) => {
     const colorAnterior = coloresPorMaquina[maquinaId]?.grande || "";
     const ahora = new Date();
 
@@ -189,7 +215,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
       },
     };
     setColoresPorMaquina(nuevosColores);
-    localStorage.setItem(STORAGE_KEY_COLORES_MAQUINAS, JSON.stringify(nuevosColores));
+    await guardarColoresMaquinas(nuevosColores);
 
     // Guardar cambio de color en historial
     const cambio: CambioColor = {
@@ -206,73 +232,54 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
   };
 
   // Función auxiliar para asegurar que existan las categorías necesarias
-  const asegurarCategoriasNecesarias = () => {
-    let categorias = obtenerCategoriasArray();
+  const asegurarCategoriasNecesarias = async () => {
+    let categorias = await obtenerCategoriasArray();
     
     // Verificar y crear categoría de Rollos de Etiquetas Chicas
     let categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
     if (!categoriaRollosChicas) {
-      agregarCategoria(NOMBRE_CATEGORIA_ROLLOS_CHICAS);
-      categorias = obtenerCategoriasArray();
+      await agregarCategoria(NOMBRE_CATEGORIA_ROLLOS_CHICAS);
+      categorias = await obtenerCategoriasArray();
       categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
     }
     if (categoriaRollosChicas && !categoriaRollosChicas.items.includes(ITEM_ROLLO_CHICAS)) {
-      agregarItemACategoria(categoriaRollosChicas.id, ITEM_ROLLO_CHICAS);
+      await agregarItemACategoria(categoriaRollosChicas.id, ITEM_ROLLO_CHICAS);
     }
     
     // Verificar y crear categoría de Rollos de Etiquetas Grandes
     let categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
     if (!categoriaRollosGrandes) {
-      agregarCategoria(NOMBRE_CATEGORIA_ROLLOS_GRANDES);
-      categorias = obtenerCategoriasArray();
+      await agregarCategoria(NOMBRE_CATEGORIA_ROLLOS_GRANDES);
+      categorias = await obtenerCategoriasArray();
       categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
     }
     if (categoriaRollosGrandes && !categoriaRollosGrandes.items.includes(ITEM_ROLLO_GRANDES)) {
-      agregarItemACategoria(categoriaRollosGrandes.id, ITEM_ROLLO_GRANDES);
+      await agregarItemACategoria(categoriaRollosGrandes.id, ITEM_ROLLO_GRANDES);
     }
     
     // Verificar y crear categoría de Cajas de 1k
     let categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
     if (!categoriaCajas) {
-      agregarCategoria(NOMBRE_CATEGORIA_CAJAS_1K);
-      categorias = obtenerCategoriasArray();
+      await agregarCategoria(NOMBRE_CATEGORIA_CAJAS_1K);
+      categorias = await obtenerCategoriasArray();
       categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
     }
     if (categoriaCajas && !categoriaCajas.items.includes(ITEM_CAJA_1K)) {
-      agregarItemACategoria(categoriaCajas.id, ITEM_CAJA_1K);
+      await agregarItemACategoria(categoriaCajas.id, ITEM_CAJA_1K);
     }
     
     // Verificar y crear categoría de Bolsas Selladas
     let categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
     if (!categoriaBolsas) {
-      agregarCategoria(NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
-      categorias = obtenerCategoriasArray();
+      await agregarCategoria(NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
+      categorias = await obtenerCategoriasArray();
       categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
     }
     if (categoriaBolsas && !categoriaBolsas.items.includes(ITEM_BOLSA_SELLADA)) {
-      agregarItemACategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA);
+      await agregarItemACategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA);
     }
   };
 
-  // Función auxiliar para obtener contadores de etiquetas impresas
-  const obtenerContadoresEtiquetas = (): { chicas: number; grandes: number } => {
-    if (typeof window === "undefined") return { chicas: 0, grandes: 0 };
-    const contadores = localStorage.getItem(STORAGE_KEY_CONTADOR_ETIQUETAS);
-    if (contadores) {
-      try {
-        return JSON.parse(contadores);
-      } catch {
-        return { chicas: 0, grandes: 0 };
-      }
-    }
-    return { chicas: 0, grandes: 0 };
-  };
-
-  // Función auxiliar para guardar contadores de etiquetas impresas
-  const guardarContadoresEtiquetas = (contadores: { chicas: number; grandes: number }): void => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEY_CONTADOR_ETIQUETAS, JSON.stringify(contadores));
-  };
 
   const handleImprimir = (
     maquinaId: number,
@@ -289,8 +296,10 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
       return;
     }
     
-    // Asegurar que existan las categorías necesarias
-    asegurarCategoriasNecesarias();
+    // Asegurar que existan las categorías necesarias (asíncrono)
+    asegurarCategoriasNecesarias().catch(err => 
+      console.error('Error al asegurar categorías:', err)
+    );
     
     // Extraer el color del formato "tipo::color"
     const colorChica = etiquetaChica.includes("::") ? etiquetaChica.split("::")[1] : etiquetaChica;
@@ -320,50 +329,60 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
       setImpresiones([...impresiones, impresion]);
     });
 
-    // Sumar al stock con las cantidades seleccionadas
-    sumarStock(tipoChica, colorChica, cantidadChicas);
-    sumarStock(tipoGrande, colorGrande, cantidadGrandes);
+    // Sumar al stock con las cantidades seleccionadas (asíncrono)
+    sumarStock(tipoChica, colorChica, cantidadChicas).catch(err => 
+      console.error('Error al sumar stock:', err)
+    );
+    sumarStock(tipoGrande, colorGrande, cantidadGrandes).catch(err => 
+      console.error('Error al sumar stock:', err)
+    );
 
-    // Obtener contadores actuales
-    const contadores = obtenerContadoresEtiquetas();
-    contadores.chicas += cantidadChicas;
-    contadores.grandes += cantidadGrandes;
-
-    // Verificar si se alcanzaron 1000 etiquetas chicas
-    if (contadores.chicas >= 1000) {
-      const rollosADescontar = Math.floor(contadores.chicas / 1000);
-      contadores.chicas = contadores.chicas % 1000; // Mantener el resto
+    // Incrementar contador de etiquetas (asíncrono)
+    incrementarContadorEtiquetas(cantidadChicas, cantidadGrandes).then(async () => {
+      // Obtener contadores actuales después de incrementar
+      const contadores = await obtenerContadoresEtiquetas();
       
-      // Obtener categoría de rollos chicas
-      const categorias = obtenerCategoriasArray();
-      const categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
-      if (categoriaRollosChicas) {
-        restarStockCategoria(categoriaRollosChicas.id, ITEM_ROLLO_CHICAS, rollosADescontar);
-        console.log(`Se descontaron ${rollosADescontar} rollo(s) de etiquetas chicas`);
+      // Verificar si se alcanzaron 1000 etiquetas chicas
+      if (contadores.chicas >= 1000) {
+        const rollosADescontar = Math.floor(contadores.chicas / 1000);
+        const nuevoContadorChicas = contadores.chicas % 1000; // Mantener el resto
+        
+        // Obtener categoría de rollos chicas
+        const categorias = await obtenerCategoriasArray();
+        const categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
+        if (categoriaRollosChicas) {
+          await restarStockCategoria(categoriaRollosChicas.id, ITEM_ROLLO_CHICAS, rollosADescontar);
+          console.log(`Se descontaron ${rollosADescontar} rollo(s) de etiquetas chicas`);
+          
+          // Actualizar contador después de descontar
+          await incrementarContadorEtiquetas(-contadores.chicas + nuevoContadorChicas, 0);
+        }
       }
-    }
 
-    // Verificar si se alcanzaron 1000 etiquetas grandes
-    if (contadores.grandes >= 1000) {
-      const rollosADescontar = Math.floor(contadores.grandes / 1000);
-      contadores.grandes = contadores.grandes % 1000; // Mantener el resto
-      
-      // Obtener categoría de rollos grandes
-      const categorias = obtenerCategoriasArray();
-      const categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
-      if (categoriaRollosGrandes) {
-        restarStockCategoria(categoriaRollosGrandes.id, ITEM_ROLLO_GRANDES, rollosADescontar);
-        console.log(`Se descontaron ${rollosADescontar} rollo(s) de etiquetas grandes`);
+      // Verificar si se alcanzaron 1000 etiquetas grandes
+      if (contadores.grandes >= 1000) {
+        const rollosADescontar = Math.floor(contadores.grandes / 1000);
+        const nuevoContadorGrandes = contadores.grandes % 1000; // Mantener el resto
+        
+        // Obtener categoría de rollos grandes
+        const categorias = await obtenerCategoriasArray();
+        const categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
+        if (categoriaRollosGrandes) {
+          await restarStockCategoria(categoriaRollosGrandes.id, ITEM_ROLLO_GRANDES, rollosADescontar);
+          console.log(`Se descontaron ${rollosADescontar} rollo(s) de etiquetas grandes`);
+          
+          // Actualizar contador después de descontar
+          await incrementarContadorEtiquetas(0, -contadores.grandes + nuevoContadorGrandes);
+        }
       }
-    }
-
-    // Guardar contadores actualizados
-    guardarContadoresEtiquetas(contadores);
+    }).catch(err => {
+      console.error('Error al actualizar contador de etiquetas:', err);
+    });
 
     // Descontar siempre de Cajas de 1k y Bolsas Selladas
     // Cada bobina (1 chica + 1 grande) descuenta 1 caja y 1 bolsa
     // Si se imprimen múltiples bobinas, se descuenta 1 por cada bobina
-    const categorias = obtenerCategoriasArray();
+    const categorias = await obtenerCategoriasArray();
     const categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
     const categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
     
@@ -372,10 +391,14 @@ export default function MaquinasPage({ modoEdicion, supervisorActual }: Maquinas
     const bobinasCreadas = Math.min(cantidadChicas, cantidadGrandes);
     
     if (categoriaCajas && bobinasCreadas > 0) {
-      restarStockCategoria(categoriaCajas.id, ITEM_CAJA_1K, bobinasCreadas);
+      restarStockCategoria(categoriaCajas.id, ITEM_CAJA_1K, bobinasCreadas).catch(err => 
+        console.error('Error al restar stock categoría:', err)
+      );
     }
     if (categoriaBolsas && bobinasCreadas > 0) {
-      restarStockCategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA, bobinasCreadas);
+      restarStockCategoria(categoriaBolsas.id, ITEM_BOLSA_SELLADA, bobinasCreadas).catch(err => 
+        console.error('Error al restar stock categoría:', err)
+      );
     }
 
     // Simular impresión (aquí se conectaría con la API del backend)

@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import { limpiarNombre } from "../data";
 import { obtenerColoresCombinados } from "../utils/colores";
 import { obtenerStock, establecerStock, StockPorTipo } from "../utils/stock";
-import { obtenerCategoriasArray } from "../utils/categorias";
+import { obtenerCategoriasArray, obtenerCategoriasArraySync, suscribirCategoriasRealtime } from "../utils/categorias";
+import { obtenerStock, obtenerStockSync, suscribirStockRealtime } from "../utils/stock";
+import { obtenerStockCategorias, obtenerStockCategoriasSync, suscribirStockCategoriasRealtime } from "../utils/stockCategorias";
+import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { obtenerStockCategorias, establecerStockCategoria, StockCategoria } from "../utils/stockCategorias";
 import { obtenerMinimoMaterial, obtenerMinimoCategoria, obtenerAlertasStock, AlertaStock } from "../utils/stockMinimos";
 
@@ -14,57 +17,76 @@ export default function StockPage() {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>("");
   const [stock, setStock] = useState<StockPorTipo>({});
   const [stockCategorias, setStockCategorias] = useState<StockCategoria>({});
-  const [categorias, setCategorias] = useState(obtenerCategoriasArray());
+  const [categorias, setCategorias] = useState(obtenerCategoriasArraySync());
   const [editingColor, setEditingColor] = useState<{ tipo: string; color: string } | null>(null);
   const [editingItem, setEditingItem] = useState<{ categoriaId: string; itemNombre: string } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [alertas, setAlertas] = useState<AlertaStock[]>([]);
 
-  // Cargar stock
+  // Cargar stock desde Supabase al iniciar
   useEffect(() => {
-    setStock(obtenerStock());
-    setStockCategorias(obtenerStockCategorias());
-    const cats = obtenerCategoriasArray();
-    setCategorias(cats);
-    if (cats.length > 0 && !categoriaSeleccionada) {
-      setCategoriaSeleccionada(cats[0].id);
-    }
-  }, []);
-
-  // Actualizar stock periódicamente y calcular alertas
-  useEffect(() => {
-    const actualizarDatos = () => {
-      const nuevoStock = obtenerStock();
-      const nuevoStockCategorias = obtenerStockCategorias();
-      const nuevasCategorias = obtenerCategoriasArray();
-      const coloresCombinados = obtenerColoresCombinados();
+    const cargarDatos = async () => {
+      const nuevoStock = await obtenerStock();
+      const nuevoStockCategorias = await obtenerStockCategorias();
+      const cats = await obtenerCategoriasArray();
       
       setStock(nuevoStock);
       setStockCategorias(nuevoStockCategorias);
-      setCategorias(nuevasCategorias);
-      
-      // Calcular alertas
+      setCategorias(cats);
+      if (cats.length > 0 && !categoriaSeleccionada) {
+        setCategoriaSeleccionada(cats[0].id);
+      }
+    };
+    cargarDatos();
+  }, []);
+
+  // Suscripción Realtime para sincronización en tiempo real
+  useRealtimeSync({
+    onStockChange: (nuevoStock) => {
+      setStock(nuevoStock);
+      // Recalcular alertas cuando cambia el stock
+      const coloresCombinados = obtenerColoresCombinados();
       const nuevasAlertas = obtenerAlertasStock(
         nuevoStock,
+        stockCategorias,
+        coloresCombinados,
+        categorias
+      );
+      setAlertas(nuevasAlertas);
+    },
+    onStockCategoriasChange: (nuevoStockCategorias) => {
+      setStockCategorias(nuevoStockCategorias);
+      // Recalcular alertas cuando cambia el stock de categorías
+      const coloresCombinados = obtenerColoresCombinados();
+      const nuevasAlertas = obtenerAlertasStock(
+        stock,
         nuevoStockCategorias,
+        coloresCombinados,
+        categorias
+      );
+      setAlertas(nuevasAlertas);
+    },
+    onCategoriasChange: async (nuevasCategoriasData) => {
+      const nuevasCategorias = Object.values(nuevasCategoriasData);
+      setCategorias(nuevasCategorias);
+      // Recalcular alertas cuando cambian las categorías
+      const coloresCombinados = obtenerColoresCombinados();
+      const nuevasAlertas = obtenerAlertasStock(
+        stock,
+        stockCategorias,
         coloresCombinados,
         nuevasCategorias
       );
       setAlertas(nuevasAlertas);
-    };
-
-    actualizarDatos();
-    const interval = setInterval(actualizarDatos, 2000); // Actualizar cada 2 segundos
-
-    return () => clearInterval(interval);
-  }, []);
+    },
+  });
 
   // Escuchar cambios en categorías
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    const handleCategoriasActualizadas = () => {
-      const nuevasCategorias = obtenerCategoriasArray();
+    const handleCategoriasActualizadas = async () => {
+      const nuevasCategorias = await obtenerCategoriasArray();
       setCategorias(nuevasCategorias);
       // Usar el valor actualizado de nuevasCategorias en lugar de categorias del estado
       if (nuevasCategorias.length > 0 && !categoriaSeleccionada) {
@@ -80,9 +102,9 @@ export default function StockPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    const handleColoresActualizados = () => {
+    const handleColoresActualizados = async () => {
       // Cuando se agregan colores personalizados, asegurar que estén en el stock
-      const nuevoStock = obtenerStock();
+      const nuevoStock = await obtenerStock();
       setStock(nuevoStock);
     };
     
@@ -95,11 +117,12 @@ export default function StockPage() {
     setEditValue(stockActual.toString());
   };
 
-  const handleSaveStock = () => {
+  const handleSaveStock = async () => {
     if (editingColor) {
       const cantidad = parseInt(editValue) || 0;
-      establecerStock(editingColor.tipo, editingColor.color, cantidad);
-      setStock(obtenerStock());
+      await establecerStock(editingColor.tipo, editingColor.color, cantidad);
+      const nuevoStock = await obtenerStock();
+      setStock(nuevoStock);
       setEditingColor(null);
       setEditValue("");
     }
@@ -116,11 +139,12 @@ export default function StockPage() {
     setEditValue(stockActual.toString());
   };
 
-  const handleSaveStockCategoria = () => {
+  const handleSaveStockCategoria = async () => {
     if (editingItem) {
       const cantidad = parseInt(editValue) || 0;
-      establecerStockCategoria(editingItem.categoriaId, editingItem.itemNombre, cantidad);
-      setStockCategorias(obtenerStockCategorias());
+      await establecerStockCategoria(editingItem.categoriaId, editingItem.itemNombre, cantidad);
+      const nuevoStockCategorias = await obtenerStockCategorias();
+      setStockCategorias(nuevoStockCategorias);
       setEditingItem(null);
       setEditValue("");
     }
