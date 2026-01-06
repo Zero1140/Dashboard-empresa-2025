@@ -69,7 +69,7 @@ export function puedeImprimir(maquinaId: number, esAdministrador: boolean, canti
     return cantidadEtiquetas <= MAX_ETIQUETAS_ADMIN;
   }
   
-  // Operadores: validar cantidad (máximo 1) y tiempo (cada 2 minutos)
+  // Operadores: validar cantidad (máximo 2 etiquetas = 1 bobina)
   if (cantidadEtiquetas > MAX_ETIQUETAS_OPERADOR) {
     return false;
   }
@@ -80,7 +80,7 @@ export function puedeImprimir(maquinaId: number, esAdministrador: boolean, canti
   const historial = obtenerHistorialRateLimit();
   const entrada = historial[maquinaId];
   
-  if (!entrada) {
+  if (!entrada || !entrada.timestamps || entrada.timestamps.length === 0) {
     return true; // No hay historial, se puede imprimir
   }
   
@@ -88,21 +88,13 @@ export function puedeImprimir(maquinaId: number, esAdministrador: boolean, canti
   const ahora = Date.now();
   const limiteTiempo = ahora - VENTANA_TIEMPO_OPERADOR_MS;
   
-  // Filtrar timestamps y cantidades que están dentro de la ventana de tiempo
-  const indicesValidos: number[] = [];
-  entrada.timestamps.forEach((ts, index) => {
-    if (ts > limiteTiempo) {
-      indicesValidos.push(index);
-    }
-  });
-  
-  const timestampsActualizados = entrada.timestamps.filter((_, index) => indicesValidos.includes(index));
-  const cantidadesActualizadas = entrada.cantidadEtiquetas.filter((_, index) => indicesValidos.includes(index));
+  // Filtrar timestamps que están dentro de la ventana de tiempo
+  const timestampsActualizados = entrada.timestamps.filter((ts) => ts > limiteTiempo);
   
   // IMPORTANTE: Actualizar el historial limpiado para que los timestamps antiguos se eliminen permanentemente
   if (timestampsActualizados.length !== entrada.timestamps.length) {
     entrada.timestamps = timestampsActualizados;
-    entrada.cantidadEtiquetas = cantidadesActualizadas;
+    entrada.cantidadEtiquetas = entrada.cantidadEtiquetas.filter((_, index) => entrada.timestamps[index] > limiteTiempo);
     historial[maquinaId] = entrada;
     guardarHistorialRateLimit(historial);
   }
@@ -139,8 +131,10 @@ export function registrarIntentoImpresion(maquinaId: number, esAdministrador: bo
   // Obtener o crear entrada para esta máquina
   let entrada = historial[maquinaId] || { maquinaId, timestamps: [], cantidadEtiquetas: [] };
   
-  // Limpiar timestamps antiguos (fuera de la ventana de 2 minutos)
+  // Limpiar timestamps antiguos (fuera de la ventana de 2 minutos) - VERIFICACIÓN ATÓMICA
   const limiteTiempo = ahora - VENTANA_TIEMPO_OPERADOR_MS;
+  
+  // Filtrar timestamps y cantidades que están dentro de la ventana de tiempo
   const indicesValidos: number[] = [];
   entrada.timestamps.forEach((ts, index) => {
     if (ts > limiteTiempo) {
@@ -148,11 +142,15 @@ export function registrarIntentoImpresion(maquinaId: number, esAdministrador: bo
     }
   });
   
+  // Filtrar usando los índices válidos para mantener sincronización entre timestamps y cantidades
   entrada.timestamps = entrada.timestamps.filter((_, index) => indicesValidos.includes(index));
   entrada.cantidadEtiquetas = entrada.cantidadEtiquetas.filter((_, index) => indicesValidos.includes(index));
   
   // Verificar si se puede imprimir (no debe haber impresiones en los últimos 2 minutos)
   if (entrada.timestamps.length > 0) {
+    // Actualizar historial con la limpieza realizada antes de retornar false
+    historial[maquinaId] = entrada;
+    guardarHistorialRateLimit(historial);
     return false; // Límite de tiempo alcanzado
   }
   

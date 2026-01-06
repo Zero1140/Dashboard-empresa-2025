@@ -43,12 +43,14 @@ export default function VirtualKeyboard({
 
   const handleNumberClick = (num: string) => {
     if (value.length < maxLength) {
-      onChange(value + num);
+      const nuevoValor = value + num;
+      onChange(nuevoValor);
     }
   };
 
   const handleDelete = () => {
-    onChange(value.slice(0, -1));
+    const nuevoValor = value.slice(0, -1);
+    onChange(nuevoValor);
   };
 
   const handleClear = () => {
@@ -192,27 +194,47 @@ export default function VirtualKeyboard({
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                   <button
                     key={num}
-                    onClick={() => handleNumberClick(num.toString())}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleNumberClick(num.toString());
+                    }}
                     className="bg-gradient-to-br from-[#1a2332] to-[#0f1419] hover:from-[#2d3748] hover:to-[#1a2332] text-white font-bold text-xl py-4 px-4 rounded-xl border border-[#2d3748] hover:border-[#00d4ff]/50 transition-all duration-200 shadow-md hover:shadow-lg hover-lift active:scale-95"
                   >
                     {num}
                   </button>
                 ))}
                 <button
-                  onClick={handleClear}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleClear();
+                  }}
                   className="bg-gradient-to-br from-[#ff4757]/20 to-[#cc3846]/20 hover:from-[#ff4757]/30 hover:to-[#cc3846]/30 text-[#ff6b7a] font-bold text-sm py-4 px-4 rounded-xl border border-[#ff4757]/30 hover:border-[#ff4757]/50 transition-all duration-200 shadow-md hover:shadow-lg hover-lift active:scale-95"
                   title="Limpiar"
                 >
                   🗑️
                 </button>
                 <button
-                  onClick={() => handleNumberClick("0")}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleNumberClick("0");
+                  }}
                   className="bg-gradient-to-br from-[#1a2332] to-[#0f1419] hover:from-[#2d3748] hover:to-[#1a2332] text-white font-bold text-xl py-4 px-4 rounded-xl border border-[#2d3748] hover:border-[#00d4ff]/50 transition-all duration-200 shadow-md hover:shadow-lg hover-lift active:scale-95"
                 >
                   0
                 </button>
                 <button
-                  onClick={handleDelete}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDelete();
+                  }}
                   className="bg-gradient-to-br from-[#ffb800]/20 to-[#ff9500]/20 hover:from-[#ffb800]/30 hover:to-[#ff9500]/30 text-[#ffb800] font-bold text-xl py-4 px-4 rounded-xl border border-[#ffb800]/30 hover:border-[#ffb800]/50 transition-all duration-200 shadow-md hover:shadow-lg hover-lift active:scale-95"
                   title="Borrar"
                 >
@@ -220,7 +242,12 @@ export default function VirtualKeyboard({
                 </button>
               </div>
               <button
-                onClick={() => setIsVisible(false)}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsVisible(false);
+                }}
                 className="w-full bg-[#2d3748] hover:bg-[#4a5568] text-white font-bold text-sm py-3 px-4 rounded-xl border border-[#4a5568] hover:border-[#6a7488] transition-all duration-200 shadow-md hover:shadow-lg hover-lift active:scale-95"
               >
                 Ocultar Teclado
@@ -233,7 +260,12 @@ export default function VirtualKeyboard({
             <div className="grid grid-cols-2 gap-3 mt-4">
               {onEscape && (
                 <button
-                  onClick={onEscape}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEscape();
+                  }}
                   className="bg-[#2d3748] hover:bg-[#4a5568] text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 border border-[#4a5568] hover:border-[#6a7488] hover-lift"
                 >
                   Cancelar
@@ -241,7 +273,14 @@ export default function VirtualKeyboard({
               )}
               {onEnter && (
                 <button
-                  onClick={onEnter}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (value.length > 0) {
+                      onEnter();
+                    }
+                  }}
                   disabled={value.length === 0}
                   className="bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] disabled:from-[#2d3748] disabled:to-[#1a2332] disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-[#00d4ff]/30 hover:shadow-[#00d4ff]/50 disabled:shadow-none hover-lift"
                 >

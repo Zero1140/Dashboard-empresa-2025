@@ -328,19 +328,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     const cantidadTotalEtiquetas = cantidadChicas + cantidadGrandes;
     const esAdministrador = modoEdicion; // modoEdicion indica que es supervisor/administrador
     
-    // Verificar rate limiting según el tipo de usuario
-    if (!puedeImprimir(maquinaId, esAdministrador, cantidadTotalEtiquetas)) {
-      if (esAdministrador) {
-        alert(`⚠️ Límite de cantidad alcanzado.\n\nLos administradores pueden imprimir hasta 10 etiquetas por vez.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}`);
-      } else {
-        const tiempoRestante = obtenerTiempoRestante(maquinaId, esAdministrador);
-        const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
-        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 1 bobina (2 etiquetas: 1 chica + 1 grande) cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
-      }
-      return;
-    }
-    
-    // Registrar intento de impresión
+    // Registrar intento de impresión (esta función verifica y registra de forma atómica)
     if (!registrarIntentoImpresion(maquinaId, esAdministrador, cantidadTotalEtiquetas)) {
       if (esAdministrador) {
         alert(`⚠️ Límite de cantidad alcanzado.\n\nLos administradores pueden imprimir hasta 10 etiquetas por vez.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}`);
