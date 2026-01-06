@@ -17,8 +17,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  const performLogin = () => {
     setError("");
 
     if (!supervisorSeleccionado) {
@@ -42,6 +41,11 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
     setSupervisorSeleccionado("");
     setPassword("");
     setError("");
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    performLogin();
   };
 
   const handleClose = () => {
@@ -112,7 +116,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                   autoFocus={true}
                   passwordMode={true}
                   numericOnly={true}
-                  onEnter={handleLogin}
+                  onEnter={performLogin}
                   onEscape={handleClose}
                 />
               </div>
