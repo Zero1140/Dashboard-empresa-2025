@@ -331,11 +331,12 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     // Registrar intento de impresión (esta función verifica y registra de forma atómica)
     if (!registrarIntentoImpresion(maquinaId, esAdministrador, cantidadTotalEtiquetas)) {
       if (esAdministrador) {
-        alert(`⚠️ Límite de cantidad alcanzado.\n\nLos administradores pueden imprimir hasta 10 etiquetas por vez.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}`);
+        // Esto no debería ocurrir nunca ya que administradores no tienen límite
+        alert(`⚠️ Error inesperado. Por favor, contacta al administrador del sistema.`);
       } else {
         const tiempoRestante = obtenerTiempoRestante(maquinaId, esAdministrador);
         const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
-        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 1 bobina (2 etiquetas: 1 chica + 1 grande) cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 4 etiquetas (2 chicas + 2 grandes) cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
       }
       return;
     }
