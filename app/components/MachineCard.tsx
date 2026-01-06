@@ -296,7 +296,7 @@ export default function MachineCard({
             onChange={(e) => setCantidadBobinas(parseInt(e.target.value))}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
           >
-            {Array.from({ length: 11 }, (_, i) => i).map((num) => (
+            {Array.from({ length: modoEdicion ? 11 : 2 }, (_, i) => i).map((num) => (
               <option key={num} value={num}>
                 {num === 0 ? "0 (sin imprimir)" : `${num} ${num === 1 ? "bobina" : "bobinas"} (${num} chica + ${num} grande)`}
               </option>
@@ -306,6 +306,16 @@ export default function MachineCard({
             <p className="text-[#718096] text-xs mt-2 flex items-center gap-1">
               <span>💡</span>
               Se imprimirán {cantidadBobinas} etiqueta(s) chica(s) y {cantidadBobinas} etiqueta(s) grande(s)
+              {!modoEdicion && (
+                <span className="text-[#ffb800] ml-1">
+                  (Límite: 1 bobina cada 2 minutos)
+                </span>
+              )}
+              {modoEdicion && (
+                <span className="text-[#00d4ff] ml-1">
+                  (Límite: hasta 10 bobinas)
+                </span>
+              )}
             </p>
           )}
         </div>

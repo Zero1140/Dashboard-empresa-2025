@@ -324,19 +324,31 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       return;
     }
     
-    // Verificar rate limiting (máximo 2 clicks por hora por máquina)
-    if (!puedeImprimir(maquinaId)) {
-      const tiempoRestante = obtenerTiempoRestante(maquinaId);
-      const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
-      alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nSolo se permiten 2 impresiones por hora por máquina.\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+    // Calcular cantidad total de etiquetas (chicas + grandes)
+    const cantidadTotalEtiquetas = cantidadChicas + cantidadGrandes;
+    const esAdministrador = modoEdicion; // modoEdicion indica que es supervisor/administrador
+    
+    // Verificar rate limiting según el tipo de usuario
+    if (!puedeImprimir(maquinaId, esAdministrador, cantidadTotalEtiquetas)) {
+      if (esAdministrador) {
+        alert(`⚠️ Límite de cantidad alcanzado.\n\nLos administradores pueden imprimir hasta 10 etiquetas por vez.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}`);
+      } else {
+        const tiempoRestante = obtenerTiempoRestante(maquinaId, esAdministrador);
+        const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
+        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 1 etiqueta cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+      }
       return;
     }
     
     // Registrar intento de impresión
-    if (!registrarIntentoImpresion(maquinaId)) {
-      const tiempoRestante = obtenerTiempoRestante(maquinaId);
-      const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
-      alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nSolo se permiten 2 impresiones por hora por máquina.\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+    if (!registrarIntentoImpresion(maquinaId, esAdministrador, cantidadTotalEtiquetas)) {
+      if (esAdministrador) {
+        alert(`⚠️ Límite de cantidad alcanzado.\n\nLos administradores pueden imprimir hasta 10 etiquetas por vez.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}`);
+      } else {
+        const tiempoRestante = obtenerTiempoRestante(maquinaId, esAdministrador);
+        const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
+        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 1 etiqueta cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+      }
       return;
     }
     
