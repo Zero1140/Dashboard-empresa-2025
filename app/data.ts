@@ -344,7 +344,7 @@ export function limpiarNombre(etiqueta: string, tipo: string): string {
 }
 
 // Contraseña del supervisor
-export const PASSWORD_SUPERVISOR = "supervisor2024";
+export const PASSWORD_SUPERVISOR = "49585357";
 
 // Lista de supervisores disponibles
 export const SUPERVISORES = [
@@ -352,6 +352,7 @@ export const SUPERVISORES = [
   "Julian",
   "Leo",
   "Maxi G",
+  "Richard",
 ];
 
 // Operador especial que indica que la máquina está libre (no se puede imprimir)
