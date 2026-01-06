@@ -9,6 +9,7 @@ import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { obtenerMinimoMaterial, obtenerMinimoCategoria, establecerMinimoMaterial, establecerMinimoCategoria, eliminarMinimoMaterial, eliminarMinimoCategoria } from "../utils/stockMinimos";
 import { obtenerPinsOperadores, establecerPinOperador, eliminarPinOperador, tienePinOperadorSync } from "../utils/pins";
 import NumericKeypad from "./NumericKeypad";
+import VirtualKeyboard from "./VirtualKeyboard";
 
 const STORAGE_KEY_COLORES_PERSONALIZADOS = "gst3d_colores_personalizados";
 
@@ -1316,12 +1317,14 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                   <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
                     PIN / Contraseña:
                   </label>
-                  <NumericKeypad
+                  <VirtualKeyboard
                     value={nuevoPin}
                     onChange={setNuevoPin}
-                    maxLength={10}
-                    placeholder="Ingresa el PIN (mínimo 4 caracteres)"
+                    maxLength={50}
+                    placeholder="Ingresa el PIN (mínimo 4 dígitos)"
                     autoFocus={true}
+                    passwordMode={false}
+                    numericOnly={true}
                     onEnter={() => {
                       if (nuevoPin.length >= 4) {
                         handleGuardarPin();
@@ -1334,7 +1337,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                     }}
                   />
                   <p className="text-[#718096] text-xs mt-2">
-                    💡 El operador usará este PIN para iniciar sesión y asignar operadores a las máquinas. Mínimo 4 caracteres.
+                    💡 El operador usará este PIN para iniciar sesión y asignar operadores a las máquinas. Solo números. Mínimo 4 dígitos.
                   </p>
                   {tienePinOperadorSync(operadorParaPin) && (
                     <p className="text-[#ffb800] text-xs mt-2 font-semibold">

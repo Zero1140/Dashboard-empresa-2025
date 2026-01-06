@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SUPERVISORES, PASSWORD_SUPERVISOR } from "../data";
+import VirtualKeyboard from "./VirtualKeyboard";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -98,18 +99,21 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                 </select>
               </div>
 
-              {/* Campo de contraseña */}
+              {/* Campo de contraseña con teclado virtual */}
               <div>
                 <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
                   Contraseña:
                 </label>
-                <input
-                  type="password"
+                <VirtualKeyboard
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] focus:outline-none focus:ring-2 focus:ring-[#00d4ff] focus:border-[#00d4ff] placeholder-[#718096] shadow-lg hover:border-[#00d4ff]/50 transition-all duration-200"
-                  placeholder="Ingresa la contraseña"
-                  autoFocus
+                  onChange={setPassword}
+                  maxLength={50}
+                  placeholder="Ingresa la contraseña del supervisor"
+                  autoFocus={true}
+                  passwordMode={true}
+                  numericOnly={true}
+                  onEnter={handleLogin}
+                  onEscape={handleClose}
                 />
               </div>
 

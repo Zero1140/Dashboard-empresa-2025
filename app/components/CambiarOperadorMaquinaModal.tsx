@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { obtenerOperadoresCombinadosSync } from "../utils/operadores";
 import { tienePinOperadorSync, verificarPinOperadorSync } from "../utils/pins";
 import NumericKeypad from "./NumericKeypad";
+import VirtualKeyboard from "./VirtualKeyboard";
 
 interface CambiarOperadorMaquinaModalProps {
   maquinaId: number;
@@ -146,15 +147,17 @@ export default function CambiarOperadorMaquinaModal({
                 <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
                   🔐 PIN del Operador {nuevoOperador}:
                 </label>
-                <NumericKeypad
+                <VirtualKeyboard
                   value={pinOperador}
                   onChange={(value) => {
                     setPinOperador(value);
                     setError("");
                   }}
-                  maxLength={10}
+                  maxLength={50}
                   placeholder="Ingresa el PIN del operador"
                   autoFocus={true}
+                  passwordMode={true}
+                  numericOnly={true}
                   onEnter={() => {
                     if (nuevoOperador && pinOperador) {
                       handleConfirmarCambio();
@@ -163,7 +166,7 @@ export default function CambiarOperadorMaquinaModal({
                   onEscape={handleClose}
                 />
                 <p className="text-[#718096] text-xs mt-2">
-                  💡 El operador seleccionado tiene PIN configurado. Ingresa su PIN para confirmar.
+                  💡 El operador seleccionado tiene PIN configurado. Usa el teclado numérico para ingresar su PIN.
                 </p>
               </div>
             )}

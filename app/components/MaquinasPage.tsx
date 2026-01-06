@@ -335,7 +335,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       } else {
         const tiempoRestante = obtenerTiempoRestante(maquinaId, esAdministrador);
         const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
-        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 1 etiqueta cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 1 bobina (2 etiquetas: 1 chica + 1 grande) cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
       }
       return;
     }
@@ -347,7 +347,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       } else {
         const tiempoRestante = obtenerTiempoRestante(maquinaId, esAdministrador);
         const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
-        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 1 etiqueta cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas}\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nLos operadores pueden imprimir máximo 1 bobina (2 etiquetas: 1 chica + 1 grande) cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
       }
       return;
     }
