@@ -1,12 +1,12 @@
 /**
  * Utilidad para gestionar rate limiting de impresiones por máquina
  * Restricciones:
- * - Operadores: Máximo 4 etiquetas (2 chicas + 2 grandes) cada 2 minutos
+ * - Operadores: Máximo 2 etiquetas (1 chica + 1 grande) cada 2 minutos
  * - Administradores: Sin límite de tiempo ni cantidad (pueden imprimir cuantas quieran)
  */
 
 const STORAGE_KEY_RATE_LIMIT = "gst3d_rate_limit_maquinas";
-const MAX_ETIQUETAS_OPERADOR = 4; // Operadores: máximo 4 etiquetas (2 chicas + 2 grandes) cada 2 minutos
+const MAX_ETIQUETAS_OPERADOR = 2; // Operadores: máximo 2 etiquetas (1 chica + 1 grande) cada 2 minutos
 const MAX_ETIQUETAS_ADMIN = 999999; // Administradores: sin límite (número muy alto para simular sin límite)
 const VENTANA_TIEMPO_OPERADOR_MS = 2 * 60 * 1000; // 2 minutos en milisegundos
 
@@ -69,7 +69,7 @@ export function puedeImprimir(maquinaId: number, esAdministrador: boolean, canti
     return true;
   }
   
-  // Operadores: validar cantidad (máximo 4 etiquetas: 2 chicas + 2 grandes)
+  // Operadores: validar cantidad (máximo 2 etiquetas: 1 chica + 1 grande)
   if (cantidadEtiquetas > MAX_ETIQUETAS_OPERADOR) {
     return false;
   }
@@ -117,24 +117,35 @@ export function registrarIntentoImpresion(maquinaId: number, esAdministrador: bo
   }
   
   // Operadores: validar cantidad y tiempo
-  // NOTA: MAX_ETIQUETAS_OPERADOR = 4 porque pueden imprimir 2 chicas + 2 grandes = 4 etiquetas
+  // NOTA: MAX_ETIQUETAS_OPERADOR = 2 porque pueden imprimir 1 chica + 1 grande = 2 etiquetas
   if (cantidadEtiquetas > MAX_ETIQUETAS_OPERADOR) {
-    return false; // Operadores solo pueden imprimir máximo 4 etiquetas (2 chicas + 2 grandes)
+    return false; // Operadores solo pueden imprimir máximo 2 etiquetas (1 chica + 1 grande)
   }
+  
+  // IMPORTANTE: Limpiar timestamps antiguos de TODAS las máquinas primero
+  // Esto asegura que no haya datos corruptos o timestamps antiguos bloqueando
+  limpiarTimestampsAntiguos();
   
   const historial = obtenerHistorialRateLimit();
   const ahora = Date.now();
-  
-  // Obtener o crear entrada para esta máquina
-  let entrada = historial[maquinaId] || { maquinaId, timestamps: [], cantidadEtiquetas: [] };
-  
-  // Limpiar timestamps antiguos (fuera de la ventana de 2 minutos) - VERIFICACIÓN ATÓMICA
   const limiteTiempo = ahora - VENTANA_TIEMPO_OPERADOR_MS;
   
-  // Filtrar timestamps y cantidades que están dentro de la ventana de tiempo
+  // Obtener o crear entrada para esta máquina (después de limpiar)
+  let entrada = historial[maquinaId] || { maquinaId, timestamps: [], cantidadEtiquetas: [] };
+  
+  // Verificar que la entrada tenga arrays válidos
+  if (!entrada.timestamps || !Array.isArray(entrada.timestamps)) {
+    entrada.timestamps = [];
+  }
+  if (!entrada.cantidadEtiquetas || !Array.isArray(entrada.cantidadEtiquetas)) {
+    entrada.cantidadEtiquetas = [];
+  }
+  
+  // Filtrar timestamps antiguos (fuera de la ventana de 2 minutos) - VERIFICACIÓN ATÓMICA
+  // Usar índices válidos para mantener sincronización entre timestamps y cantidades
   const indicesValidos: number[] = [];
   entrada.timestamps.forEach((ts, index) => {
-    if (ts > limiteTiempo) {
+    if (ts && ts > limiteTiempo) {
       indicesValidos.push(index);
     }
   });
@@ -143,7 +154,7 @@ export function registrarIntentoImpresion(maquinaId: number, esAdministrador: bo
   entrada.timestamps = entrada.timestamps.filter((_, index) => indicesValidos.includes(index));
   entrada.cantidadEtiquetas = entrada.cantidadEtiquetas.filter((_, index) => indicesValidos.includes(index));
   
-  // Verificar si se puede imprimir (no debe haber impresiones en los últimos 2 minutos)
+  // Si después de limpiar aún hay timestamps, significa que hay una impresión reciente (últimos 2 minutos)
   if (entrada.timestamps.length > 0) {
     // Actualizar historial con la limpieza realizada antes de retornar false
     historial[maquinaId] = entrada;
@@ -151,6 +162,13 @@ export function registrarIntentoImpresion(maquinaId: number, esAdministrador: bo
     return false; // Límite de tiempo alcanzado
   }
   
+  // Si no quedan timestamps después de limpiar y había una entrada, eliminarla completamente del historial
+  if (historial[maquinaId] && historial[maquinaId].timestamps && historial[maquinaId].timestamps.length === 0) {
+    delete historial[maquinaId];
+    guardarHistorialRateLimit(historial);
+  }
+  
+  // Si llegamos aquí, no hay impresiones recientes, se puede imprimir
   // Agregar nuevo timestamp y cantidad
   entrada.timestamps.push(ahora);
   entrada.cantidadEtiquetas.push(cantidadEtiquetas);

@@ -308,7 +308,7 @@ export default function MachineCard({
               Se imprimirán {cantidadBobinas} etiqueta(s) chica(s) y {cantidadBobinas} etiqueta(s) grande(s)
               {!modoEdicion && (
                 <span className="text-[#ffb800] ml-1">
-                  (Límite: 4 etiquetas cada 2 minutos)
+                  (Límite: 2 etiquetas cada 2 minutos)
                 </span>
               )}
               {modoEdicion && (
