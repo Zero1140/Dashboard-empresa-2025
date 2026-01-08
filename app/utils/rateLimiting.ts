@@ -1,14 +1,14 @@
 /**
  * Utilidad para gestionar rate limiting de impresiones por operador
  * Restricciones:
- * - Operadores: Máximo 2 etiquetas (1 chica + 1 grande) cada 2 minutos por operador
+ * - Operadores: Máximo 2 etiquetas (1 chica + 1 grande) por impresión, sin límite de tiempo
  * - Administradores: Sin límite de tiempo ni cantidad (pueden imprimir cuantas quieran)
  */
 
 const STORAGE_KEY_RATE_LIMIT = "gst3d_rate_limit_operadores";
-const MAX_ETIQUETAS_OPERADOR = 2; // Operadores: máximo 2 etiquetas (1 chica + 1 grande) cada 2 minutos
+const MAX_ETIQUETAS_OPERADOR = 2; // Operadores: máximo 2 etiquetas (1 chica + 1 grande) por impresión
 const MAX_ETIQUETAS_ADMIN = 999999; // Administradores: sin límite (número muy alto para simular sin límite)
-const VENTANA_TIEMPO_OPERADOR_MS = 2 * 60 * 1000; // 2 minutos en milisegundos
+const VENTANA_TIEMPO_OPERADOR_MS = 0; // Sin límite de tiempo para operadores
 
 interface RateLimitEntry {
   operadorId: string; // ID del operador (puede ser el nombre o PIN)
@@ -68,39 +68,10 @@ export function puedeImprimir(operador: string, esAdministrador: boolean, cantid
   if (esAdministrador) {
     return true;
   }
-  
-  // Operadores: validar cantidad (máximo 2 etiquetas: 1 chica + 1 grande)
-  if (cantidadEtiquetas > MAX_ETIQUETAS_OPERADOR) {
-    return false;
-  }
-  
-  // Limpiar timestamps antiguos de todos los operadores antes de verificar
-  limpiarTimestampsAntiguos();
 
-  const historial = obtenerHistorialRateLimit();
-  const entrada = historial[operador];
-  
-  if (!entrada || !entrada.timestamps || entrada.timestamps.length === 0) {
-    return true; // No hay historial, se puede imprimir
-  }
-  
-  // Limpiar timestamps antiguos (fuera de la ventana de 2 minutos)
-  const ahora = Date.now();
-  const limiteTiempo = ahora - VENTANA_TIEMPO_OPERADOR_MS;
-  
-  // Filtrar timestamps que están dentro de la ventana de tiempo
-  const timestampsActualizados = entrada.timestamps.filter((ts) => ts > limiteTiempo);
-  
-  // IMPORTANTE: Actualizar el historial limpiado para que los timestamps antiguos se eliminen permanentemente
-  if (timestampsActualizados.length !== entrada.timestamps.length) {
-    entrada.timestamps = timestampsActualizados;
-    entrada.cantidadEtiquetas = entrada.cantidadEtiquetas.filter((_, index) => entrada.timestamps[index] > limiteTiempo);
-    historial[operador] = entrada;
-    guardarHistorialRateLimit(historial);
-  }
-  
-  // Si no hay impresiones recientes (últimos 2 minutos), se puede imprimir
-  return timestampsActualizados.length === 0;
+  // Operadores: validar cantidad (máximo 2 etiquetas: 1 chica + 1 grande)
+  // Sin límite de tiempo - pueden imprimir cuando quieran
+  return cantidadEtiquetas <= MAX_ETIQUETAS_OPERADOR;
 }
 
 /**
@@ -115,24 +86,23 @@ export function registrarIntentoImpresion(operador: string, esAdministrador: boo
   if (esAdministrador) {
     return true; // Administradores pueden imprimir sin restricciones
   }
-  
-  // Operadores: validar cantidad y tiempo
-  // NOTA: MAX_ETIQUETAS_OPERADOR = 2 porque pueden imprimir 1 chica + 1 grande = 2 etiquetas
+
+  // Operadores: validar cantidad (máximo 2 etiquetas: 1 chica + 1 grande)
+  // Sin límite de tiempo - pueden imprimir cuando quieran
   if (cantidadEtiquetas > MAX_ETIQUETAS_OPERADOR) {
     return false; // Operadores solo pueden imprimir máximo 2 etiquetas (1 chica + 1 grande)
   }
-  
-  // IMPORTANTE: Limpiar timestamps antiguos de TODOS los operadores primero
-  // Esto asegura que no haya datos corruptos o timestamps antiguos bloqueando
+
+  // Limpiar timestamps antiguos de TODOS los operadores para mantener el historial limpio
   limpiarTimestampsAntiguos();
 
+  // Registrar la impresión (sin límite de tiempo)
   const historial = obtenerHistorialRateLimit();
   const ahora = Date.now();
-  const limiteTiempo = ahora - VENTANA_TIEMPO_OPERADOR_MS;
 
-  // Obtener o crear entrada para este operador (después de limpiar)
+  // Obtener o crear entrada para este operador
   let entrada = historial[operador] || { operadorId: operador, timestamps: [], cantidadEtiquetas: [] };
-  
+
   // Verificar que la entrada tenga arrays válidos
   if (!entrada.timestamps || !Array.isArray(entrada.timestamps)) {
     entrada.timestamps = [];
@@ -140,43 +110,15 @@ export function registrarIntentoImpresion(operador: string, esAdministrador: boo
   if (!entrada.cantidadEtiquetas || !Array.isArray(entrada.cantidadEtiquetas)) {
     entrada.cantidadEtiquetas = [];
   }
-  
-  // Filtrar timestamps antiguos (fuera de la ventana de 2 minutos) - VERIFICACIÓN ATÓMICA
-  // Usar índices válidos para mantener sincronización entre timestamps y cantidades
-  const indicesValidos: number[] = [];
-  entrada.timestamps.forEach((ts, index) => {
-    if (ts && ts > limiteTiempo) {
-      indicesValidos.push(index);
-    }
-  });
-  
-  // Filtrar usando los índices válidos para mantener sincronización entre timestamps y cantidades
-  entrada.timestamps = entrada.timestamps.filter((_, index) => indicesValidos.includes(index));
-  entrada.cantidadEtiquetas = entrada.cantidadEtiquetas.filter((_, index) => indicesValidos.includes(index));
-  
-  // Si después de limpiar aún hay timestamps, significa que hay una impresión reciente (últimos 2 minutos)
-  if (entrada.timestamps.length > 0) {
-    // Actualizar historial con la limpieza realizada antes de retornar false
-    historial[operador] = entrada;
-    guardarHistorialRateLimit(historial);
-    return false; // Límite de tiempo alcanzado
-  }
 
-  // Si no quedan timestamps después de limpiar y había una entrada, eliminarla completamente del historial
-  if (historial[operador] && historial[operador].timestamps && historial[operador].timestamps.length === 0) {
-    delete historial[operador];
-    guardarHistorialRateLimit(historial);
-  }
-
-  // Si llegamos aquí, no hay impresiones recientes, se puede imprimir
-  // Agregar nuevo timestamp y cantidad
+  // Agregar nuevo timestamp y cantidad (sin verificar límites de tiempo)
   entrada.timestamps.push(ahora);
   entrada.cantidadEtiquetas.push(cantidadEtiquetas);
   historial[operador] = entrada;
-  
+
   // Guardar historial
   guardarHistorialRateLimit(historial);
-  
+
   return true;
 }
 
@@ -187,51 +129,9 @@ export function registrarIntentoImpresion(operador: string, esAdministrador: boo
  * @returns Tiempo en milisegundos hasta que se pueda imprimir, o 0 si se puede imprimir ahora
  */
 export function obtenerTiempoRestante(operador: string, esAdministrador: boolean): number {
-  // Administradores: no tienen límite de tiempo
-  if (esAdministrador) {
-    return 0;
-  }
-  
-  const historial = obtenerHistorialRateLimit();
-  const entrada = historial[operador];
-  
-  if (!entrada || entrada.timestamps.length === 0) {
-    return 0; // No hay historial, se puede imprimir ahora
-  }
-  
-  // Limpiar timestamps antiguos (fuera de la ventana de 2 minutos)
-  const ahora = Date.now();
-  const limiteTiempo = ahora - VENTANA_TIEMPO_OPERADOR_MS;
-  
-  // Filtrar timestamps y cantidades que están dentro de la ventana de tiempo
-  const indicesValidos: number[] = [];
-  entrada.timestamps.forEach((ts, index) => {
-    if (ts > limiteTiempo) {
-      indicesValidos.push(index);
-    }
-  });
-  
-  const timestampsActualizados = entrada.timestamps.filter((_, index) => indicesValidos.includes(index));
-  const cantidadesActualizadas = entrada.cantidadEtiquetas.filter((_, index) => indicesValidos.includes(index));
-  
-  // Actualizar el historial si hay timestamps antiguos que limpiar
-  if (timestampsActualizados.length !== entrada.timestamps.length) {
-    entrada.timestamps = timestampsActualizados;
-    entrada.cantidadEtiquetas = cantidadesActualizadas;
-    historial[operador] = entrada;
-    guardarHistorialRateLimit(historial);
-  }
-  
-  if (timestampsActualizados.length === 0) {
-    return 0; // Se puede imprimir ahora
-  }
-  
-  // Obtener el timestamp más reciente
-  const timestampMasReciente = Math.max(...timestampsActualizados);
-  const tiempoTranscurrido = ahora - timestampMasReciente;
-  const tiempoRestante = VENTANA_TIEMPO_OPERADOR_MS - tiempoTranscurrido;
-  
-  return Math.max(0, tiempoRestante);
+  // Tanto administradores como operadores: no tienen límite de tiempo
+  // Los operadores solo tienen límite de cantidad (máximo 2 etiquetas por impresión)
+  return 0;
 }
 
 /**

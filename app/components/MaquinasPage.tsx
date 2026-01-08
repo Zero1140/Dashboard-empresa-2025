@@ -336,7 +336,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       } else {
         const tiempoRestante = obtenerTiempoRestante(operador, esAdministrador);
         const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
-        alert(`⚠️ Límite de impresiones alcanzado para el operador ${operador}.\n\nLos operadores pueden imprimir máximo 2 etiquetas (1 chica + 1 grande) cada 2 minutos.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nPodrás imprimir nuevamente en ${tiempoFormateado}.`);
+        alert(`⚠️ Límite de impresiones alcanzado para el operador ${operador}.\n\nLos operadores pueden imprimir máximo 2 etiquetas (1 chica + 1 grande) por impresión.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nNo hay límite de tiempo - puedes intentar imprimir nuevamente inmediatamente.`);
       }
       return;
     }
