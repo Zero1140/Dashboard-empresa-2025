@@ -1,0 +1,80 @@
+# Archivos del sistema
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Builds
+build/
+dist/
+*.ipa
+*.apk
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Firebase
+firebase-service-account.json
+**/GoogleService-Info.plist.backup
+
+# Archivos temporales
+*.tmp
+*.temp
+.cache/
+
+# Backups
+*.backup
+backup/
+backups/
+
+# macOS
+**/.DS_Store
+
+# Windows
+**/Thumbs.db
+
+# Archivos de configuración local (mantener estructura pero no datos sensibles)
+# Los .plist y configs deben estar en el repo, pero sin datos sensibles hardcodeados
+
+# Ignorar todo excepto las carpetas del proyecto
+/*
+!/gst3d-app-main/
+!/gst3d-push-server-main/
+!/.gitignore
+!/ESTADO-ACTUAL-PROYECTO.md
+!/INSTRUCCIONES-GITHUB.md
+!/supabase-migration-scripts.sql
+!/SUBIR-A-GITHUB.ps1
+
+# Ignorar archivos sensibles dentro del proyecto
+**/gst3dapp-firebase-adminsdk-*.json
+**/*firebase-adminsdk*.json
+**/.env
+**/.env.local
+**/GoogleService-Info.plist.backup

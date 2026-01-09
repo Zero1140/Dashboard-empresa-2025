@@ -1,0 +1,15 @@
+{
+  "name": "dashboard-gst3d",
+  "version": "1.0.0",
+  "description": "Dashboard GST3D - Sistema de Impresión de Etiquetas",
+  "private": true,
+  "scripts": {
+    "dev": "cd web && npm run dev",
+    "build": "cd web && npm run build",
+    "start": "cd web && npm run start",
+    "lint": "cd web && npm run lint"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
