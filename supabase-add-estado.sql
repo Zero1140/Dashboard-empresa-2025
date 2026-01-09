@@ -11,3 +11,8 @@ CREATE INDEX IF NOT EXISTS idx_impresiones_estado ON impresiones(estado) WHERE e
 -- Actualizar todas las impresiones existentes a 'impresa' (para que no se reimpriman)
 UPDATE impresiones SET estado = 'impresa' WHERE estado IS NULL;
 
+
+
+
+
+

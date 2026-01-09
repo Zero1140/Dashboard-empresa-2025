@@ -74,3 +74,4 @@ if (bobinasCreadas > 0) {
 - ✅ Los descuentos de cajas y bolsas funcionan correctamente
 - ✅ El sistema de conteo de etiquetas se mantiene igual
 
+

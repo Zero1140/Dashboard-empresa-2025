@@ -127,3 +127,4 @@ Para verificar que funciona:
 
 **El sistema está listo para uso en producción con sincronización en tiempo real completa.**
 
+

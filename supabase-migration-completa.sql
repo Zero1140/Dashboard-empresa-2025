@@ -322,3 +322,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE stock_minimos;
 -- 3. Verifica que las políticas RLS están activas
 -- ============================================================================
 
+

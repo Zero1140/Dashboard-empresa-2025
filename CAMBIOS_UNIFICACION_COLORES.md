@@ -80,3 +80,4 @@
 - No se requieren migraciones de base de datos
 - Los cambios son solo en la interfaz de usuario
 
+

@@ -172,3 +172,4 @@ END $$;
 
 El sistema funcionará correctamente sin la migración, pero la migración ayudará a limpiar datos históricos duplicados.
 
+

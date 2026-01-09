@@ -1,12 +1,16 @@
 {
-    "name": "web",
-    "version": "0.1.0",
+    "name": "dashboard-gst3d",
+    "version": "1.0.0",
+    "description": "Dashboard GST3D - Sistema de Impresión de Etiquetas",
     "private": true,
     "scripts": {
         "dev": "next dev -p 3000",
-        "build": "next build",
+        "build": "next build --webpack",
         "start": "next start -H 0.0.0.0",
         "lint": "eslint"
+    },
+    "engines": {
+        "node": ">=18.0.0"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.89.0",

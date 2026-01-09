@@ -493,3 +493,4 @@ export function sumarStockSync(tipo: string, color: string, cantidad: number): v
 3. Monitorear rendimiento
 4. Implementar mejoras opcionales
 
+

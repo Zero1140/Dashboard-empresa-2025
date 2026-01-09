@@ -53,3 +53,4 @@ Si falla la actualizaci√≥n del stock, no hay retroceso (rollback) ni notificaci√
 3. Mejorar el manejo de errores
 4. Verificar que `obtenerStockItem` use datos actualizados
 
+

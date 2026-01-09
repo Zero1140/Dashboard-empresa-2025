@@ -216,3 +216,4 @@ Para verificar que todo funciona:
 
 4. ✅ Probar sincronización en tiempo real desde múltiples ubicaciones
 
+

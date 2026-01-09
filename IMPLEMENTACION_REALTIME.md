@@ -190,3 +190,4 @@ Para verificar que todo funciona:
 
 ¡La sincronización en tiempo real está implementada! 🎉
 
+

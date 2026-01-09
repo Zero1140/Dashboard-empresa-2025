@@ -1,0 +1,3 @@
+# Dependencias para el servicio de impresión de etiquetas
+supabase>=2.0.0
+

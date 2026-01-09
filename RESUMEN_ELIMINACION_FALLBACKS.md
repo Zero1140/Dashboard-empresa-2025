@@ -69,3 +69,4 @@ export function obtenerSync(): Data {
 - **Errores claros** - Si Supabase no está configurado, se muestran errores con instrucciones
 - **Componente de error** - `SupabaseError.tsx` muestra instrucciones cuando hay problemas
 
+

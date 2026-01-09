@@ -209,7 +209,7 @@ export function limpiarTimestampsAntiguos(): void {
     if (timestampsActualizados.length !== entrada.timestamps.length) {
       entrada.timestamps = timestampsActualizados;
       entrada.cantidadEtiquetas = cantidadesActualizadas;
-      historial[maquinaId] = entrada;
+      historial[operadorId] = entrada;
       historialModificado = true;
       
       // Si no quedan timestamps, eliminar la entrada completa
