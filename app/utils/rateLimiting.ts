@@ -6,7 +6,7 @@
  */
 
 const STORAGE_KEY_RATE_LIMIT = "gst3d_rate_limit_operadores";
-const MAX_ETIQUETAS_OPERADOR = 2; // Operadores: máximo 2 etiquetas (1 chica + 1 grande) por impresión
+const MAX_ETIQUETAS_OPERADOR = 1000; // Operadores: aumentado para eliminar limitante (antes 2)
 const MAX_ETIQUETAS_ADMIN = 999999; // Administradores: sin límite (número muy alto para simular sin límite)
 const VENTANA_TIEMPO_OPERADOR_MS = 0; // Sin límite de tiempo para operadores
 

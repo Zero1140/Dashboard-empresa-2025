@@ -111,7 +111,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
         }
       }
     };
-    
+
     cargarContadores();
   }, [onSupabaseError]);
 
@@ -130,10 +130,10 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
         }
       }
     };
-    
+
     actualizarImpresiones();
     const interval = setInterval(actualizarImpresiones, 2000);
-    
+
     return () => clearInterval(interval);
   }, [onSupabaseError]);
 
@@ -148,7 +148,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     const timestampHoy = hoy.getTime();
-    
+
     // Obtener fecha de mañana (inicio del día siguiente)
     const manana = new Date(hoy);
     manana.setDate(manana.getDate() + 1);
@@ -161,7 +161,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     });
 
     const conteo: Record<string, { chicas: number; grandes: number; total: number }> = {};
-    
+
     impresionesHoy.forEach((imp) => {
       if (!conteo[imp.operador]) {
         conteo[imp.operador] = { chicas: 0, grandes: 0, total: 0 };
@@ -262,7 +262,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
   // Función auxiliar para asegurar que existan las categorías necesarias
   const asegurarCategoriasNecesarias = async () => {
     let categorias = await obtenerCategoriasArray();
-    
+
     // Verificar y crear categoría de Rollos de Etiquetas Chicas
     let categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
     if (!categoriaRollosChicas) {
@@ -273,7 +273,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     if (categoriaRollosChicas && !categoriaRollosChicas.items.includes(ITEM_ROLLO_CHICAS)) {
       await agregarItemACategoria(categoriaRollosChicas.id, ITEM_ROLLO_CHICAS);
     }
-    
+
     // Verificar y crear categoría de Rollos de Etiquetas Grandes
     let categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
     if (!categoriaRollosGrandes) {
@@ -284,7 +284,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     if (categoriaRollosGrandes && !categoriaRollosGrandes.items.includes(ITEM_ROLLO_GRANDES)) {
       await agregarItemACategoria(categoriaRollosGrandes.id, ITEM_ROLLO_GRANDES);
     }
-    
+
     // Verificar y crear categoría de Cajas de 1k
     let categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
     if (!categoriaCajas) {
@@ -295,7 +295,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     if (categoriaCajas && !categoriaCajas.items.includes(ITEM_CAJA_1K)) {
       await agregarItemACategoria(categoriaCajas.id, ITEM_CAJA_1K);
     }
-    
+
     // Verificar y crear categoría de Bolsas Selladas
     let categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
     if (!categoriaBolsas) {
@@ -323,29 +323,19 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       alert("No se puede imprimir cuando la máquina está en estado 'Línea Libre'. Por favor, asigna un operador primero.");
       return;
     }
-    
+
     // Calcular cantidad total de etiquetas (chicas + grandes)
     const cantidadTotalEtiquetas = cantidadChicas + cantidadGrandes;
     const esAdministrador = modoEdicion; // modoEdicion indica que es supervisor/administrador
-    
-    // Registrar intento de impresión (esta función verifica y registra de forma atómica)
-    if (!registrarIntentoImpresion(operador, esAdministrador, cantidadTotalEtiquetas)) {
-      if (esAdministrador) {
-        // Esto no debería ocurrir nunca ya que administradores no tienen límite
-        alert(`⚠️ Error inesperado. Por favor, contacta al administrador del sistema.`);
-      } else {
-        const tiempoRestante = obtenerTiempoRestante(operador, esAdministrador);
-        const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
-        alert(`⚠️ Límite de impresiones alcanzado para el operador ${operador}.\n\nLos operadores pueden imprimir máximo 2 etiquetas (1 chica + 1 grande) por impresión.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nNo hay límite de tiempo - puedes intentar imprimir nuevamente inmediatamente.`);
-      }
-      return;
-    }
-    
+
+    // Registrar intento de impresión para estadísticas
+    registrarIntentoImpresion(operador, esAdministrador, cantidadTotalEtiquetas);
+
     // Asegurar que existan las categorías necesarias (asíncrono)
-    asegurarCategoriasNecesarias().catch(err => 
+    asegurarCategoriasNecesarias().catch(err =>
       console.error('Error al asegurar categorías:', err)
     );
-    
+
     // Extraer el color del formato "tipo::color"
     const colorChica = etiquetaChica.includes("::") ? etiquetaChica.split("::")[1] : etiquetaChica;
     const colorGrande = etiquetaGrande.includes("::") ? etiquetaGrande.split("::")[1] : etiquetaGrande;
@@ -383,7 +373,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     // Una bobina = 1 chica + 1 grande, pero el stock es del mismo color
     // Calcular cuántas bobinas se crearon (mínimo entre chicas y grandes)
     const bobinasCreadas = Math.min(cantidadChicas, cantidadGrandes);
-    
+
     // IMPORTANTE: Solo sumar al stock si se crearon bobinas completas
     // El stock se suma por bobina, no por etiqueta individual
     try {
@@ -401,19 +391,19 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     incrementarContadorEtiquetas(cantidadChicas, cantidadGrandes).then(async () => {
       // Obtener contadores actuales después de incrementar
       const contadores = await obtenerContadoresEtiquetas();
-      
+
       // Verificar si se alcanzaron 1000 etiquetas chicas
       if (contadores.chicas >= 1000) {
         const rollosADescontar = Math.floor(contadores.chicas / 1000);
         const nuevoContadorChicas = contadores.chicas % 1000; // Mantener el resto
-        
+
         // Obtener categoría de rollos chicas
         const categorias = await obtenerCategoriasArray();
         const categoriaRollosChicas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_CHICAS);
         if (categoriaRollosChicas) {
           await restarStockCategoria(categoriaRollosChicas.id, ITEM_ROLLO_CHICAS, rollosADescontar);
           console.log(`Se descontaron ${rollosADescontar} rollo(s) de etiquetas chicas`);
-          
+
           // Actualizar contador después de descontar
           await incrementarContadorEtiquetas(-contadores.chicas + nuevoContadorChicas, 0);
         }
@@ -423,14 +413,14 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       if (contadores.grandes >= 1000) {
         const rollosADescontar = Math.floor(contadores.grandes / 1000);
         const nuevoContadorGrandes = contadores.grandes % 1000; // Mantener el resto
-        
+
         // Obtener categoría de rollos grandes
         const categorias = await obtenerCategoriasArray();
         const categoriaRollosGrandes = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_ROLLOS_GRANDES);
         if (categoriaRollosGrandes) {
           await restarStockCategoria(categoriaRollosGrandes.id, ITEM_ROLLO_GRANDES, rollosADescontar);
           console.log(`Se descontaron ${rollosADescontar} rollo(s) de etiquetas grandes`);
-          
+
           // Actualizar contador después de descontar
           await incrementarContadorEtiquetas(0, -contadores.grandes + nuevoContadorGrandes);
         }
@@ -447,7 +437,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       const categorias = await obtenerCategoriasArray();
       const categoriaCajas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_CAJAS_1K);
       const categoriaBolsas = categorias.find(c => c.nombre === NOMBRE_CATEGORIA_BOLSAS_SELLADAS);
-      
+
       if (categoriaCajas && bobinasCreadas > 0) {
         await restarStockCategoria(categoriaCajas.id, ITEM_CAJA_1K, bobinasCreadas);
         console.log(`Se descontaron ${bobinasCreadas} caja(s) de 1k`);
@@ -489,7 +479,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       <div className="card-elegant rounded-2xl p-6 lg:p-8 mb-6 lg:mb-8 relative overflow-hidden group">
         <div className="absolute inset-0 bg-gradient-to-br from-[#00d4ff]/5 via-transparent to-[#ffb800]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#00d4ff]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        
+
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6 mb-6 relative z-10">
           <div className="flex-1">
             <div className="flex items-center gap-4 mb-3">
@@ -508,11 +498,10 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
               </div>
             </div>
             <div className="mt-4 flex items-center gap-2">
-              <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                modoEdicion 
-                  ? "bg-[#ffb800]/20 text-[#ffb800] border-[#ffb800]/40 shadow-lg shadow-[#ffb800]/20" 
+              <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${modoEdicion
+                  ? "bg-[#ffb800]/20 text-[#ffb800] border-[#ffb800]/40 shadow-lg shadow-[#ffb800]/20"
                   : "bg-[#2d3748]/50 text-[#a0aec0] border-[#4a5568]"
-              }`}>
+                }`}>
                 {modoEdicion ? "⚡ Supervisor" : "👤 Operador"}
               </div>
             </div>
@@ -551,7 +540,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
                 </span>
               </div>
               <div className="w-full bg-[#0f1419] rounded-full h-3 mb-2 overflow-hidden border border-[#2d3748]">
-                <div 
+                <div
                   className="h-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] transition-all duration-300"
                   style={{ width: `${Math.min((contadoresEtiquetas.chicas / 1000) * 100, 100)}%` }}
                 />
@@ -578,7 +567,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
                 </span>
               </div>
               <div className="w-full bg-[#0f1419] rounded-full h-3 mb-2 overflow-hidden border border-[#2d3748]">
-                <div 
+                <div
                   className="h-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] transition-all duration-300"
                   style={{ width: `${Math.min((contadoresEtiquetas.grandes / 1000) * 100, 100)}%` }}
                 />
@@ -609,11 +598,11 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
             </div>
             <div className="bg-gradient-to-r from-[#00d4ff]/20 to-[#0099cc]/20 border border-[#00d4ff]/30 rounded-xl px-4 py-2">
               <p className="text-[#00d4ff] text-sm font-semibold">
-                📅 {new Date().toLocaleDateString("es-ES", { 
-                  weekday: "long", 
-                  year: "numeric", 
-                  month: "long", 
-                  day: "numeric" 
+                📅 {new Date().toLocaleDateString("es-ES", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric"
                 })}
               </p>
               <p className="text-[#718096] text-xs mt-1">
@@ -631,8 +620,8 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
               {Object.entries(conteoPorOperador)
                 .sort(([, a], [, b]) => b.total - a.total)
                 .map(([operador, conteo], index) => (
-                  <div 
-                    key={operador} 
+                  <div
+                    key={operador}
                     className="card-elegant rounded-xl p-4 animate-fade-in-up"
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
