@@ -662,7 +662,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
       </div>
 
       {/* Grid de máquinas - Mejorado */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-3 lg:gap-4">
         {Array.from({ length: NUMERO_MAQUINAS }, (_, i) => i + 1).map(
           (maquinaId) => {
             const operadorMaquina = operadoresAsignados[maquinaId] || "";

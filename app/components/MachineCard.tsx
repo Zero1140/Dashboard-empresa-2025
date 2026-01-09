@@ -202,27 +202,27 @@ export default function MachineCard({
   };
 
   return (
-    <div className="bg-gradient-to-br from-[#1a2332] to-[#0f1419] rounded-2xl p-6 shadow-2xl border border-[#2d3748] hover:border-[#00d4ff]/30 transition-all duration-300 hover-lift relative overflow-hidden group">
+    <div className="bg-gradient-to-br from-[#1a2332] to-[#0f1419] rounded-xl p-4 shadow-2xl border border-[#2d3748] hover:border-[#00d4ff]/30 transition-all duration-300 hover-lift relative overflow-hidden group">
       {/* Efecto de brillo sutil en hover */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-[#00d4ff]/5 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       
       {/* Header de la máquina */}
-      <div className="mb-6 relative z-10">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00d4ff] to-[#0099cc] flex items-center justify-center shadow-lg shadow-[#00d4ff]/30">
-            <span className="text-xl">⚙️</span>
+      <div className="mb-4 relative z-10">
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#0099cc] flex items-center justify-center shadow-lg shadow-[#00d4ff]/30">
+            <span className="text-lg">⚙️</span>
           </div>
-          <h2 className="text-2xl font-bold text-white">
+          <h2 className="text-xl font-bold text-white">
             Máquina {maquinaId}
           </h2>
         </div>
         <div className="h-1 w-16 bg-gradient-to-r from-[#00d4ff] to-transparent rounded-full mx-auto"></div>
       </div>
 
-      <div className="space-y-5 relative z-10">
+      <div className="space-y-3 relative z-10">
         {/* Selector de material (primero) */}
         <div>
-          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
+          <label className="block text-[#a0aec0] text-xs font-bold mb-1 uppercase tracking-wide">
             📦 Material
           </label>
           <select
@@ -231,7 +231,7 @@ export default function MachineCard({
               setMaterialSeleccionado(e.target.value);
               setColorSeleccionado(""); // Limpiar color al cambiar material
             }}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
+            className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-md text-sm"
           >
             {materialesDisponibles.map((material) => (
               <option key={material} value={material}>
@@ -243,7 +243,7 @@ export default function MachineCard({
 
         {/* Selector unificado de color (se usa para ambas etiquetas) - Solo del material seleccionado */}
         <div>
-          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
+          <label className="block text-[#a0aec0] text-xs font-bold mb-1 uppercase tracking-wide">
             🎨 Color (Chicas y Grandes)
           </label>
           <div className="relative">
@@ -251,7 +251,7 @@ export default function MachineCard({
               value={colorSeleccionado}
               onChange={(e) => handleColorChange(e.target.value)}
               disabled={!materialSeleccionado}
-              className="w-full px-4 py-3 pl-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 pl-10 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               <option value="">-- Selecciona color --</option>
               {coloresDelMaterial.map((opcion) => {
@@ -264,7 +264,7 @@ export default function MachineCard({
               })}
             </select>
             {colorSeleccionado && (
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg border-2 border-[#2d3748] shadow-md flex-shrink-0"
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded border-2 border-[#2d3748] shadow-sm flex-shrink-0"
                 style={{ backgroundColor: (() => {
                   const [tipo, colorBase] = colorSeleccionado.split("::");
                   return getColorHex(colorBase || "", tipo || materialSeleccionado, true);
@@ -288,13 +288,13 @@ export default function MachineCard({
 
         {/* Selector unificado de cantidad de bobinas */}
         <div>
-          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
+          <label className="block text-[#a0aec0] text-xs font-bold mb-1 uppercase tracking-wide">
             📊 Cantidad de Bobinas
           </label>
           <select
             value={cantidadBobinas}
             onChange={(e) => setCantidadBobinas(parseInt(e.target.value))}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-lg"
+            className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#00d4ff] transition-all duration-200 bg-[#0f1419] text-white border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer shadow-md text-sm"
           >
             {Array.from({ length: modoEdicion ? 11 : 2 }, (_, i) => i).map((num) => (
               <option key={num} value={num}>
@@ -322,7 +322,7 @@ export default function MachineCard({
 
         {/* Operador asignado */}
         <div>
-          <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
+          <label className="block text-[#a0aec0] text-xs font-bold mb-1 uppercase tracking-wide">
             👷 Operador
           </label>
           <div className="relative">
@@ -330,7 +330,7 @@ export default function MachineCard({
             <button
               type="button"
               onClick={() => setShowCambiarOperadorModal(true)}
-              className="w-full bg-[#0f1419] hover:bg-[#1a2332] text-white px-4 py-3 rounded-xl border border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer text-left transition-all duration-200 shadow-lg hover:shadow-[#00d4ff]/10"
+              className="w-full bg-[#0f1419] hover:bg-[#1a2332] text-white px-3 py-2 rounded-lg border border-[#2d3748] hover:border-[#00d4ff]/50 cursor-pointer text-left transition-all duration-200 shadow-md hover:shadow-[#00d4ff]/10 text-sm"
             >
               <div className="flex items-center gap-2">
                 <span>{operador ? "✅" : "➕"}</span>
@@ -366,13 +366,13 @@ export default function MachineCard({
 
         {/* Mensaje cuando está en Línea Libre */}
         {esLineaLibre(operador) && (
-          <div className="mt-4 p-4 bg-gradient-to-r from-[#ffb800]/20 to-[#ff8c00]/20 border border-[#ffb800]/50 rounded-xl">
+          <div className="mt-3 p-3 bg-gradient-to-r from-[#ffb800]/20 to-[#ff8c00]/20 border border-[#ffb800]/50 rounded-lg">
             <div className="flex items-center gap-2 text-[#ffb800]">
-              <span className="text-xl">⚠️</span>
+              <span className="text-lg">⚠️</span>
               <div>
-                <p className="font-semibold text-sm">Máquina en Línea Libre</p>
-                <p className="text-xs text-[#ffb800]/80 mt-1">
-                  No se puede imprimir en este estado. Asigna un operador para habilitar la impresión.
+                <p className="font-semibold text-xs">Línea Libre</p>
+                <p className="text-xs text-[#ffb800]/80 mt-0.5">
+                  Asigna operador para imprimir
                 </p>
               </div>
             </div>
@@ -383,12 +383,12 @@ export default function MachineCard({
         <button
           onClick={handleImprimir}
           disabled={!colorSeleccionado || !operador || !tipoMaterial || esLineaLibre(operador)}
-          className="w-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] disabled:from-[#2d3748] disabled:to-[#1a2332] disabled:cursor-not-allowed text-white font-bold py-4 px-4 rounded-xl transition-all duration-200 mt-6 shadow-lg shadow-[#00d4ff]/30 hover:shadow-[#00d4ff]/50 disabled:shadow-none hover-lift flex items-center justify-center gap-2"
+          className="w-full bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] disabled:from-[#2d3748] disabled:to-[#1a2332] disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 mt-4 shadow-lg shadow-[#00d4ff]/30 hover:shadow-[#00d4ff]/50 disabled:shadow-none hover-lift flex items-center justify-center gap-2"
           title={esLineaLibre(operador) ? "No se puede imprimir en estado Línea Libre" : `Imprime ${cantidadBobinas} bobina(s) (${cantidadBobinas} chica + ${cantidadBobinas} grande)`}
         >
-          <span className="text-xl">🖨️</span>
-          <span>Imprimir Etiquetas</span>
-          <span className="text-xs opacity-75">({cantidadBobinas} bobina{cantidadBobinas !== 1 ? 's' : ''})</span>
+          <span className="text-lg">🖨️</span>
+          <span className="text-sm">Imprimir</span>
+          <span className="text-xs opacity-75">({cantidadBobinas})</span>
         </button>
       </div>
 

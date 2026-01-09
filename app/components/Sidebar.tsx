@@ -46,31 +46,31 @@ export default function Sidebar({
     return () => clearInterval(interval);
   }, [modoEdicion]);
   return (
-    <div className="w-64 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f1419] min-h-screen p-6 border-r border-[#2d3748] flex flex-col shadow-2xl relative z-10 backdrop-blur-sm">
+    <div className="w-52 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f1419] min-h-screen p-4 border-r border-[#2d3748] flex flex-col shadow-2xl relative z-10 backdrop-blur-sm">
       {/* Efecto de brillo sutil en el borde */}
       <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-transparent via-[rgba(0,212,255,0.4)] to-transparent"></div>
       
       {/* Logo y título mejorado */}
-      <div className="mb-8 animate-fade-in-up">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00d4ff] to-[#0099cc] flex items-center justify-center shadow-xl shadow-[#00d4ff]/40 ring-2 ring-[#00d4ff]/20">
-            <span className="text-2xl">⚙️</span>
+      <div className="mb-6 animate-fade-in-up">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#0099cc] flex items-center justify-center shadow-xl shadow-[#00d4ff]/40 ring-2 ring-[#00d4ff]/20">
+            <span className="text-xl">⚙️</span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">
+            <h1 className="text-xl font-bold text-white mb-1">
               <span className="bg-gradient-to-r from-white via-[#00d4ff] to-white bg-clip-text text-transparent">
                 GST3D
               </span>
             </h1>
-            <p className="text-[#718096] text-xs font-medium">Fábrica de Filamentos 3D</p>
+            <p className="text-[#718096] text-xs font-medium">Fábrica 3D</p>
           </div>
         </div>
       </div>
 
       {/* Indicador de modo mejorado */}
-      <div className={`mb-6 p-4 rounded-xl transition-all duration-300 card-elegant ${
-        modoEdicion 
-          ? "border-[#ffb800]/50 shadow-lg shadow-[#ffb800]/20" 
+      <div className={`mb-4 p-3 rounded-lg transition-all duration-300 card-elegant ${
+        modoEdicion
+          ? "border-[#ffb800]/50 shadow-lg shadow-[#ffb800]/20"
           : ""
       }`}>
         <div className="flex items-center gap-3 mb-2">
@@ -101,7 +101,7 @@ export default function Sidebar({
       <nav className="space-y-2.5 flex-1">
         <button
           onClick={() => onCambiarPagina("maquinas")}
-          className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 hover-lift btn-elegant relative ${
+          className={`w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 hover-lift btn-elegant relative ${
             paginaActual === "maquinas"
               ? "bg-gradient-to-r from-[#00d4ff] to-[#0099cc] text-white font-semibold shadow-lg shadow-[#00d4ff]/30 ring-2 ring-[#00d4ff]/20"
               : "card-elegant text-[#a0aec0] hover:text-white"
@@ -117,7 +117,7 @@ export default function Sidebar({
           <>
             <button
               onClick={() => onCambiarPagina("informacion")}
-              className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 hover-lift btn-elegant relative ${
+              className={`w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 hover-lift btn-elegant relative ${
                 paginaActual === "informacion"
                   ? "bg-gradient-to-r from-[#00d4ff] to-[#0099cc] text-white font-semibold shadow-lg shadow-[#00d4ff]/30 ring-2 ring-[#00d4ff]/20"
                   : "card-elegant text-[#a0aec0] hover:text-white"
@@ -131,7 +131,7 @@ export default function Sidebar({
 
             <button
               onClick={() => onCambiarPagina("stock")}
-              className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 hover-lift btn-elegant relative ${
+              className={`w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 hover-lift btn-elegant relative ${
                 paginaActual === "stock"
                   ? "bg-gradient-to-r from-[#00d4ff] to-[#0099cc] text-white font-semibold shadow-lg shadow-[#00d4ff]/30 ring-2 ring-[#00d4ff]/20"
                   : alertasCount > 0
@@ -154,7 +154,7 @@ export default function Sidebar({
 
             <button
               onClick={() => onCambiarPagina("materiales")}
-              className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 hover-lift btn-elegant relative ${
+              className={`w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 hover-lift btn-elegant relative ${
                 paginaActual === "materiales"
                   ? "bg-gradient-to-r from-[#00d4ff] to-[#0099cc] text-white font-semibold shadow-lg shadow-[#00d4ff]/30 ring-2 ring-[#00d4ff]/20"
                   : "card-elegant text-[#a0aec0] hover:text-white"
@@ -174,14 +174,14 @@ export default function Sidebar({
         {modoEdicion ? (
           <button
             onClick={onLogout}
-            className="w-full btn-elegant bg-[#2d3748] hover:bg-[#4a5568] text-white font-semibold px-4 py-3 rounded-xl transition-all duration-200 hover-lift border border-[#4a5568]"
+            className="w-full btn-elegant bg-[#2d3748] hover:bg-[#4a5568] text-white font-semibold px-3 py-2.5 rounded-lg transition-all duration-200 hover-lift border border-[#4a5568]"
           >
             Cerrar Sesión
           </button>
         ) : (
           <button
             onClick={onShowLogin}
-            className="w-full btn-elegant bg-gradient-to-r from-[#ffb800] to-[#ff9500] hover:from-[#ffc933] hover:to-[#ffb800] text-white font-bold px-4 py-3 rounded-xl transition-all duration-200 hover-lift shadow-lg shadow-[#ffb800]/30"
+            className="w-full btn-elegant bg-gradient-to-r from-[#ffb800] to-[#ff9500] hover:from-[#ffc933] hover:to-[#ffb800] text-white font-bold px-3 py-2.5 rounded-lg transition-all duration-200 hover-lift shadow-lg shadow-[#ffb800]/30"
           >
             🔐 Iniciar Sesión
           </button>
