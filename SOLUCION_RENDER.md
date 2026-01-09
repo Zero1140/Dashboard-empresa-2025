@@ -10,17 +10,16 @@ npm error path /opt/render/project/src/package.json
 
 Tu `package.json` está en la raíz (`/opt/render/project/package.json`), no en `/src/`.
 
-## ✅ Cambios Realizados
+## ✅ Cambios Realizados y Sincronizados
 
-### 1. Actualizado `render.yaml`
+1.  **Actualizado `render.yaml`**: Ahora incluye `npm install && npm run build`.
+2.  **Limpieza de Repositorio**: Se eliminaron las carpetas `OneDrive/` y `venv/` del seguimiento de Git.
+    - Esto soluciona el error de **"Cannot find module 'react-native'"** (ya que Render intentaba compilar archivos de una app móvil incluida por error).
+    - El repositorio es ahora **~230MB más ligero**, lo que hará el deploy mucho más rápido.
+3.  **Actualizado `.gitignore`**: Se agregaron reglas para evitar que estas carpetas se vuelvan a subir.
+4.  **Push a GitHub**: Se han subido todos los cambios a la rama `main` (Commit `778d902`).
 
-```yaml
-buildCommand: npm install && npm run build  # Antes: npm run build
-```
-
-Ahora instala las dependencias explícitamente antes de compilar.
-
-## 🚨 ACCIÓN REQUERIDA - Pasos a Seguir
+## 🚨 ACCIÓN REQUERIDA - Pasos a Seguir en Render
 
 ### Paso 1: Configurar Render Dashboard
 
