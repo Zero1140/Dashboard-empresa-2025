@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# accidental local folders
+/OneDrive/
+/venv/
+.env
+.env.local
