@@ -328,8 +328,16 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     const cantidadTotalEtiquetas = cantidadChicas + cantidadGrandes;
     const esAdministrador = modoEdicion; // modoEdicion indica que es supervisor/administrador
 
-    // Registrar intento de impresión para estadísticas
-    registrarIntentoImpresion(operador, esAdministrador, cantidadTotalEtiquetas);
+    // Registrar intento de impresión por máquina (máximo 2 etiquetas cada 2 minutos)
+    const maquinaKey = `maquina_${maquinaId}`;
+    if (!registrarIntentoImpresion(maquinaKey, esAdministrador, cantidadTotalEtiquetas)) {
+      if (!esAdministrador) {
+        const tiempoRestante = obtenerTiempoRestante(maquinaKey, esAdministrador);
+        const tiempoFormateado = formatearTiempoRestante(tiempoRestante);
+        alert(`⚠️ Límite de impresiones alcanzado para la máquina ${maquinaId}.\n\nSe permite imprimir máximo 2 etiquetas (1 chica + 1 grande) cada 2 minutos por máquina.\n\nCantidad solicitada: ${cantidadTotalEtiquetas} etiquetas\n\nTiempo de espera restante: env. ${tiempoFormateado}.`);
+      }
+      return;
+    }
 
     // Asegurar que existan las categorías necesarias (asíncrono)
     asegurarCategoriasNecesarias().catch(err =>
@@ -499,8 +507,8 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
             </div>
             <div className="mt-4 flex items-center gap-2">
               <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${modoEdicion
-                  ? "bg-[#ffb800]/20 text-[#ffb800] border-[#ffb800]/40 shadow-lg shadow-[#ffb800]/20"
-                  : "bg-[#2d3748]/50 text-[#a0aec0] border-[#4a5568]"
+                ? "bg-[#ffb800]/20 text-[#ffb800] border-[#ffb800]/40 shadow-lg shadow-[#ffb800]/20"
+                : "bg-[#2d3748]/50 text-[#a0aec0] border-[#4a5568]"
                 }`}>
                 {modoEdicion ? "⚡ Supervisor" : "👤 Operador"}
               </div>

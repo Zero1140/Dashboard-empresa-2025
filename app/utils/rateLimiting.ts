@@ -6,14 +6,14 @@
  */
 
 const STORAGE_KEY_RATE_LIMIT = "gst3d_rate_limit_operadores";
-const MAX_ETIQUETAS_OPERADOR = 1000; // Operadores: aumentado para eliminar limitante (antes 2)
-const MAX_ETIQUETAS_ADMIN = 999999; // Administradores: sin límite (número muy alto para simular sin límite)
-const VENTANA_TIEMPO_OPERADOR_MS = 0; // Sin límite de tiempo para operadores
+const MAX_ETIQUETAS_OPERADOR = 2; // Operadores: máximo 2 etiquetas (1 chica + 1 grande) en la ventana de tiempo
+const MAX_ETIQUETAS_ADMIN = 999999; // Administradores: sin límite
+const VENTANA_TIEMPO_OPERADOR_MS = 2 * 60 * 1000; // Ventana de 2 minutos
 
 interface RateLimitEntry {
-  operadorId: string; // ID del operador (puede ser el nombre o PIN)
+  operadorId: string;
   timestamps: number[];
-  cantidadEtiquetas: number[]; // Cantidad de etiquetas en cada impresión
+  cantidadEtiquetas: number[];
 }
 
 /**
@@ -21,7 +21,7 @@ interface RateLimitEntry {
  */
 function obtenerHistorialRateLimit(): Record<string, RateLimitEntry> {
   if (typeof window === "undefined") return {};
-  
+
   try {
     const historialGuardado = localStorage.getItem(STORAGE_KEY_RATE_LIMIT);
     if (historialGuardado) {
@@ -30,7 +30,7 @@ function obtenerHistorialRateLimit(): Record<string, RateLimitEntry> {
   } catch (error) {
     console.error("Error al cargar historial de rate limit:", error);
   }
-  
+
   return {};
 }
 
@@ -39,7 +39,7 @@ function obtenerHistorialRateLimit(): Record<string, RateLimitEntry> {
  */
 function guardarHistorialRateLimit(historial: Record<string, RateLimitEntry>): void {
   if (typeof window === "undefined") return;
-  
+
   try {
     localStorage.setItem(STORAGE_KEY_RATE_LIMIT, JSON.stringify(historial));
   } catch (error) {
@@ -58,67 +58,63 @@ export function obtenerMaximoEtiquetas(esAdministrador: boolean): number {
 
 /**
  * Verifica si se puede imprimir por operador (rate limiting)
- * @param operador ID del operador
+ * @param operador ID del operador o máquina
  * @param esAdministrador true si el usuario es administrador/supervisor
  * @param cantidadEtiquetas Cantidad de etiquetas que se quiere imprimir
  * @returns true si se puede imprimir, false si se alcanzó el límite
  */
 export function puedeImprimir(operador: string, esAdministrador: boolean, cantidadEtiquetas: number): boolean {
-  // Administradores: sin límite de cantidad ni tiempo
-  if (esAdministrador) {
-    return true;
-  }
+  if (esAdministrador) return true;
 
-  // Operadores: validar cantidad (máximo 2 etiquetas: 1 chica + 1 grande)
-  // Sin límite de tiempo - pueden imprimir cuando quieran
-  return cantidadEtiquetas <= MAX_ETIQUETAS_OPERADOR;
+  // Limpiar timestamps antiguos antes de verificar
+  limpiarTimestampsAntiguos();
+
+  const historial = obtenerHistorialRateLimit();
+  const entrada = historial[operador];
+
+  if (!entrada) return cantidadEtiquetas <= MAX_ETIQUETAS_OPERADOR;
+
+  const ahora = Date.now();
+  const limiteTiempo = ahora - VENTANA_TIEMPO_OPERADOR_MS;
+
+  // Sumar etiquetas impresas en la ventana de tiempo
+  let totalEnVentana = 0;
+  entrada.timestamps.forEach((ts, index) => {
+    if (ts > limiteTiempo) {
+      totalEnVentana += entrada.cantidadEtiquetas[index] || 0;
+    }
+  });
+
+  return (totalEnVentana + cantidadEtiquetas) <= MAX_ETIQUETAS_OPERADOR;
 }
 
 /**
  * Registra un intento de impresión por operador
- * @param operador ID del operador
+ * @param operador ID del operador o máquina
  * @param esAdministrador true si el usuario es administrador/supervisor
  * @param cantidadEtiquetas Cantidad de etiquetas que se está imprimiendo
  * @returns true si se registró exitosamente, false si se alcanzó el límite
  */
 export function registrarIntentoImpresion(operador: string, esAdministrador: boolean, cantidadEtiquetas: number): boolean {
-  // Administradores: sin límite de cantidad ni tiempo - siempre permitido
-  if (esAdministrador) {
-    return true; // Administradores pueden imprimir sin restricciones
+  if (esAdministrador) return true;
+
+  if (!puedeImprimir(operador, esAdministrador, cantidadEtiquetas)) {
+    return false;
   }
 
-  // Operadores: validar cantidad (máximo 2 etiquetas: 1 chica + 1 grande)
-  // Sin límite de tiempo - pueden imprimir cuando quieran
-  if (cantidadEtiquetas > MAX_ETIQUETAS_OPERADOR) {
-    return false; // Operadores solo pueden imprimir máximo 2 etiquetas (1 chica + 1 grande)
-  }
-
-  // Limpiar timestamps antiguos de TODOS los operadores para mantener el historial limpio
-  limpiarTimestampsAntiguos();
-
-  // Registrar la impresión (sin límite de tiempo)
   const historial = obtenerHistorialRateLimit();
   const ahora = Date.now();
 
-  // Obtener o crear entrada para este operador
   let entrada = historial[operador] || { operadorId: operador, timestamps: [], cantidadEtiquetas: [] };
 
-  // Verificar que la entrada tenga arrays válidos
-  if (!entrada.timestamps || !Array.isArray(entrada.timestamps)) {
-    entrada.timestamps = [];
-  }
-  if (!entrada.cantidadEtiquetas || !Array.isArray(entrada.cantidadEtiquetas)) {
-    entrada.cantidadEtiquetas = [];
-  }
+  if (!entrada.timestamps) entrada.timestamps = [];
+  if (!entrada.cantidadEtiquetas) entrada.cantidadEtiquetas = [];
 
-  // Agregar nuevo timestamp y cantidad (sin verificar límites de tiempo)
   entrada.timestamps.push(ahora);
   entrada.cantidadEtiquetas.push(cantidadEtiquetas);
   historial[operador] = entrada;
 
-  // Guardar historial
   guardarHistorialRateLimit(historial);
-
   return true;
 }
 
@@ -129,9 +125,19 @@ export function registrarIntentoImpresion(operador: string, esAdministrador: boo
  * @returns Tiempo en milisegundos hasta que se pueda imprimir, o 0 si se puede imprimir ahora
  */
 export function obtenerTiempoRestante(operador: string, esAdministrador: boolean): number {
-  // Tanto administradores como operadores: no tienen límite de tiempo
-  // Los operadores solo tienen límite de cantidad (máximo 2 etiquetas por impresión)
-  return 0;
+  if (esAdministrador || puedeImprimir(operador, esAdministrador, 1)) return 0;
+
+  const historial = obtenerHistorialRateLimit();
+  const entrada = historial[operador];
+
+  if (!entrada || entrada.timestamps.length === 0) return 0;
+
+  // El tiempo de espera es relativo al primer timestamp que debe salir de la ventana para dejar espacio
+  const ahora = Date.now();
+  const primerTimestampEnVentana = entrada.timestamps[0];
+  const tiempoPasado = ahora - primerTimestampEnVentana;
+
+  return Math.max(0, VENTANA_TIEMPO_OPERADOR_MS - tiempoPasado);
 }
 
 /**
@@ -143,15 +149,15 @@ export function formatearTiempoRestante(tiempoRestante: number): string {
   if (tiempoRestante <= 0) {
     return "ahora";
   }
-  
+
   const minutos = Math.ceil(tiempoRestante / (60 * 1000));
   const horas = Math.floor(minutos / 60);
   const minutosRestantes = minutos % 60;
-  
+
   if (horas > 0) {
     return `${horas} ${horas === 1 ? "hora" : "horas"}${minutosRestantes > 0 ? ` y ${minutosRestantes} ${minutosRestantes === 1 ? "minuto" : "minutos"}` : ""}`;
   }
-  
+
   return `${minutos} ${minutos === 1 ? "minuto" : "minutos"}`;
 }
 
@@ -161,7 +167,7 @@ export function formatearTiempoRestante(tiempoRestante: number): string {
  */
 export function limpiarHistorialRateLimit(operadorId?: string): void {
   if (typeof window === "undefined") return;
-  
+
   try {
     if (operadorId !== undefined) {
       // Limpiar solo un operador específico
@@ -186,15 +192,15 @@ export function limpiarTimestampsAntiguos(): void {
   const ahora = Date.now();
   const limiteTiempo = ahora - VENTANA_TIEMPO_OPERADOR_MS;
   let historialModificado = false;
-  
+
   Object.keys(historial).forEach((key) => {
     const operadorId = key;
     const entrada = historial[operadorId];
-    
+
     if (!entrada || !entrada.timestamps || entrada.timestamps.length === 0) {
       return;
     }
-    
+
     // Filtrar timestamps antiguos
     const indicesValidos: number[] = [];
     entrada.timestamps.forEach((ts, index) => {
@@ -202,23 +208,23 @@ export function limpiarTimestampsAntiguos(): void {
         indicesValidos.push(index);
       }
     });
-    
+
     const timestampsActualizados = entrada.timestamps.filter((_, index) => indicesValidos.includes(index));
     const cantidadesActualizadas = entrada.cantidadEtiquetas.filter((_, index) => indicesValidos.includes(index));
-    
+
     if (timestampsActualizados.length !== entrada.timestamps.length) {
       entrada.timestamps = timestampsActualizados;
       entrada.cantidadEtiquetas = cantidadesActualizadas;
       historial[operadorId] = entrada;
       historialModificado = true;
-      
+
       // Si no quedan timestamps, eliminar la entrada completa
       if (entrada.timestamps.length === 0) {
         delete historial[operadorId];
       }
     }
   });
-  
+
   if (historialModificado) {
     guardarHistorialRateLimit(historial);
   }
