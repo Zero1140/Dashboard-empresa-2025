@@ -38,6 +38,7 @@ LIMITE_ETIQUETAS_POR_HORA = 100
 ARCHIVO_ESTADO_HORARIO = "/home/gst3d/estado_contador.txt"
 ARCHIVO_CONTADOR_ID = "/home/gst3d/contador_id_numero.txt"
 ARCHIVO_LOG_LOCAL = "/home/gst3d/etiquetas_log.json"
+ARCHIVO_NOTIFICACIONES = "/home/gst3d/notificaciones_prn.log"
 
 # Intervalo de polling (segundos)
 INTERVALO_POLLING = 5
@@ -79,6 +80,41 @@ def log_warning(mensaje: str):
     """Log de advertencia con timestamp."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] ⚠️  {mensaje}")
+
+def notificar_error_prn(color: str, es_grande: bool, tipo_material: str):
+    """Registra una notificación de error de archivo PRN faltante."""
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        variante = "grande" if es_grande else "chica"
+        mensaje = f"[{timestamp}] ARCHIVO PRN FALTANTE: {color} ({variante}) - {tipo_material}\n"
+
+        # Registrar en archivo de notificaciones
+        with open(ARCHIVO_NOTIFICACIONES, 'a', encoding='utf-8') as f:
+            f.write(mensaje)
+
+        log_warning(f"Archivo PRN faltante registrado: {color} ({variante}) - {tipo_material}")
+
+        # Aquí se podría agregar envío de email, webhook, etc.
+        # enviar_notificacion_email(mensaje)
+        # enviar_webhook_notificacion(mensaje)
+
+    except Exception as e:
+        log_error("Error al registrar notificación PRN", e)
+
+def obtener_notificaciones_pendientes() -> List[str]:
+    """Obtiene las notificaciones pendientes."""
+    try:
+        if not os.path.exists(ARCHIVO_NOTIFICACIONES):
+            return []
+
+        with open(ARCHIVO_NOTIFICACIONES, 'r', encoding='utf-8') as f:
+            lineas = f.readlines()
+
+        # Retornar las últimas 10 notificaciones
+        return [linea.strip() for linea in lineas[-10:]]
+    except Exception as e:
+        log_error("Error al leer notificaciones", e)
+        return []
 
 # ============================================================================
 # FUNCIONES AUXILIARES ROBUSTAS
@@ -180,6 +216,51 @@ def obtener_nombre_archivo_prn(color: str, es_grande: bool) -> str:
     except Exception as e:
         log_error(f"Error al obtener nombre archivo PRN para {color}", e)
         return color.replace("_GRANDE", "")
+
+def verificar_archivos_prn_faltantes():
+    """
+    Verifica si faltan archivos PRN para colores existentes en la base de datos
+    y notifica si es necesario.
+    """
+    try:
+        # Obtener colores de Supabase
+        colores_response = supabase_client.table('colores_personalizados').select('colores_data').eq('id', 'colores_global').single()
+        colores_eliminados_response = supabase_client.table('colores_eliminados').select('eliminados_data').eq('id', 'eliminados_global').single()
+
+        colores_faltantes = []
+
+        if colores_response.data and colores_response.data.get('colores_data'):
+            colores_data = colores_response.data['colores_data']
+
+            for tipo_material, colores_tipo in colores_data.items():
+                # Verificar colores chicos
+                if 'chica' in colores_tipo:
+                    for color in colores_tipo['chica'].keys():
+                        nombre_archivo = obtener_nombre_archivo_prn(color, False)
+                        ruta = os.path.join(RUTA_PRN, f"{nombre_archivo}.prn")
+                        if not os.path.exists(ruta):
+                            colores_faltantes.append(f"{color} (chica) - {tipo_material}")
+
+                # Verificar colores grandes
+                if 'grande' in colores_tipo:
+                    for color in colores_tipo['grande'].keys():
+                        nombre_archivo = obtener_nombre_archivo_prn(color, True)
+                        ruta = os.path.join(RUTA_PRN, f"{nombre_archivo}.prn")
+                        if not os.path.exists(ruta):
+                            colores_faltantes.append(f"{color.replace('_GRANDE', '')} (grande) - {tipo_material}")
+
+        if colores_faltantes:
+            log_warning("ARCHIVOS PRN FALTANTES:")
+            for color_faltante in colores_faltantes:
+                log_warning(f"   ❌ {color_faltante}")
+            log_info("   💡 Estos colores se agregaron desde la web pero no tienen archivos PRN")
+            log_info("   🔄 Se generarán automáticamente desde la aplicación web")
+
+        return colores_faltantes
+
+    except Exception as e:
+        log_error("Error verificando archivos PRN faltantes", e)
+        return []
 
 # ============================================================================
 # FUNCIÓN DE IMPRESIÓN ROBUSTA
@@ -545,13 +626,21 @@ def main():
             os.makedirs(RUTA_PRN, exist_ok=True)
         except Exception as e:
             log_error(f"No se pudo crear la carpeta {RUTA_PRN}", e)
-    
+
+    # Verificar archivos PRN faltantes al inicio
+    log_info("🔍 Verificando archivos PRN...")
+    verificar_archivos_prn_faltantes()
+
     log_info("")
     log_info(f"🔄 Iniciando bucle de polling (cada {INTERVALO_POLLING} segundos)...")
     log_info("   El servicio NUNCA se cerrará automáticamente")
     log_info("   Presiona Ctrl+C para detener manualmente")
     log_info("")
-    
+
+    # Contador para verificaciones periódicas
+    contador_ciclos = 0
+    CICLOS_ENTRE_VERIFICACIONES = 100  # Verificar cada ~100 ciclos (500 segundos)
+
     # BUCLE PRINCIPAL - NUNCA SE SALE A MENOS QUE HAYA KeyboardInterrupt
     while True:
         try:
@@ -576,9 +665,16 @@ def main():
                 if tiempo_actual.second < INTERVALO_POLLING:
                     hacer_heartbeat()
             
+            # Verificación periódica de archivos PRN faltantes
+            contador_ciclos += 1
+            if contador_ciclos >= CICLOS_ENTRE_VERIFICACIONES:
+                contador_ciclos = 0
+                log_info("🔍 Verificación periódica de archivos PRN...")
+                verificar_archivos_prn_faltantes()
+
             # Reiniciar contador de errores si todo salió bien
             conteo_errores_consecutivos = 0
-            
+
             # Calcular tiempo de espera (asegurar intervalo mínimo)
             tiempo_ciclo = time.time() - ciclo_inicio
             tiempo_espera = max(0, INTERVALO_POLLING - tiempo_ciclo)

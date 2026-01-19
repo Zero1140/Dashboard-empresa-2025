@@ -8,6 +8,7 @@ import { obtenerCategoriasArray, obtenerCategoriasArraySync, agregarCategoria, e
 import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { obtenerMinimoMaterial, obtenerMinimoCategoria, establecerMinimoMaterial, establecerMinimoCategoria, eliminarMinimoMaterial, eliminarMinimoCategoria } from "../utils/stockMinimos";
 import { obtenerPinsOperadores, establecerPinOperador, eliminarPinOperador, tienePinOperadorSync } from "../utils/pins";
+import { procesarNuevoColor, suscribirGeneracionAutomaticaPRN } from "../utils/generadorEtiquetas";
 import NumericKeypad from "./NumericKeypad";
 import VirtualKeyboard from "./VirtualKeyboard";
 
@@ -53,6 +54,10 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
   const [operadores, setOperadores] = useState<string[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [pins, setPins] = useState<Record<string, any>>({});
+
+  // Estados para generación automática de PRN
+  const [mensajePRN, setMensajePRN] = useState<string | null>(null);
+  const [tipoMensajePRN, setTipoMensajePRN] = useState<'success' | 'error' | 'info'>('info');
   
   // Formulario para agregar color
   const [nuevoColor, setNuevoColor] = useState<ColorPersonalizado>({
@@ -122,6 +127,19 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     };
   }, []);
 
+  // Suscripción para generación automática de archivos PRN
+  useEffect(() => {
+    const unsubscribe = suscribirGeneracionAutomaticaPRN((resultado) => {
+      setMensajePRN(resultado.mensaje);
+      setTipoMensajePRN(resultado.exito ? 'success' : 'error');
+
+      // Limpiar mensaje después de 5 segundos
+      setTimeout(() => setMensajePRN(null), 5000);
+    });
+
+    return unsubscribe;
+  }, []);
+
   // Suscripción Realtime para todas las entidades
   useRealtimeSync({
     onCategoriasChange: async (nuevasCategoriasData) => {
@@ -178,11 +196,34 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     }
 
     setColoresPersonalizados(nuevosColores);
-    // Guardar en Supabase (asíncrono)
-    guardarColoresPersonalizados(nuevosColores).catch(err => 
-      console.error('Error al guardar colores personalizados:', err)
-    );
-    
+
+    // Guardar en Supabase y procesar archivos PRN
+    guardarColoresPersonalizados(nuevosColores).then(async () => {
+      // Procesar generación automática de archivos PRN
+      setMensajePRN("Generando archivos PRN para el nuevo color...");
+      setTipoMensajePRN('info');
+
+      try {
+        const resultado = await procesarNuevoColor(nombreNormalizado, nuevoColor.tipo, [nuevoColor.variante]);
+
+        setMensajePRN(resultado.mensaje);
+        setTipoMensajePRN(resultado.exito ? 'success' : 'error');
+
+        // Limpiar mensaje después de 5 segundos
+        setTimeout(() => setMensajePRN(null), 5000);
+      } catch (error) {
+        console.error('Error procesando archivos PRN:', error);
+        setMensajePRN(`Error generando archivos PRN: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+        setTipoMensajePRN('error');
+        setTimeout(() => setMensajePRN(null), 5000);
+      }
+    }).catch(err => {
+      console.error('Error al guardar colores personalizados:', err);
+      setMensajePRN("Error guardando color en base de datos");
+      setTipoMensajePRN('error');
+      setTimeout(() => setMensajePRN(null), 5000);
+    });
+
     // Resetear formulario
     setNuevoColor({
       nombre: "",
@@ -413,6 +454,37 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
           </div>
         </div>
       </div>
+
+      {/* Mensaje de estado PRN */}
+      {mensajePRN && (
+        <div className={`card-elegant rounded-xl p-4 border-2 ${
+          tipoMensajePRN === 'success' ? 'border-[#00ff88]/30 bg-[#00ff88]/10' :
+          tipoMensajePRN === 'error' ? 'border-[#ff4757]/30 bg-[#ff4757]/10' :
+          'border-[#ffb800]/30 bg-[#ffb800]/10'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+              tipoMensajePRN === 'success' ? 'bg-[#00ff88]' :
+              tipoMensajePRN === 'error' ? 'bg-[#ff4757]' :
+              'bg-[#ffb800]'
+            }`}>
+              <span className="text-xs text-black font-bold">
+                {tipoMensajePRN === 'success' ? '✓' :
+                 tipoMensajePRN === 'error' ? '✗' : 'ⓘ'}
+              </span>
+            </div>
+            <div className="flex-1">
+              <p className={`text-sm font-medium whitespace-pre-line ${
+                tipoMensajePRN === 'success' ? 'text-[#00ff88]' :
+                tipoMensajePRN === 'error' ? 'text-[#ff4757]' :
+                'text-[#ffb800]'
+              }`}>
+                {mensajePRN}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Selector de tipo mejorado */}
       <div className="card-elegant rounded-2xl p-5 lg:p-6">
