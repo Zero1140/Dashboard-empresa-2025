@@ -36,9 +36,9 @@ pip install -r requirements_impresion.txt
 ```
 
 #### **2. Verificar Rutas:**
-- ✅ **RUTA_PRN:** `/home/gst3d/etiquetas`
-- ✅ **Impresoras:** Configuradas según el sistema operativo
-- ✅ **Archivo de log:** `/home/gst3d/notificaciones_prn.log`
+- ✅ **RUTA_PRN:** `C:\Users\gst3d\OneDrive\Desktop\ETIQUETAS_NUEVAS`
+- ✅ **Impresoras:** `\\localhost\ZebraZD420` y `\\localhost\ZebraZD420_Grande`
+- ✅ **Archivo de log:** `C:\Users\gst3d\OneDrive\Desktop\notificaciones_prn.log`
 
 #### **3. Credenciales Supabase:**
 Ya están hardcodeadas en el script - no necesitan configuración adicional.
@@ -118,14 +118,14 @@ Conectado a Supabase. Escuchando pedidos
 - Revisar permisos de impresión
 
 #### **Error de rutas:**
-- Asegurarse que la carpeta `/home/gst3d/etiquetas/` existe
+- Asegurarse que la carpeta `C:\Users\gst3d\OneDrive\Desktop\ETIQUETAS_NUEVAS\` existe
 - Verificar permisos de escritura
-- Los archivos PRN deben estar en `/home/gst3d/etiquetas/`
+- Los archivos PRN deben estar en `C:\Users\gst3d\OneDrive\Desktop\ETIQUETAS_NUEVAS\`
 
 #### **Si faltan archivos PRN:**
-- Revisar carpeta: `/home/gst3d/etiquetas/`
+- Revisar carpeta: `C:\Users\gst3d\OneDrive\Desktop\ETIQUETAS_NUEVAS\`
 - Nombres exactos: `COLOR.prn` y `COLOR_GRANDE.prn`
-- Ver log: `/home/gst3d/notificaciones_prn.log`
+- Ver log: `C:\Users\gst3d\OneDrive\Desktop\notificaciones_prn.log`
 
 ### 💡 **Archivos que NO necesitan:**
 
