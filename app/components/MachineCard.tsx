@@ -38,6 +38,20 @@ export default function MachineCard({
   onCambiarColorChica,
   onCambiarColorGrande,
 }: MachineCardProps) {
+  // Estado para forzar re-render cuando cambian colores
+  const [coloresVersion, setColoresVersion] = useState<number>(0);
+
+  // Listener para actualizaciones de colores
+  useEffect(() => {
+    const handleColoresActualizados = () => {
+      // Forzar re-render incrementando versión
+      setColoresVersion(prev => prev + 1);
+    };
+
+    window.addEventListener("coloresActualizados", handleColoresActualizados);
+    return () => window.removeEventListener("coloresActualizados", handleColoresActualizados);
+  }, []);
+
   // Estado para material seleccionado (por máquina)
   const [materialSeleccionado, setMaterialSeleccionado] = useState<string>(() => {
     if (colorChicaInicial) {

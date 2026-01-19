@@ -25,6 +25,7 @@ export default function Sidebar({
   onLogout,
 }: SidebarProps) {
   const [alertasCount, setAlertasCount] = useState<number>(0);
+  const [coloresVersion, setColoresVersion] = useState<number>(0);
 
   // Calcular alertas periódicamente
   useEffect(() => {
@@ -44,7 +45,18 @@ export default function Sidebar({
     calcularAlertas();
     const interval = setInterval(calcularAlertas, 2000);
     return () => clearInterval(interval);
-  }, [modoEdicion]);
+  }, [modoEdicion, coloresVersion]);
+
+  // Listener para actualizaciones de colores
+  useEffect(() => {
+    const handleColoresActualizados = () => {
+      // Forzar re-render incrementando versión
+      setColoresVersion(prev => prev + 1);
+    };
+
+    window.addEventListener("coloresActualizados", handleColoresActualizados);
+    return () => window.removeEventListener("coloresActualizados", handleColoresActualizados);
+  }, []);
   return (
     <div className="w-52 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f1419] min-h-screen p-4 border-r border-[#2d3748] flex flex-col shadow-2xl relative z-10 backdrop-blur-sm">
       {/* Efecto de brillo sutil en el borde */}

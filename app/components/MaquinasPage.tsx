@@ -54,6 +54,9 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
   // Estado para almacenar colores seleccionados por máquina
   const [coloresPorMaquina, setColoresPorMaquina] = useState<Record<number, { chica: string; grande: string }>>({});
 
+  // Estado para forzar re-render cuando cambian colores
+  const [coloresVersion, setColoresVersion] = useState<number>(0);
+
   // Cargar estado desde Supabase al iniciar
   useEffect(() => {
     const cargarDatosIniciales = async () => {
@@ -136,6 +139,17 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
 
     return () => clearInterval(interval);
   }, [onSupabaseError]);
+
+  // Listener para actualizaciones de colores
+  useEffect(() => {
+    const handleColoresActualizados = () => {
+      // Forzar re-render incrementando versión
+      setColoresVersion(prev => prev + 1);
+    };
+
+    window.addEventListener("coloresActualizados", handleColoresActualizados);
+    return () => window.removeEventListener("coloresActualizados", handleColoresActualizados);
+  }, []);
 
   // Suscripción Realtime a contador de etiquetas
   useRealtimeSync({
