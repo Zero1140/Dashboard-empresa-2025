@@ -132,9 +132,12 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
   // Listener para actualizaciones de colores
   useEffect(() => {
     const handleColoresActualizados = async () => {
-      // Recargar colores cuando se actualicen
+      // Recargar colores personalizados y eliminados cuando se actualicen
       try {
-        const coloresActualizados = await obtenerColoresPersonalizados();
+        const [coloresActualizados, coloresEliminados] = await Promise.all([
+          obtenerColoresPersonalizados(),
+          import('../utils/colores').then(m => m.obtenerColoresEliminados())
+        ]);
         setColoresPersonalizados(coloresActualizados);
       } catch (error) {
         console.error("Error al recargar colores:", error);
@@ -285,8 +288,10 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       }
 
       setColoresPersonalizados(nuevosColores);
+      // Actualizar caché inmediatamente
+      actualizarCacheColores(nuevosColores);
       // Guardar en Supabase (asíncrono)
-      guardarColoresPersonalizados(nuevosColores).catch(err => 
+      guardarColoresPersonalizados(nuevosColores).catch(err =>
         console.error('Error al guardar colores personalizados:', err)
       );
     } else {

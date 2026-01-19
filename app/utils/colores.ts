@@ -201,15 +201,18 @@ export async function guardarColoresEliminados(coloresEliminados: Record<string,
  */
 export async function eliminarColor(tipo: string, variante: "chica" | "grande", nombre: string): Promise<void> {
   const coloresEliminados = await obtenerColoresEliminados();
-  
+
   if (!coloresEliminados[tipo]) {
     coloresEliminados[tipo] = { chica: [], grande: [] };
   }
-  
+
   if (!coloresEliminados[tipo][variante].includes(nombre)) {
     coloresEliminados[tipo][variante].push(nombre);
     await guardarColoresEliminados(coloresEliminados);
-    
+
+    // Actualizar caché para que desaparezca inmediatamente
+    actualizarCacheColores();
+
     // Disparar evento para actualizar otros componentes
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("coloresActualizados"));
