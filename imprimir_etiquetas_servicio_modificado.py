@@ -4,6 +4,9 @@ import subprocess
 from datetime import datetime
 from supabase import create_client
 
+# ============================================================================
+# CONFIGURACIÓN WINDOWS - GST3D
+# ============================================================================
 SUPABASE_URL = "https://rybokbjrbugvggprnith.supabase.co"
 SUPABASE_KEY = "sb_publishable_VAI_JWRKxhjCwcPw_qWXNA_IkXLfKR_"
 
@@ -23,22 +26,30 @@ def obtener_ruta_archivo(color, es_grande):
     ruta = os.path.join(RUTA_PRN, nombre_archivo)
     return ruta if os.path.exists(ruta) else None
 
-def enviar_a_impresora(ruta_prn, impresora, cantidad, inyectar_fecha=False):
+def enviar_a_impresora(ruta_prn, impresora, cantidad, inyectar_info=False, nro_maquina=None):
     try:
         ruta_a_imprimir = ruta_prn
 
-        if inyectar_fecha:
+        if inyectar_info:
             with open(ruta_prn, 'rb') as f:
                 contenido = f.read()
 
             fecha_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-            bloque_fecha = f"^FO0,205^FB480,1,0,C^A0N,30,30^FD{fecha_str}^FS".encode('utf-8')
+            maquina_str = f"M:{nro_maquina}" if nro_maquina else ""
+
+            # DISEÑO: Fecha (izq) y Máquina (der)
+            # FO20: Margen izquierdo para fecha
+            # FO360: Margen para que la máquina no se corte a la derecha
+            zpl_extra = (
+                f"^FO20,210^A0N,28,28^FD{fecha_str}^FS"
+                f"^FO360,210^A0N,32,32^FD{maquina_str}^FS"
+            ).encode('utf-8')
 
             if b"^XZ" in contenido:
                 partes = contenido.rsplit(b"^XZ", 1)
-                zpl_final = partes[0] + bloque_fecha + b"^XZ" + partes[1]
+                zpl_final = partes[0] + zpl_extra + b"^XZ" + partes[1]
             else:
-                zpl_final = contenido + b"^XA" + bloque_fecha + b"^XZ"
+                zpl_final = contenido + b"^XA" + zpl_extra + b"^XZ"
 
             ruta_a_imprimir = os.path.join(os.environ['TEMP'], "temp_print_gst3d.prn")
             with open(ruta_a_imprimir, 'wb') as f:
@@ -52,7 +63,7 @@ def enviar_a_impresora(ruta_prn, impresora, cantidad, inyectar_fecha=False):
 
         return True
     except Exception as e:
-        print(f" Error físico al imprimir: {e}")
+        print(f"❌ Error físico al imprimir: {e}")
         return False
 
 def verificar_archivos_prn_faltantes(supabase):
@@ -126,14 +137,14 @@ def notificar_error_prn(color, es_grande, tipo_material):
 
 def main():
     print("="*50)
-    print("🚀 SERVIDOR GST3D - MODO PASAMANOS PRN")
+    print("🚀 SERVIDOR GST3D - MODO MÁQUINAS (maquina_id)")
     print("="*50)
 
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("Conectado a Supabase. Escuchando pedidos")
+        print("✅ Conectado a Supabase. Escuchando pedidos...")
     except Exception as e:
-        print(f"Error de conexión: {e}"); return
+        print(f"❌ Error de conexión: {e}"); return
 
     # Verificar archivos PRN faltantes al inicio
     print("\n🔍 Verificando archivos PRN...")
@@ -149,38 +160,42 @@ def main():
 
             for imp in res.data:
                 imp_id = imp['id']
-                print(f"\n Procesando Pedido #{imp_id}")
+
+                # USAMOS EL NOMBRE REAL DE LA COLUMNA QUE VIMOS EN LA FOTO
+                nro_m = imp.get('maquina_id')
+
+                print(f"\n📦 Procesando Pedido #{imp_id} | Máquina detectada: {nro_m}")
                 todo_ok = True
 
-                # 1. Etiquetas Chicas
+                # 1. Etiquetas Chicas (FECHA + MÁQUINA)
                 cant_c = imp.get('cantidad_chicas', 0)
                 if cant_c > 0 and imp.get('etiqueta_chica'):
                     ruta = obtener_ruta_archivo(imp['etiqueta_chica'], False)
                     if ruta:
-                        if not enviar_a_impresora(ruta, IMPRESORA_CHICAS, cant_c, inyectar_fecha=True):
+                        if not enviar_a_impresora(ruta, IMPRESORA_CHICAS, cant_c, inyectar_info=True, nro_maquina=nro_m):
                             todo_ok = False
                     else:
-                        print(f" No se encontró chica: {imp['etiqueta_chica']}")
+                        print(f"⚠️ No se encontró: {imp['etiqueta_chica']}")
                         # Notificar archivo faltante
                         notificar_error_prn(imp['etiqueta_chica'], False, "DESCONOCIDO")
                         todo_ok = False
 
-                # 2. Etiquetas Grandes
+                # 2. Etiquetas Grandes (ORIGINALES)
                 cant_g = imp.get('cantidad_grandes', 0)
                 if cant_g > 0 and imp.get('etiqueta_grande'):
                     ruta = obtener_ruta_archivo(imp['etiqueta_grande'], True)
                     if ruta:
-                        if not enviar_a_impresora(ruta, IMPRESORA_GRANDES, cant_g, inyectar_fecha=False):
+                        if not enviar_a_impresora(ruta, IMPRESORA_GRANDES, cant_g, inyectar_info=False):
                             todo_ok = False
                     else:
-                        print(f" No se encontró grande: {imp['etiqueta_grande']}")
+                        print(f"⚠️ No se encontró: {imp['etiqueta_grande']}")
                         # Notificar archivo faltante
                         notificar_error_prn(imp['etiqueta_grande'], True, "DESCONOCIDO")
                         todo_ok = False
 
                 nuevo_estado = 'impresa' if todo_ok else 'error'
                 supabase.table('impresiones').update({'estado': nuevo_estado}).eq('id', imp_id).execute()
-                print(f"✅ Pedido #{imp_id} finalizado como: {nuevo_estado}")
+                print(f"✅ Pedido #{imp_id} finalizado.")
 
             # Verificación periódica de archivos PRN faltantes
             contador_ciclos += 1
@@ -192,7 +207,7 @@ def main():
             time.sleep(INTERVALO_POLLING)
         except KeyboardInterrupt: break
         except Exception as e:
-            print(f"\n Error: {e}")
+            print(f"\n❌ Error: {e}")
             time.sleep(10)
 
 if __name__ == "__main__":
