@@ -77,7 +77,7 @@ export async function obtenerColoresPersonalizados(): Promise<Record<string, {
   const colores = await cargarColoresPersonalizadosDesdeSupabase();
 
   // Actualizar caché para acceso síncrono
-  actualizarCacheColores();
+  actualizarCacheColores(colores);
 
   return colores;
 }
@@ -334,9 +334,15 @@ export function obtenerColoresCombinadosSync(): Record<string, {
 }
 
 // Función para actualizar el caché (llamada desde funciones async)
-export function actualizarCacheColores() {
-  // Recalcular colores combinados con datos frescos
-  const coloresPersonalizados = obtenerColoresPersonalizadosSync();
+export function actualizarCacheColores(coloresPersonalizados?: Record<string, {
+  chica: Record<string, string>;
+  grande: Record<string, string>;
+}>) {
+  // Si no se pasan colores, intentar obtener del estado global
+  if (!coloresPersonalizados) {
+    coloresPersonalizados = obtenerColoresPersonalizadosSync();
+  }
+
   const coloresEliminados = obtenerColoresEliminadosSync();
   const combinados = { ...coloresPorTipo };
 

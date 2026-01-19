@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { coloresPorTipo, limpiarNombre, OPERADORES } from "../data";
-import { obtenerColoresCombinados, obtenerColoresCombinadosSync, obtenerColoresPersonalizados, eliminarColor, guardarColoresPersonalizados } from "../utils/colores";
+import { obtenerColoresCombinados, obtenerColoresCombinadosSync, obtenerColoresPersonalizados, eliminarColor, guardarColoresPersonalizados, actualizarCacheColores } from "../utils/colores";
 import { obtenerOperadoresCombinados, obtenerOperadoresCombinadosSync, agregarOperador, eliminarOperador } from "../utils/operadores";
 import { obtenerCategoriasArray, obtenerCategoriasArraySync, agregarCategoria, eliminarCategoria, agregarItemACategoria, eliminarItemDeCategoria, Categoria } from "../utils/categorias";
 import { useRealtimeSync } from "../utils/useRealtimeSync";
@@ -214,6 +214,9 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     }
 
     setColoresPersonalizados(nuevosColores);
+
+    // Actualizar caché global inmediatamente para que aparezca en la interfaz
+    actualizarCacheColores(nuevosColores);
 
     // Guardar en Supabase y procesar archivos PRN
     guardarColoresPersonalizados(nuevosColores).then(async () => {
