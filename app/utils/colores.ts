@@ -73,24 +73,39 @@ export async function obtenerColoresPersonalizados(): Promise<Record<string, {
   grande: Record<string, string>;
 }>> {
   if (typeof window === "undefined") return {};
-  
-  return await cargarColoresPersonalizadosDesdeSupabase();
+
+  const colores = await cargarColoresPersonalizadosDesdeSupabase();
+
+  // Guardar en localStorage para acceso síncrono
+  try {
+    localStorage.setItem("gst3d_colores_personalizados", JSON.stringify(colores));
+  } catch (error) {
+    console.warn('Error guardando colores en localStorage:', error);
+  }
+
+  return colores;
 }
 
 /**
- * Versión síncrona para compatibilidad
+ * Versión síncrona para compatibilidad - obtiene de localStorage si existe
  */
 export function obtenerColoresPersonalizadosSync(): Record<string, {
   chica: Record<string, string>;
   grande: Record<string, string>;
 }> {
   if (typeof window === "undefined") return {};
-  
-  if (!isSupabaseConfigured()) {
-    console.warn('Supabase no está configurado. obtenerColoresPersonalizadosSync() devolverá un objeto vacío.');
-    return {};
+
+  // Intentar obtener de localStorage primero (fallback rápido)
+  try {
+    const coloresGuardados = localStorage.getItem("gst3d_colores_personalizados");
+    if (coloresGuardados) {
+      return JSON.parse(coloresGuardados);
+    }
+  } catch (error) {
+    console.warn('Error obteniendo colores de localStorage:', error);
   }
-  
+
+  // Si no hay en localStorage, devolver vacío (la versión async obtendrá de Supabase)
   return {};
 }
 
@@ -162,24 +177,39 @@ export async function obtenerColoresEliminados(): Promise<Record<string, {
   grande: string[];
 }>> {
   if (typeof window === "undefined") return {};
-  
-  return await cargarColoresEliminadosDesdeSupabase();
+
+  const coloresEliminados = await cargarColoresEliminadosDesdeSupabase();
+
+  // Guardar en localStorage para acceso síncrono
+  try {
+    localStorage.setItem("gst3d_colores_eliminados", JSON.stringify(coloresEliminados));
+  } catch (error) {
+    console.warn('Error guardando colores eliminados en localStorage:', error);
+  }
+
+  return coloresEliminados;
 }
 
 /**
- * Versión síncrona para compatibilidad
+ * Versión síncrona para compatibilidad - obtiene de localStorage si existe
  */
 export function obtenerColoresEliminadosSync(): Record<string, {
   chica: string[];
   grande: string[];
 }> {
   if (typeof window === "undefined") return {};
-  
-  if (!isSupabaseConfigured()) {
-    console.warn('Supabase no está configurado. obtenerColoresEliminadosSync() devolverá un objeto vacío.');
-    return {};
+
+  // Intentar obtener de localStorage primero (fallback rápido)
+  try {
+    const coloresEliminadosGuardados = localStorage.getItem("gst3d_colores_eliminados");
+    if (coloresEliminadosGuardados) {
+      return JSON.parse(coloresEliminadosGuardados);
+    }
+  } catch (error) {
+    console.warn('Error obteniendo colores eliminados de localStorage:', error);
   }
-  
+
+  // Si no hay en localStorage, devolver vacío
   return {};
 }
 
@@ -191,8 +221,15 @@ export async function guardarColoresEliminados(coloresEliminados: Record<string,
   grande: string[];
 }>): Promise<void> {
   if (typeof window === "undefined") return;
-  
+
   await guardarColoresEliminadosEnSupabase(coloresEliminados);
+
+  // Guardar también en localStorage para acceso síncrono
+  try {
+    localStorage.setItem("gst3d_colores_eliminados", JSON.stringify(coloresEliminados));
+  } catch (error) {
+    console.warn('Error guardando colores eliminados en localStorage:', error);
+  }
 }
 
 /**
@@ -247,9 +284,16 @@ export async function guardarColoresPersonalizados(colores: Record<string, {
   grande: Record<string, string>;
 }>): Promise<void> {
   if (typeof window === "undefined") return;
-  
+
   await guardarColoresPersonalizadosEnSupabase(colores);
-  
+
+  // Guardar también en localStorage para acceso síncrono
+  try {
+    localStorage.setItem("gst3d_colores_personalizados", JSON.stringify(colores));
+  } catch (error) {
+    console.warn('Error guardando colores en localStorage:', error);
+  }
+
   // Disparar evento local
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("coloresActualizados"));
