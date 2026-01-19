@@ -36,9 +36,9 @@ pip install -r requirements_impresion.txt
 ```
 
 #### **2. Verificar Rutas:**
-- ✅ **RUTA_PRN:** `C:\Users\gst3d\OneDrive\Desktop\ETIQUETAS_NUEVAS`
-- ✅ **Impresoras:** `\\localhost\ZebraZD420` y `\\localhost\ZebraZD420_Grande`
-- ✅ **Archivo de log:** `C:\Users\gst3d\OneDrive\Desktop\notificaciones_prn.log`
+- ✅ **RUTA_PRN:** `/home/gst3d/etiquetas`
+- ✅ **Impresoras:** Configuradas según el sistema operativo
+- ✅ **Archivo de log:** `/home/gst3d/notificaciones_prn.log`
 
 #### **3. Credenciales Supabase:**
 Ya están hardcodeadas en el script - no necesitan configuración adicional.
@@ -46,21 +46,20 @@ Ya están hardcodeadas en el script - no necesitan configuración adicional.
 ### 📂 **Estructura Final en la Máquina de Impresión:**
 
 ```
-C:\Users\gst3d\Desktop\
-├── imprimir_etiquetas_servicio.py          ← Script principal modificado
-├── requirements_impresion.txt             ← Dependencias
-├── start_impresion_service.bat            ← Script de inicio (opcional)
+/home/gst3d/
+├── etiquetas/                             ← Carpeta con archivos PRN
+│   ├── BLACK.prn                          ← Archivos PRN existentes
+│   ├── RED.prn
+│   ├── BLUE.prn
+│   ├── BLACK_GRANDE.prn
+│   └── ... (se generarán automáticamente nuevos)
+├── notificaciones_prn.log                 ← Se crea automáticamente
 └── ...
 
-C:\Users\gst3d\OneDrive\Desktop\ETIQUETAS_NUEVAS\
-├── BLACK.prn                               ← Archivos PRN existentes
-├── RED.prn
-├── BLUE.prn
-├── BLACK_GRANDE.prn
-└── ... (se generarán automáticamente nuevos)
-
-C:\Users\gst3d\OneDrive\Desktop\
-└── notificaciones_prn.log                 ← Se crea automáticamente
+/ruta/del/script/
+├── imprimir_etiquetas_servicio.py          ← Script principal modificado
+├── requirements_impresion.txt             ← Dependencias
+└── start_impresion_service.sh             ← Script de inicio (opcional)
 ```
 
 ### 🚀 **Pasos de Deploy:**
@@ -115,12 +114,18 @@ Conectado a Supabase. Escuchando pedidos
 - Las credenciales ya están en el código
 
 #### **Error de impresoras:**
-- Verificar que las impresoras estén compartidas como `\\localhost\ZebraZD420`
+- Verificar que las impresoras estén configuradas correctamente
 - Revisar permisos de impresión
 
 #### **Error de rutas:**
-- Asegurarse que la carpeta `ETIQUETAS_NUEVAS` existe
+- Asegurarse que la carpeta `/home/gst3d/etiquetas/` existe
 - Verificar permisos de escritura
+- Los archivos PRN deben estar en `/home/gst3d/etiquetas/`
+
+#### **Si faltan archivos PRN:**
+- Revisar carpeta: `/home/gst3d/etiquetas/`
+- Nombres exactos: `COLOR.prn` y `COLOR_GRANDE.prn`
+- Ver log: `/home/gst3d/notificaciones_prn.log`
 
 ### 💡 **Archivos que NO necesitan:**
 

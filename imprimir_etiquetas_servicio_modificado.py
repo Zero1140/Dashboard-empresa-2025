@@ -7,7 +7,7 @@ from supabase import create_client
 SUPABASE_URL = "https://rybokbjrbugvggprnith.supabase.co"
 SUPABASE_KEY = "sb_publishable_VAI_JWRKxhjCwcPw_qWXNA_IkXLfKR_"
 
-RUTA_PRN = r"C:\Users\gst3d\OneDrive\Desktop\ETIQUETAS_NUEVAS"
+RUTA_PRN = "/home/gst3d/etiquetas"
 
 IMPRESORA_CHICAS = r"\\localhost\ZebraZD420"
 IMPRESORA_GRANDES = r"\\localhost\ZebraZD420_Grande"
@@ -15,7 +15,7 @@ IMPRESORA_GRANDES = r"\\localhost\ZebraZD420_Grande"
 INTERVALO_POLLING = 5
 
 # Configuración de notificaciones
-ARCHIVO_NOTIFICACIONES = r"C:\Users\gst3d\OneDrive\Desktop\notificaciones_prn.log"
+ARCHIVO_NOTIFICACIONES = "/home/gst3d/notificaciones_prn.log"
 
 def obtener_ruta_archivo(color, es_grande):
     color_limpio = color.replace("_GRANDE", "").strip()
