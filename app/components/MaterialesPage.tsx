@@ -129,6 +129,22 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     };
   }, []);
 
+  // Listener para actualizaciones de colores
+  useEffect(() => {
+    const handleColoresActualizados = async () => {
+      // Recargar colores cuando se actualicen
+      try {
+        const coloresActualizados = await obtenerColoresPersonalizados();
+        setColoresPersonalizados(coloresActualizados);
+      } catch (error) {
+        console.error("Error al recargar colores:", error);
+      }
+    };
+
+    window.addEventListener("coloresActualizados", handleColoresActualizados);
+    return () => window.removeEventListener("coloresActualizados", handleColoresActualizados);
+  }, []);
+
   // Suscripción para generación automática de archivos PRN
   useEffect(() => {
     const unsubscribe = suscribirGeneracionAutomaticaPRN((resultado) => {
