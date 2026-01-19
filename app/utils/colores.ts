@@ -76,36 +76,20 @@ export async function obtenerColoresPersonalizados(): Promise<Record<string, {
 
   const colores = await cargarColoresPersonalizadosDesdeSupabase();
 
-  // Guardar en localStorage para acceso síncrono
-  try {
-    localStorage.setItem("gst3d_colores_personalizados", JSON.stringify(colores));
-  } catch (error) {
-    console.warn('Error guardando colores en localStorage:', error);
-  }
+  // Actualizar caché para acceso síncrono
+  actualizarCacheColores();
 
   return colores;
 }
 
 /**
- * Versión síncrona para compatibilidad - obtiene de localStorage si existe
+ * Versión síncrona para compatibilidad - devuelve vacío (usa versión async)
  */
 export function obtenerColoresPersonalizadosSync(): Record<string, {
   chica: Record<string, string>;
   grande: Record<string, string>;
 }> {
-  if (typeof window === "undefined") return {};
-
-  // Intentar obtener de localStorage primero (fallback rápido)
-  try {
-    const coloresGuardados = localStorage.getItem("gst3d_colores_personalizados");
-    if (coloresGuardados) {
-      return JSON.parse(coloresGuardados);
-    }
-  } catch (error) {
-    console.warn('Error obteniendo colores de localStorage:', error);
-  }
-
-  // Si no hay en localStorage, devolver vacío (la versión async obtendrá de Supabase)
+  // Solo devuelve colores base, los personalizados se cargan async
   return {};
 }
 
@@ -180,36 +164,20 @@ export async function obtenerColoresEliminados(): Promise<Record<string, {
 
   const coloresEliminados = await cargarColoresEliminadosDesdeSupabase();
 
-  // Guardar en localStorage para acceso síncrono
-  try {
-    localStorage.setItem("gst3d_colores_eliminados", JSON.stringify(coloresEliminados));
-  } catch (error) {
-    console.warn('Error guardando colores eliminados en localStorage:', error);
-  }
+  // Actualizar caché
+  actualizarCacheColores();
 
   return coloresEliminados;
 }
 
 /**
- * Versión síncrona para compatibilidad - obtiene de localStorage si existe
+ * Versión síncrona para compatibilidad - devuelve vacío (usa versión async)
  */
 export function obtenerColoresEliminadosSync(): Record<string, {
   chica: string[];
   grande: string[];
 }> {
-  if (typeof window === "undefined") return {};
-
-  // Intentar obtener de localStorage primero (fallback rápido)
-  try {
-    const coloresEliminadosGuardados = localStorage.getItem("gst3d_colores_eliminados");
-    if (coloresEliminadosGuardados) {
-      return JSON.parse(coloresEliminadosGuardados);
-    }
-  } catch (error) {
-    console.warn('Error obteniendo colores eliminados de localStorage:', error);
-  }
-
-  // Si no hay en localStorage, devolver vacío
+  // Solo devuelve vacío, los eliminados se cargan async
   return {};
 }
 
@@ -224,12 +192,8 @@ export async function guardarColoresEliminados(coloresEliminados: Record<string,
 
   await guardarColoresEliminadosEnSupabase(coloresEliminados);
 
-  // Guardar también en localStorage para acceso síncrono
-  try {
-    localStorage.setItem("gst3d_colores_eliminados", JSON.stringify(coloresEliminados));
-  } catch (error) {
-    console.warn('Error guardando colores eliminados en localStorage:', error);
-  }
+  // Actualizar caché
+  actualizarCacheColores();
 }
 
 /**
@@ -287,14 +251,10 @@ export async function guardarColoresPersonalizados(colores: Record<string, {
 
   await guardarColoresPersonalizadosEnSupabase(colores);
 
-  // Guardar también en localStorage para acceso síncrono
-  try {
-    localStorage.setItem("gst3d_colores_personalizados", JSON.stringify(colores));
-  } catch (error) {
-    console.warn('Error guardando colores en localStorage:', error);
-  }
+  // Actualizar caché
+  actualizarCacheColores();
 
-  // Disparar evento local
+  // Disparar evento local para actualizar componentes
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("coloresActualizados"));
   }
@@ -351,33 +311,54 @@ export async function obtenerColoresCombinados(): Promise<Record<string, {
 /**
  * Versión síncrona para compatibilidad
  */
+// Caché global para colores combinados
+let coloresCache: Record<string, {
+  chica: Record<string, string>;
+  grande: Record<string, string>;
+}> | null = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 30000; // 30 segundos
+
 export function obtenerColoresCombinadosSync(): Record<string, {
   chica: Record<string, string>;
   grande: Record<string, string>;
 }> {
+  // Si tenemos caché válido, usarlo
+  if (coloresCache && (Date.now() - cacheTimestamp) < CACHE_DURATION) {
+    return coloresCache;
+  }
+
+  // Si no hay caché, devolver solo colores base
+  // Los componentes deben cargar datos async para obtener colores personalizados
+  return { ...coloresPorTipo };
+}
+
+// Función para actualizar el caché (llamada desde funciones async)
+export function actualizarCacheColores() {
+  // Recalcular colores combinados con datos frescos
   const coloresPersonalizados = obtenerColoresPersonalizadosSync();
   const coloresEliminados = obtenerColoresEliminadosSync();
   const combinados = { ...coloresPorTipo };
-  
+
   // Agregar colores personalizados
   Object.keys(coloresPersonalizados).forEach((tipo) => {
     if (!combinados[tipo]) {
       combinados[tipo] = { chica: {}, grande: {} };
     }
-    
+
     // Combinar colores chicos
     combinados[tipo].chica = {
       ...combinados[tipo].chica,
       ...coloresPersonalizados[tipo].chica,
     };
-    
+
     // Combinar colores grandes
     combinados[tipo].grande = {
       ...combinados[tipo].grande,
       ...coloresPersonalizados[tipo].grande,
     };
   });
-  
+
   // Eliminar colores marcados como eliminados
   Object.keys(coloresEliminados).forEach((tipo) => {
     if (combinados[tipo]) {
@@ -385,15 +366,16 @@ export function obtenerColoresCombinadosSync(): Record<string, {
       coloresEliminados[tipo].chica.forEach((color) => {
         delete combinados[tipo].chica[color];
       });
-      
+
       // Eliminar colores grandes
       coloresEliminados[tipo].grande.forEach((color) => {
         delete combinados[tipo].grande[color];
       });
     }
   });
-  
-  return combinados;
+
+  coloresCache = combinados;
+  cacheTimestamp = Date.now();
 }
 
 /**

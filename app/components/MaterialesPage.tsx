@@ -67,21 +67,10 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     variante: "ambas",
   });
 
-  // Cargar colores personalizados desde localStorage y Supabase
+  // Cargar colores personalizados desde Supabase
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Cargar desde localStorage primero (rápido)
-    const coloresGuardados = localStorage.getItem(STORAGE_KEY_COLORES_PERSONALIZADOS);
-    if (coloresGuardados) {
-      try {
-        setColoresPersonalizados(JSON.parse(coloresGuardados));
-      } catch (e) {
-        console.error("Error al cargar colores personalizados:", e);
-      }
-    }
-
-    // Luego cargar desde Supabase para asegurar que estén actualizados
     const cargarColoresDesdeSupabase = async () => {
       try {
         const coloresSupabase = await obtenerColoresPersonalizados();
