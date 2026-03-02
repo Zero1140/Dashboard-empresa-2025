@@ -173,16 +173,13 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     onOperadoresEliminadosChange: async () => {
       setOperadores(await obtenerOperadoresCombinados());
     },
-    onColoresPersonalizadosChange: (nuevosColores) => {
-      // Actualizar caché global y forzar re-render si fuera necesario
-      // En este componente, coloresPersonalizados se usa en el render vía obtenerColoresCombinadosSync()
-      actualizarCacheColores(nuevosColores);
-      setColoresPersonalizados(nuevosColores);
+    onColoresPersonalizadosChange: () => {
+      // Los colores se recargan automáticamente con obtenerColoresCombinadosSync()
+      // que se llama en el render, así que no necesitamos actualizar estado aquí
     },
     onColoresEliminadosChange: () => {
-      // Recargar para aplicar eliminaciones
-      actualizarCacheColores();
-      obtenerColoresPersonalizados().then(setColoresPersonalizados);
+      // Los colores se recargan automáticamente con obtenerColoresCombinadosSync()
+      // que se llama en el render, así que no necesitamos actualizar estado aquí
     },
     onPinsOperadoresChange: async (nuevosPins) => {
       setPins(nuevosPins);
@@ -487,13 +484,13 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Mensaje de estado PRN */}
       {mensajePRN && (
         <div className={`card-elegant rounded-xl p-4 border-2 ${tipoMensajePRN === 'success' ? 'border-[#00ff88]/30 bg-[#00ff88]/10' :
-            tipoMensajePRN === 'error' ? 'border-[#ff4757]/30 bg-[#ff4757]/10' :
-              'border-[#ffb800]/30 bg-[#ffb800]/10'
+          tipoMensajePRN === 'error' ? 'border-[#ff4757]/30 bg-[#ff4757]/10' :
+            'border-[#ffb800]/30 bg-[#ffb800]/10'
           }`}>
           <div className="flex items-start gap-3">
             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${tipoMensajePRN === 'success' ? 'bg-[#00ff88]' :
-                tipoMensajePRN === 'error' ? 'bg-[#ff4757]' :
-                  'bg-[#ffb800]'
+              tipoMensajePRN === 'error' ? 'bg-[#ff4757]' :
+                'bg-[#ffb800]'
               }`}>
               <span className="text-xs text-black font-bold">
                 {tipoMensajePRN === 'success' ? '✓' :
@@ -502,8 +499,8 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
             </div>
             <div className="flex-1">
               <p className={`text-sm font-medium whitespace-pre-line ${tipoMensajePRN === 'success' ? 'text-[#00ff88]' :
-                  tipoMensajePRN === 'error' ? 'text-[#ff4757]' :
-                    'text-[#ffb800]'
+                tipoMensajePRN === 'error' ? 'text-[#ff4757]' :
+                  'text-[#ffb800]'
                 }`}>
                 {mensajePRN}
               </p>

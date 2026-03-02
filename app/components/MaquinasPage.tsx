@@ -97,14 +97,6 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     onColoresMaquinasChange: (colores) => {
       setColoresPorMaquina(colores);
     },
-    onColoresPersonalizadosChange: () => {
-      // Forzar re-render incrementando versión cuando cambian los colores personalizados
-      setColoresVersion(prev => prev + 1);
-    },
-    onColoresEliminadosChange: () => {
-      // Forzar re-render incrementando versión cuando se eliminan colores
-      setColoresVersion(prev => prev + 1);
-    },
   });
 
   // Cargar contadores de etiquetas
