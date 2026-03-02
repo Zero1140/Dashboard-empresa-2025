@@ -58,7 +58,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
   // Estados para generación automática de PRN
   const [mensajePRN, setMensajePRN] = useState<string | null>(null);
   const [tipoMensajePRN, setTipoMensajePRN] = useState<'success' | 'error' | 'info'>('info');
-  
+
   // Formulario para agregar color
   const [nuevoColor, setNuevoColor] = useState<ColorPersonalizado>({
     nombre: "",
@@ -81,7 +81,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     };
 
     cargarColoresDesdeSupabase();
-    
+
     // Cargar operadores, categorías y PINs
     const cargarDatos = async () => {
       try {
@@ -104,24 +104,24 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
   // Escuchar cambios en operadores, categorías y PINs
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
     const handleOperadoresActualizados = async () => {
       setOperadores(await obtenerOperadoresCombinados());
     };
-    
+
     const handleCategoriasActualizadas = async () => {
       const nuevasCategorias = await obtenerCategoriasArray();
       setCategorias(nuevasCategorias);
     };
-    
+
     const handlePinsActualizados = async () => {
       setPins(await obtenerPinsOperadores());
     };
-    
+
     window.addEventListener("operadoresActualizados", handleOperadoresActualizados);
     window.addEventListener("categoriasActualizadas", handleCategoriasActualizadas);
     window.addEventListener("pinsActualizados", handlePinsActualizados);
-    
+
     return () => {
       window.removeEventListener("operadoresActualizados", handleOperadoresActualizados);
       window.removeEventListener("categoriasActualizadas", handleCategoriasActualizadas);
@@ -173,13 +173,16 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     onOperadoresEliminadosChange: async () => {
       setOperadores(await obtenerOperadoresCombinados());
     },
-    onColoresPersonalizadosChange: () => {
-      // Los colores se recargan automáticamente con obtenerColoresCombinadosSync()
-      // que se llama en el render, así que no necesitamos actualizar estado aquí
+    onColoresPersonalizadosChange: (nuevosColores) => {
+      // Actualizar caché global y forzar re-render si fuera necesario
+      // En este componente, coloresPersonalizados se usa en el render vía obtenerColoresCombinadosSync()
+      actualizarCacheColores(nuevosColores);
+      setColoresPersonalizados(nuevosColores);
     },
     onColoresEliminadosChange: () => {
-      // Los colores se recargan automáticamente con obtenerColoresCombinadosSync()
-      // que se llama en el render, así que no necesitamos actualizar estado aquí
+      // Recargar para aplicar eliminaciones
+      actualizarCacheColores();
+      obtenerColoresPersonalizados().then(setColoresPersonalizados);
     },
     onPinsOperadoresChange: async (nuevosPins) => {
       setPins(nuevosPins);
@@ -267,12 +270,12 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     if (!colorAEliminar) return;
 
     // Si es un color personalizado, eliminarlo de los personalizados
-    const esPersonalizado = coloresPersonalizados[colorAEliminar.tipo]?.chica[colorAEliminar.nombre] || 
-                           coloresPersonalizados[colorAEliminar.tipo]?.grande[colorAEliminar.nombre];
-    
+    const esPersonalizado = coloresPersonalizados[colorAEliminar.tipo]?.chica[colorAEliminar.nombre] ||
+      coloresPersonalizados[colorAEliminar.tipo]?.grande[colorAEliminar.nombre];
+
     if (esPersonalizado) {
       const nuevosColores = { ...coloresPersonalizados };
-      
+
       if (nuevosColores[colorAEliminar.tipo]) {
         if (colorAEliminar.variante === "chica") {
           delete nuevosColores[colorAEliminar.tipo].chica[colorAEliminar.nombre];
@@ -282,7 +285,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
 
         // Si no quedan colores en el tipo, eliminar el tipo
         if (Object.keys(nuevosColores[colorAEliminar.tipo].chica).length === 0 &&
-            Object.keys(nuevosColores[colorAEliminar.tipo].grande).length === 0) {
+          Object.keys(nuevosColores[colorAEliminar.tipo].grande).length === 0) {
           delete nuevosColores[colorAEliminar.tipo];
         }
       }
@@ -296,11 +299,11 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       );
     } else {
       // Si es un color original, marcarlo como eliminado
-      eliminarColor(colorAEliminar.tipo, colorAEliminar.variante, colorAEliminar.nombre).catch(err => 
+      eliminarColor(colorAEliminar.tipo, colorAEliminar.variante, colorAEliminar.nombre).catch(err =>
         console.error('Error al eliminar color:', err)
       );
     }
-    
+
     setShowEliminarModal(false);
     setColorAEliminar(null);
   };
@@ -338,7 +341,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     const categoriaId = await agregarCategoria(nuevaCategoria);
     setNuevaCategoria("");
     setShowAgregarCategoriaModal(false);
-    
+
     // Abrir automáticamente el modal para agregar items a la nueva categoría
     setTimeout(() => {
       setCategoriaParaItem(categoriaId);
@@ -370,7 +373,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     if (categoriaParaItem && nuevoItem.trim()) {
       await agregarItemACategoria(categoriaParaItem, nuevoItem);
       setNuevoItem("");
-      
+
       if (!continuar) {
         setCategoriaParaItem(null);
         setShowAgregarItemModal(false);
@@ -425,7 +428,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
   };
 
   const coloresTipo = colores[tipoSeleccionado] || { chica: {}, grande: {} };
-  
+
   // Filtrar colores para mostrar solo colores base (sin _GRANDE) y evitar duplicados
   const todosColores = new Set<string>();
   Object.keys(coloresTipo.chica || {}).forEach(color => {
@@ -483,28 +486,25 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
 
       {/* Mensaje de estado PRN */}
       {mensajePRN && (
-        <div className={`card-elegant rounded-xl p-4 border-2 ${
-          tipoMensajePRN === 'success' ? 'border-[#00ff88]/30 bg-[#00ff88]/10' :
-          tipoMensajePRN === 'error' ? 'border-[#ff4757]/30 bg-[#ff4757]/10' :
-          'border-[#ffb800]/30 bg-[#ffb800]/10'
-        }`}>
+        <div className={`card-elegant rounded-xl p-4 border-2 ${tipoMensajePRN === 'success' ? 'border-[#00ff88]/30 bg-[#00ff88]/10' :
+            tipoMensajePRN === 'error' ? 'border-[#ff4757]/30 bg-[#ff4757]/10' :
+              'border-[#ffb800]/30 bg-[#ffb800]/10'
+          }`}>
           <div className="flex items-start gap-3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-              tipoMensajePRN === 'success' ? 'bg-[#00ff88]' :
-              tipoMensajePRN === 'error' ? 'bg-[#ff4757]' :
-              'bg-[#ffb800]'
-            }`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${tipoMensajePRN === 'success' ? 'bg-[#00ff88]' :
+                tipoMensajePRN === 'error' ? 'bg-[#ff4757]' :
+                  'bg-[#ffb800]'
+              }`}>
               <span className="text-xs text-black font-bold">
                 {tipoMensajePRN === 'success' ? '✓' :
-                 tipoMensajePRN === 'error' ? '✗' : 'ⓘ'}
+                  tipoMensajePRN === 'error' ? '✗' : 'ⓘ'}
               </span>
             </div>
             <div className="flex-1">
-              <p className={`text-sm font-medium whitespace-pre-line ${
-                tipoMensajePRN === 'success' ? 'text-[#00ff88]' :
-                tipoMensajePRN === 'error' ? 'text-[#ff4757]' :
-                'text-[#ffb800]'
-              }`}>
+              <p className={`text-sm font-medium whitespace-pre-line ${tipoMensajePRN === 'success' ? 'text-[#00ff88]' :
+                  tipoMensajePRN === 'error' ? 'text-[#ff4757]' :
+                    'text-[#ffb800]'
+                }`}>
                 {mensajePRN}
               </p>
             </div>
@@ -555,7 +555,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
             <span>Agregar</span>
           </button>
         </div>
-        
+
         {operadores.length === 0 ? (
           <div className="text-[#718096] text-center py-12 bg-[#0f1419]/50 rounded-xl border border-[#2d3748]">
             <span className="text-4xl block mb-3">👥</span>
@@ -563,64 +563,64 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {operadores.map((operador) => {
-            const esOriginal = OPERADORES.includes(operador);
-            return (
-              <div
-                key={operador}
-                className="card-elegant rounded-xl p-4 group/item"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#0099cc] flex items-center justify-center shadow-md flex-shrink-0 ring-1 ring-[#00d4ff]/20">
-                    <span className="text-lg">👤</span>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold text-sm truncate mb-1">
-                      {operador}
-                    </h3>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
-                      {esOriginal && (
-                        <span className="text-[#718096] text-xs bg-[#1a2332]/50 px-2 py-0.5 rounded-md border border-[#2d3748] inline-block">Sistema</span>
-                      )}
-                      {tienePinOperadorSync(operador) ? (
-                        <span className="text-[#00ff88] text-xs bg-[#00ff88]/10 px-2 py-0.5 rounded-md border border-[#00ff88]/30 inline-block flex items-center gap-1">
-                          <span>🔐</span>
-                          <span>PIN configurado</span>
-                        </span>
-                      ) : (
-                        <span className="text-[#ffb800] text-xs bg-[#ffb800]/10 px-2 py-0.5 rounded-md border border-[#ffb800]/30 inline-block">
-                          Sin PIN
-                        </span>
-                      )}
+            {operadores.map((operador) => {
+              const esOriginal = OPERADORES.includes(operador);
+              return (
+                <div
+                  key={operador}
+                  className="card-elegant rounded-xl p-4 group/item"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#0099cc] flex items-center justify-center shadow-md flex-shrink-0 ring-1 ring-[#00d4ff]/20">
+                      <span className="text-lg">👤</span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-white font-semibold text-sm truncate mb-1">
+                        {operador}
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {esOriginal && (
+                          <span className="text-[#718096] text-xs bg-[#1a2332]/50 px-2 py-0.5 rounded-md border border-[#2d3748] inline-block">Sistema</span>
+                        )}
+                        {tienePinOperadorSync(operador) ? (
+                          <span className="text-[#00ff88] text-xs bg-[#00ff88]/10 px-2 py-0.5 rounded-md border border-[#00ff88]/30 inline-block flex items-center gap-1">
+                            <span>🔐</span>
+                            <span>PIN configurado</span>
+                          </span>
+                        ) : (
+                          <span className="text-[#ffb800] text-xs bg-[#ffb800]/10 px-2 py-0.5 rounded-md border border-[#ffb800]/30 inline-block">
+                            Sin PIN
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Botones de acción */}
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => {
+                          setOperadorParaPin(operador);
+                          setNuevoPin("");
+                          setShowConfigurarPinModal(true);
+                        }}
+                        className="opacity-0 group-hover/item:opacity-100 bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover-lift"
+                        title="Configurar PIN"
+                      >
+                        🔐
+                      </button>
+                      <button
+                        onClick={() => handleEliminarOperador(operador)}
+                        className="opacity-0 group-hover/item:opacity-100 bg-gradient-to-r from-[#ff4757] to-[#cc3846] hover:from-[#ff5f6d] hover:to-[#ff4757] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover-lift"
+                        title={esOriginal ? "Eliminar empleado del sistema" : "Eliminar empleado"}
+                      >
+                        🗑️
+                      </button>
                     </div>
                   </div>
-                  
-                  {/* Botones de acción */}
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={() => {
-                        setOperadorParaPin(operador);
-                        setNuevoPin("");
-                        setShowConfigurarPinModal(true);
-                      }}
-                      className="opacity-0 group-hover/item:opacity-100 bg-gradient-to-r from-[#00d4ff] to-[#0099cc] hover:from-[#33ddff] hover:to-[#00b3e6] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover-lift"
-                      title="Configurar PIN"
-                    >
-                      🔐
-                    </button>
-                    <button
-                      onClick={() => handleEliminarOperador(operador)}
-                      className="opacity-0 group-hover/item:opacity-100 bg-gradient-to-r from-[#ff4757] to-[#cc3846] hover:from-[#ff5f6d] hover:to-[#ff4757] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover-lift"
-                      title={esOriginal ? "Eliminar empleado del sistema" : "Eliminar empleado"}
-                    >
-                      🗑️
-                    </button>
-                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         )}
       </div>
@@ -648,7 +648,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
             <span>Nueva Categoría</span>
           </button>
         </div>
-        
+
         {categorias.length === 0 ? (
           <div className="text-[#718096] text-center py-16 bg-[#0f1419]/50 rounded-xl border-2 border-dashed border-[#2d3748]">
             <div className="w-20 h-20 rounded-full bg-[#1a2332] flex items-center justify-center mx-auto mb-4">
@@ -696,7 +696,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                     </button>
                   </div>
                 </div>
-                
+
                 {categoria.items.length === 0 ? (
                   <div className="text-[#718096] text-center py-6 bg-[#0a0a0a]/50 rounded-lg border border-[#2d3748]">
                     <p className="text-sm">Esta categoría está vacía</p>
@@ -761,18 +761,18 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
               .sort((a, b) => a.localeCompare(b))
               .map((colorBase, index) => {
                 // Buscar color hex del color base (puede estar como colorBase o colorBase_GRANDE)
-                const colorHex = coloresTipo.chica[colorBase] || coloresTipo.grande[colorBase] || 
-                                coloresTipo.chica[`${colorBase}_GRANDE`] || coloresTipo.grande[`${colorBase}_GRANDE`] || "#808080";
-                
+                const colorHex = coloresTipo.chica[colorBase] || coloresTipo.grande[colorBase] ||
+                  coloresTipo.chica[`${colorBase}_GRANDE`] || coloresTipo.grande[`${colorBase}_GRANDE`] || "#808080";
+
                 // Verificar si existe en chica o grande (con o sin _GRANDE)
                 const esChica = !!(coloresTipo.chica[colorBase] || coloresTipo.chica[`${colorBase}_GRANDE`]);
                 const esGrande = !!(coloresTipo.grande[colorBase] || coloresTipo.grande[`${colorBase}_GRANDE`]);
-                
+
                 // Verificar si es personalizado (en chica o grande, con o sin _GRANDE)
-                const esPersonalizado = !!(coloresPersonalizados[tipoSeleccionado]?.chica[colorBase] || 
-                                          coloresPersonalizados[tipoSeleccionado]?.grande[colorBase] ||
-                                          coloresPersonalizados[tipoSeleccionado]?.chica[`${colorBase}_GRANDE`] || 
-                                          coloresPersonalizados[tipoSeleccionado]?.grande[`${colorBase}_GRANDE`]);
+                const esPersonalizado = !!(coloresPersonalizados[tipoSeleccionado]?.chica[colorBase] ||
+                  coloresPersonalizados[tipoSeleccionado]?.grande[colorBase] ||
+                  coloresPersonalizados[tipoSeleccionado]?.chica[`${colorBase}_GRANDE`] ||
+                  coloresPersonalizados[tipoSeleccionado]?.grande[`${colorBase}_GRANDE`]);
 
                 return (
                   <div
@@ -786,7 +786,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                         className="w-14 h-14 rounded-xl border-2 border-[#2d3748] shadow-lg flex-shrink-0 ring-1 ring-[#00d4ff]/10 group-hover/item:ring-[#00d4ff]/30 transition-all duration-200"
                         style={{ backgroundColor: colorHex }}
                       />
-                      
+
                       {/* Nombre del color */}
                       <div className="flex-1 min-w-0">
                         <h3 className="text-white font-semibold text-sm truncate mb-1.5">
@@ -804,7 +804,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                           )}
                         </div>
                       </div>
-                      
+
                       {/* Botones de acción */}
                       <div className="flex gap-1.5 flex-shrink-0">
                         <button
@@ -846,7 +846,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para agregar color - Mejorado */}
       {showAgregarModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#00d4ff]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -954,7 +954,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para confirmar eliminación - Mejorado */}
       {showEliminarModal && colorAEliminar && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#ff4757]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1005,7 +1005,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para agregar operador - Mejorado */}
       {showAgregarOperadorModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#00d4ff]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1066,7 +1066,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para confirmar eliminación de operador - Mejorado */}
       {showEliminarOperadorModal && operadorAEliminar && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#ff4757]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1121,7 +1121,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para agregar categoría - Mejorado */}
       {showAgregarCategoriaModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#00d4ff]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1182,7 +1182,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para confirmar eliminación de categoría - Mejorado */}
       {showEliminarCategoriaModal && categoriaAEliminar && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#ff4757]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1235,7 +1235,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para agregar item a categoría - Mejorado */}
       {showAgregarItemModal && categoriaParaItem && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#00d4ff]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1313,7 +1313,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para configurar mínimo */}
       {showConfigurarMinimoModal && itemParaMinimo && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#ffb800]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1327,7 +1327,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
                 <div>
                   <h2 className="text-2xl font-bold text-white">Configurar Mínimo</h2>
                   <p className="text-[#718096] text-xs mt-1">
-                    {itemParaMinimo.tipo === "material" 
+                    {itemParaMinimo.tipo === "material"
                       ? `${itemParaMinimo.tipoMaterial} - ${limpiarNombre(itemParaMinimo.color || "", itemParaMinimo.tipoMaterial || "")}`
                       : `${categorias.find(c => c.id === itemParaMinimo.categoriaId)?.nombre} - ${itemParaMinimo.itemNombre}`
                     }
@@ -1391,7 +1391,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       {/* Modal para configurar PIN */}
       {showConfigurarPinModal && operadorParaPin && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in-up p-4">
-          <div 
+          <div
             className="card-elegant rounded-2xl p-6 lg:p-8 max-w-md w-full border-2 border-[#00d4ff]/30 shadow-2xl relative overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
