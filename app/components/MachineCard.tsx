@@ -59,7 +59,7 @@ export default function MachineCard({
     }
     return tipoSeleccionado || "PLA"; // Usar el tipo global o PLA por defecto
   });
-  
+
   // Estado unificado: un solo color para ambas etiquetas
   const [colorSeleccionado, setColorSeleccionado] = useState<string>(() => {
     // Si hay colores iniciales, usar el de chica como base (sin _GRANDE)
@@ -71,7 +71,7 @@ export default function MachineCard({
     }
     return "";
   });
-  
+
   const [tipoMaterial, setTipoMaterial] = useState<string>(materialSeleccionado);
   // Un solo selector de cantidad de bobinas (1 bobina = 1 chica + 1 grande)
   const [cantidadBobinas, setCantidadBobinas] = useState<number>(8);
@@ -87,7 +87,7 @@ export default function MachineCard({
       setTipoMaterial(tipo);
     }
   }, [colorChicaInicial, colorGrandeInicial]);
-  
+
   // Limpiar color cuando cambie el material
   useEffect(() => {
     if (materialSeleccionado) {
@@ -102,16 +102,16 @@ export default function MachineCard({
   // Obtener colores base (sin _GRANDE) SOLO del material seleccionado
   const coloresDelMaterial = useMemo(() => {
     if (!materialSeleccionado) return [];
-    
+
     const coloresCombinados = obtenerColoresCombinadosSync();
     const opciones: ColorOption[] = [];
     const coloresVistos = new Set<string>(); // Para evitar duplicados
-    
+
     const tipo = materialSeleccionado;
     const coloresTipo = coloresCombinados[tipo];
-    
+
     if (!coloresTipo) return [];
-    
+
     // Primero obtener colores de chica
     const coloresChica = coloresTipo.chica || {};
     Object.keys(coloresChica).forEach((color) => {
@@ -122,7 +122,7 @@ export default function MachineCard({
         coloresVistos.add(key);
       }
     });
-    
+
     // Luego obtener colores de grande (por si hay alguno que no esté en chica)
     const coloresGrande = coloresTipo.grande || {};
     Object.keys(coloresGrande).forEach((color) => {
@@ -133,14 +133,14 @@ export default function MachineCard({
         coloresVistos.add(key);
       }
     });
-    
+
     return opciones.sort((a, b) => {
       const nombreA = limpiarNombre(a.color, a.tipo);
       const nombreB = limpiarNombre(b.color, b.tipo);
       return nombreA.localeCompare(nombreB);
     });
-  }, [materialSeleccionado]);
-  
+  }, [materialSeleccionado, coloresVersion]);
+
   // Obtener lista de materiales disponibles
   const materialesDisponibles = useMemo(() => {
     const coloresCombinados = obtenerColoresCombinadosSync();
@@ -182,13 +182,13 @@ export default function MachineCard({
       alert("Debes imprimir al menos una bobina");
       return;
     }
-    
+
     // Construir etiquetas: color base para chica, color base + "_GRANDE" para grande
     // 1 bobina = 1 chica + 1 grande
     const [tipo, colorBase] = colorSeleccionado.split("::");
     const etiquetaChica = `${tipo}::${colorBase}`;
     const etiquetaGrande = `${tipo}::${colorBase}_GRANDE`;
-    
+
     // Cantidad de chicas y grandes es igual a la cantidad de bobinas
     onImprimir(maquinaId, etiquetaChica, etiquetaGrande, operador, tipoMaterial, cantidadBobinas, cantidadBobinas);
   };
@@ -198,11 +198,11 @@ export default function MachineCard({
     if (value) {
       const [tipo, colorBase] = value.split("::");
       setTipoMaterial(tipo);
-      
+
       // Actualizar ambos colores (chica y grande) cuando se selecciona un color base
       const etiquetaChica = `${tipo}::${colorBase}`;
       const etiquetaGrande = `${tipo}::${colorBase}_GRANDE`;
-      
+
       // Guardar ambos colores en el estado de la máquina
       if (onCambiarColorChica) {
         onCambiarColorChica(maquinaId, etiquetaChica);
@@ -219,7 +219,7 @@ export default function MachineCard({
     <div className="bg-gradient-to-br from-[#1a2332] to-[#0f1419] rounded-xl p-4 shadow-2xl border border-[#2d3748] hover:border-[#00d4ff]/30 transition-all duration-300 hover-lift relative overflow-hidden group">
       {/* Efecto de brillo sutil en hover */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-[#00d4ff]/5 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-      
+
       {/* Header de la máquina */}
       <div className="mb-4 relative z-10">
         <div className="flex items-center justify-center gap-2 mb-1">
@@ -279,10 +279,12 @@ export default function MachineCard({
             </select>
             {colorSeleccionado && (
               <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded border-2 border-[#2d3748] shadow-sm flex-shrink-0"
-                style={{ backgroundColor: (() => {
-                  const [tipo, colorBase] = colorSeleccionado.split("::");
-                  return getColorHex(colorBase || "", tipo || materialSeleccionado, true);
-                })() }}
+                style={{
+                  backgroundColor: (() => {
+                    const [tipo, colorBase] = colorSeleccionado.split("::");
+                    return getColorHex(colorBase || "", tipo || materialSeleccionado, true);
+                  })()
+                }}
               />
             )}
           </div>
