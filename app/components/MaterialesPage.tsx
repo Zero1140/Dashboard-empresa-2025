@@ -67,13 +67,16 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     variante: "ambas",
   });
 
-  // Cargar colores personalizados desde Supabase
+  // Cargar colores personalizados y eliminados desde Supabase
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const cargarColoresDesdeSupabase = async () => {
       try {
-        const coloresSupabase = await obtenerColoresPersonalizados();
+        const [coloresSupabase] = await Promise.all([
+          obtenerColoresPersonalizados(),
+          import('../utils/colores').then(m => m.obtenerColoresEliminados())
+        ]);
         setColoresPersonalizados(coloresSupabase);
       } catch (error) {
         console.error("Error al cargar colores desde Supabase:", error);
@@ -173,13 +176,11 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     onOperadoresEliminadosChange: async () => {
       setOperadores(await obtenerOperadoresCombinados());
     },
-    onColoresPersonalizadosChange: () => {
-      // Los colores se recargan automáticamente con obtenerColoresCombinadosSync()
-      // que se llama en el render, así que no necesitamos actualizar estado aquí
+    onColoresPersonalizadosChange: (nuevosColores) => {
+      setColoresPersonalizados(nuevosColores);
     },
     onColoresEliminadosChange: () => {
-      // Los colores se recargan automáticamente con obtenerColoresCombinadosSync()
-      // que se llama en el render, así que no necesitamos actualizar estado aquí
+      // eliminadosCache and coloresCache already updated by the subscription
     },
     onPinsOperadoresChange: async (nuevosPins) => {
       setPins(nuevosPins);
@@ -200,14 +201,12 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
     }
 
     const nombreNormalizado = nuevoColor.nombre.toUpperCase().replace(/\s+/g, "");
-    const nuevosColores = { ...coloresPersonalizados };
+    const nuevosColores: Record<string, { chica: Record<string, string>; grande: Record<string, string> }> = JSON.parse(JSON.stringify(coloresPersonalizados));
 
-    // Inicializar tipo si no existe
     if (!nuevosColores[nuevoColor.tipo]) {
       nuevosColores[nuevoColor.tipo] = { chica: {}, grande: {} };
     }
 
-    // Agregar color según la variante seleccionada
     if (nuevoColor.variante === "chica" || nuevoColor.variante === "ambas") {
       nuevosColores[nuevoColor.tipo].chica[nombreNormalizado] = nuevoColor.hex;
     }
@@ -266,12 +265,11 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
   const confirmarEliminar = () => {
     if (!colorAEliminar) return;
 
-    // Si es un color personalizado, eliminarlo de los personalizados
     const esPersonalizado = coloresPersonalizados[colorAEliminar.tipo]?.chica[colorAEliminar.nombre] ||
       coloresPersonalizados[colorAEliminar.tipo]?.grande[colorAEliminar.nombre];
 
     if (esPersonalizado) {
-      const nuevosColores = { ...coloresPersonalizados };
+      const nuevosColores: Record<string, { chica: Record<string, string>; grande: Record<string, string> }> = JSON.parse(JSON.stringify(coloresPersonalizados));
 
       if (nuevosColores[colorAEliminar.tipo]) {
         if (colorAEliminar.variante === "chica") {
@@ -280,7 +278,6 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
           delete nuevosColores[colorAEliminar.tipo].grande[colorAEliminar.nombre];
         }
 
-        // Si no quedan colores en el tipo, eliminar el tipo
         if (Object.keys(nuevosColores[colorAEliminar.tipo].chica).length === 0 &&
           Object.keys(nuevosColores[colorAEliminar.tipo].grande).length === 0) {
           delete nuevosColores[colorAEliminar.tipo];
@@ -288,9 +285,7 @@ export default function MaterialesPage({ onSupabaseError }: MaterialesPageProps 
       }
 
       setColoresPersonalizados(nuevosColores);
-      // Actualizar caché inmediatamente
       actualizarCacheColores(nuevosColores);
-      // Guardar en Supabase (asíncrono)
       guardarColoresPersonalizados(nuevosColores).catch(err =>
         console.error('Error al guardar colores personalizados:', err)
       );

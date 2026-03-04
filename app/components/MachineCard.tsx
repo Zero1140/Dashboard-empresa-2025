@@ -139,13 +139,15 @@ export default function MachineCard({
       const nombreB = limpiarNombre(b.color, b.tipo);
       return nombreA.localeCompare(nombreB);
     });
-  }, [materialSeleccionado]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [materialSeleccionado, coloresVersion]);
   
   // Obtener lista de materiales disponibles
   const materialesDisponibles = useMemo(() => {
     const coloresCombinados = obtenerColoresCombinadosSync();
     return Object.keys(coloresCombinados).sort();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coloresVersion]);
 
   const getDisplayName = (color: string, tipo: string) => {
     const nombreLimpio = limpiarNombre(color, tipo);

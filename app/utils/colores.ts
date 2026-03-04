@@ -83,14 +83,13 @@ export async function obtenerColoresPersonalizados(): Promise<Record<string, {
 }
 
 /**
- * Versión síncrona para compatibilidad - devuelve vacío (usa versión async)
+ * Versión síncrona - devuelve desde caché local
  */
 export function obtenerColoresPersonalizadosSync(): Record<string, {
   chica: Record<string, string>;
   grande: Record<string, string>;
 }> {
-  // Solo devuelve colores base, los personalizados se cargan async
-  return {};
+  return personalizadosCache || {};
 }
 
 /**
@@ -163,22 +162,20 @@ export async function obtenerColoresEliminados(): Promise<Record<string, {
   if (typeof window === "undefined") return {};
 
   const coloresEliminados = await cargarColoresEliminadosDesdeSupabase();
-
-  // Actualizar caché
+  eliminadosCache = coloresEliminados;
   actualizarCacheColores();
 
   return coloresEliminados;
 }
 
 /**
- * Versión síncrona para compatibilidad - devuelve vacío (usa versión async)
+ * Versión síncrona - devuelve desde caché local
  */
 export function obtenerColoresEliminadosSync(): Record<string, {
   chica: string[];
   grande: string[];
 }> {
-  // Solo devuelve vacío, los eliminados se cargan async
-  return {};
+  return eliminadosCache || {};
 }
 
 /**
@@ -191,8 +188,7 @@ export async function guardarColoresEliminados(coloresEliminados: Record<string,
   if (typeof window === "undefined") return;
 
   await guardarColoresEliminadosEnSupabase(coloresEliminados);
-
-  // Actualizar caché
+  eliminadosCache = coloresEliminados;
   actualizarCacheColores();
 }
 
@@ -316,66 +312,70 @@ export async function obtenerColoresCombinados(): Promise<Record<string, {
 /**
  * Versión síncrona para compatibilidad
  */
-// Caché global para colores combinados
+// Cachés globales
 let coloresCache: Record<string, {
   chica: Record<string, string>;
   grande: Record<string, string>;
 }> | null = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 30000; // 30 segundos
+let personalizadosCache: Record<string, {
+  chica: Record<string, string>;
+  grande: Record<string, string>;
+}> | null = null;
+let eliminadosCache: Record<string, {
+  chica: string[];
+  grande: string[];
+}> | null = null;
 
 export function obtenerColoresCombinadosSync(): Record<string, {
   chica: Record<string, string>;
   grande: Record<string, string>;
 }> {
-  // Siempre usar la caché si existe para evitar que los colores "desaparezcan"
   if (coloresCache) {
     return coloresCache;
   }
-
-  // Fallback solo para el inicio
   return { ...coloresPorTipo };
 }
 
-// Función para actualizar el caché (llamada desde funciones async)
 export function actualizarCacheColores(coloresPersonalizados?: Record<string, {
   chica: Record<string, string>;
   grande: Record<string, string>;
 }>) {
-  // 1. Crear una COPIA PROFUNDA de los originales para evitar mutaciones accidentales
-  const combinados: Record<string, { chica: Record<string, string>; grande: Record<string, string> }> = JSON.parse(JSON.stringify(coloresPorTipo));
-
-  // 2. Obtener los personalizados (si no se pasan, se buscan)
-  // Nota: obtenerColoresPersonalizadosSync() aquí suele devolver {} en el código anterior
-  let personalizados = coloresPersonalizados;
-  if (!personalizados) {
-    // Si no hay personalizados y ya tenemos caché, no sobreescribir con vacío
-    if (coloresCache) return;
-    personalizados = {};
+  if (coloresPersonalizados) {
+    personalizadosCache = coloresPersonalizados;
   }
 
-  // 3. Mezclar los personalizados
+  const combinados: Record<string, { chica: Record<string, string>; grande: Record<string, string> }> = JSON.parse(JSON.stringify(coloresPorTipo));
+
+  const personalizados = personalizadosCache || {};
   Object.keys(personalizados).forEach((tipo) => {
     if (!combinados[tipo]) {
       combinados[tipo] = { chica: {}, grande: {} };
     }
-
-    // Mezclar chicas
-    if (personalizados![tipo].chica) {
-      combinados[tipo].chica = { ...combinados[tipo].chica, ...personalizados![tipo].chica };
+    if (personalizados[tipo].chica) {
+      combinados[tipo].chica = { ...combinados[tipo].chica, ...personalizados[tipo].chica };
     }
-
-    // Mezclar grandes
-    if (personalizados![tipo].grande) {
-      combinados[tipo].grande = { ...combinados[tipo].grande, ...personalizados![tipo].grande };
+    if (personalizados[tipo].grande) {
+      combinados[tipo].grande = { ...combinados[tipo].grande, ...personalizados[tipo].grande };
     }
   });
 
-  // 4. Aplicar eliminaciones si existen (simplicado para estabilidad)
-  // ... (si el usuario no está eliminando colores ahora, mejor mantenerlo simple)
+  const eliminados = eliminadosCache || {};
+  Object.keys(eliminados).forEach((tipo) => {
+    if (combinados[tipo]) {
+      if (eliminados[tipo].chica) {
+        eliminados[tipo].chica.forEach((color) => {
+          delete combinados[tipo].chica[color];
+        });
+      }
+      if (eliminados[tipo].grande) {
+        eliminados[tipo].grande.forEach((color) => {
+          delete combinados[tipo].grande[color];
+        });
+      }
+    }
+  });
 
   coloresCache = combinados;
-  cacheTimestamp = Date.now();
 }
 
 /**
@@ -452,7 +452,12 @@ export function suscribirColoresEliminadosRealtime(
       async () => {
         try {
           const nuevosEliminados = await cargarColoresEliminadosDesdeSupabase();
+          eliminadosCache = nuevosEliminados;
+          actualizarCacheColores();
           callback(nuevosEliminados);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("coloresActualizados"));
+          }
         } catch (error) {
           console.error('Error al recargar colores eliminados en Realtime:', error);
         }
