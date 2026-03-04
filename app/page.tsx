@@ -9,6 +9,7 @@ import MaterialesPage from "./components/MaterialesPage";
 import LoginModal from "./components/LoginModal";
 import SupabaseError from "./components/SupabaseError";
 import { isSupabaseConfigured } from "./utils/supabase";
+import { obtenerColoresPersonalizados, obtenerColoresEliminados } from "./utils/colores";
 
 const STORAGE_KEY_SUPERVISOR = "gst3d_supervisor";
 
@@ -18,6 +19,15 @@ export default function Home() {
   const [supervisorActual, setSupervisorActual] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [supabaseError, setSupabaseError] = useState<"NOT_CONFIGURED" | "CONNECTION_ERROR" | null>(null);
+
+  // Cargar colores personalizados y eliminados al iniciar (para que estén disponibles en todas las páginas)
+  useEffect(() => {
+    if (typeof window === "undefined" || !isSupabaseConfigured()) return;
+    Promise.all([
+      obtenerColoresPersonalizados(),
+      obtenerColoresEliminados()
+    ]).catch(err => console.error("Error cargando colores:", err));
+  }, []);
 
   // Verificar configuración de Supabase al iniciar
   useEffect(() => {

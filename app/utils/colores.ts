@@ -79,6 +79,11 @@ export async function obtenerColoresPersonalizados(): Promise<Record<string, {
   // Actualizar caché para acceso síncrono
   actualizarCacheColores(colores);
 
+  // Notificar a componentes para que se re-rendericen
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("coloresActualizados"));
+  }
+
   return colores;
 }
 
@@ -165,6 +170,10 @@ export async function obtenerColoresEliminados(): Promise<Record<string, {
   eliminadosCache = coloresEliminados;
   actualizarCacheColores();
 
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("coloresActualizados"));
+  }
+
   return coloresEliminados;
 }
 
@@ -250,8 +259,8 @@ export async function guardarColoresPersonalizados(colores: Record<string, {
 
   await guardarColoresPersonalizadosEnSupabase(colores);
 
-  // Actualizar caché
-  actualizarCacheColores();
+  // Actualizar caché con los colores que acabamos de guardar
+  actualizarCacheColores(colores);
 
   // Disparar evento local para actualizar componentes
   if (typeof window !== "undefined") {
