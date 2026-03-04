@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { obtenerColoresCombinadosSync, obtenerColoresPersonalizados } from "../utils/colores";
+import { obtenerColoresCombinadosSync } from "../utils/colores";
 import { puedeImprimir, registrarIntentoImpresion, obtenerTiempoRestante, formatearTiempoRestante } from "../utils/rateLimiting";
 import MachineCard from "./MachineCard";
 import { guardarImpresion, guardarCambioOperador, obtenerImpresiones, obtenerImpresionesSync, guardarCambioColor } from "../utils/storage";
@@ -67,11 +67,7 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
           setOperadoresAsignados(asignaciones);
         }
 
-        // Cargar SECCIÓN CRÍTICA: Colores personalizados primero
-        // Esto asegura que obtenerColoresCombinadosSync() tenga datos al renderizar
-        await obtenerColoresPersonalizados();
-
-        // Cargar colores de las máquinas desde Supabase
+        // Cargar colores desde Supabase
         const colores = await obtenerColoresMaquinas();
         if (Object.keys(colores).length > 0) {
           setColoresPorMaquina(colores);
@@ -101,12 +97,6 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
     onColoresMaquinasChange: (colores) => {
       setColoresPorMaquina(colores);
     },
-    onColoresPersonalizadosChange: (nuevosColores) => {
-      // Integración total: actualizar caché global y forzar re-render
-      const { actualizarCacheColores } = require("../utils/colores");
-      actualizarCacheColores(nuevosColores);
-      setColoresVersion(prev => prev + 1);
-    }
   });
 
   // Cargar contadores de etiquetas
