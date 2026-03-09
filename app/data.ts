@@ -361,7 +361,7 @@ export const OPERADOR_LINEA_LIBRE = "Línea Libre";
 // Lista de operadores disponibles
 export const OPERADORES = [
   "Benicio",
-  "Rodigo",
+  "Rodrigo",
   "Adrián",
   "Carla",
   "Thomas",
