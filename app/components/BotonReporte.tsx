@@ -9,16 +9,25 @@ interface BotonReporteProps {
 
 const BotonReporte: React.FC<BotonReporteProps> = ({ impresiones }) => {
 
-  const procesarHistorialCompleto = () => {
-    const ahora = new Date();
+  const procesarDiezTurnos = () => {
     const agrupado: Record<string, any> = {};
+    const ahora = new Date();
 
-    // Filtramos: Desde hace 3 días a las 00:00 hasta ahora
-    const limite = new Date();
-    limite.setDate(ahora.getDate() - 3);
-    limite.setHours(0, 0, 0, 0);
+    // 1. Buscamos el inicio del turno actual para ir hacia atrás
+    const inicioTurnoActual = new Date(ahora);
+    const hora = ahora.getHours();
+    if (hora >= 6 && hora < 14) inicioTurnoActual.setHours(6, 0, 0, 0);
+    else if (hora >= 14 && hora < 22) inicioTurnoActual.setHours(14, 0, 0, 0);
+    else {
+      if (hora < 6) inicioTurnoActual.setDate(ahora.getDate() - 1);
+      inicioTurnoActual.setHours(22, 0, 0, 0);
+    }
 
-    const filtradas = impresiones.filter(imp => new Date(imp.fecha) >= limite);
+    // Filtramos impresiones de los últimos 10 turnos (aprox 80hs atrás)
+    const limiteSemanas = new Date(inicioTurnoActual);
+    limiteSemanas.setHours(limiteSemanas.getHours() - (8 * 9)); // 9 turnos previos + el actual
+
+    const filtradas = impresiones.filter(imp => new Date(imp.fecha) >= limiteSemanas);
 
     filtradas.forEach(imp => {
       const f = new Date(imp.fecha);
@@ -26,11 +35,13 @@ const BotonReporte: React.FC<BotonReporteProps> = ({ impresiones }) => {
       const h = f.getHours();
       
       let turno = "Noche";
-      if (h >= 6 && h < 14) turno = "Mañana";
-      else if (h >= 14 && h < 22) turno = "Tarde";
+      let ordenTurno = 3; // Para ordenar el Excel
+      if (h >= 6 && h < 14) { turno = "Mañana"; ordenTurno = 1; }
+      else if (h >= 14 && h < 22) { turno = "Tarde"; ordenTurno = 2; }
 
       const colorBase = imp.etiquetaChica?.replace(/_GRANDE$/, "") || "S/D";
-      // Key para agrupar por Día, Turno, Máquina y Color
+      
+      // CLAVE CLAVE: Si cambia el color, se crea un registro nuevo
       const key = `${dia}_${turno}_${imp.maquinaId}_${colorBase}`;
 
       if (!agrupado[key]) {
@@ -41,36 +52,34 @@ const BotonReporte: React.FC<BotonReporteProps> = ({ impresiones }) => {
           operador: imp.operador || "S/N",
           color: colorBase,
           cantidad: 0,
-          rawDate: f.getTime() // Para ordenar
+          sortKey: `${f.getFullYear()}${f.getMonth()}${f.getDate()}_${ordenTurno}`
         };
       }
       agrupado[key].cantidad += (imp.cantidadChicas || 0) + (imp.cantidadGrandes || 0);
     });
 
-    // Ordenamos por fecha (descendente) y luego por turno
-    const listaOrdenada = Object.values(agrupado).sort((a: any, b: any) => b.rawDate - a.rawDate);
+    // Ordenar de más nuevo a más viejo
+    const listaOrdenada = Object.values(agrupado).sort((a: any, b: any) => b.sortKey.localeCompare(a.sortKey));
 
-    // Insertamos líneas separadoras cuando cambia el turno o el día
-    const dataConSeparadores: any[] = [];
+    // Insertar separadores entre turnos
+    const final: any[] = [];
     listaOrdenada.forEach((item, index) => {
-      dataConSeparadores.push(item);
-      
-      const siguiente = listaOrdenada[index + 1];
-      if (siguiente && (item.turno !== siguiente.turno || item.fecha !== siguiente.fecha)) {
-        // Fila vacía que sirve de separador
-        dataConSeparadores.push({ fecha: '---', turno: '---', maquinaId: '---', operador: '---', color: '---', cantidad: null });
+      final.push(item);
+      const sig = listaOrdenada[index + 1];
+      if (sig && (item.turno !== sig.turno || item.fecha !== sig.fecha)) {
+        final.push({ fecha: '---', turno: '---', maquinaId: '---', operador: '---', color: '---', cantidad: null });
       }
     });
 
-    return dataConSeparadores;
+    return final;
   };
 
   return (
     <button 
-      onClick={() => generarExcelControl(procesarHistorialCompleto(), "Historial_Produccion")}
+      onClick={() => generarExcelControl(procesarDiezTurnos(), "Ultimos_10_Turnos")}
       className="bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] hover:border-emerald-500/50 transition-all flex items-center gap-2 shadow-lg"
     >
-      <span>📊</span> <span className="font-medium">Descargar Planilla (4 días)</span>
+      <span>📊</span> <span className="font-medium">Planilla (10 Turnos)</span>
     </button>
   );
 };
