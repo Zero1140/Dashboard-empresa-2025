@@ -14,7 +14,7 @@ import { obtenerContadoresEtiquetas, incrementarContadorEtiquetas, obtenerContad
 import { useRealtimeSync } from "../utils/useRealtimeSync";
 import { ImpresionEtiqueta, CambioOperador, CambioColor } from "../types";
 import { limpiarNombre, esLineaLibre } from "../data";
-import { generarExcelControl } from '../utils/exportExcel';
+import BotonReporte from '../components/BotonReporte';
 
 const STORAGE_KEY_COLORES_MAQUINAS = "gst3d_colores_maquinas";
 const STORAGE_KEY_CONTADOR_ETIQUETAS = "gst3d_contador_etiquetas";
@@ -543,34 +543,11 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
               ))}
             </select>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">
-              Planilla Diaria:
-            </label>
-            <button 
-              onClick={() => {
-                const dataParaExcel = Array.from({ length: NUMERO_MAQUINAS }, (_, i) => {
-                  const id = i + 1;
-                  return {
-                    id: id,
-                    color: coloresPorMaquina[id]?.chica || "Sin material",
-                    cantidad: conteoPorOperador[operadoresAsignados[id]]?.total || 0,
-                    operador: operadoresAsignados[id] || "Sin asignar"
-                  };
-                });
-                generarExcelControl(dataParaExcel);
-              }}
-              className="group relative flex items-center gap-3 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-green-900/20 transition-all duration-300 active:scale-95 border border-green-400/30"
-            >
-              {/* Iconito de Excel */}
-              <div className="bg-white/20 p-1.5 rounded-lg group-hover:bg-white/30 transition-colors">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <span>Descargar Reporte</span>
-            </button>
-        </div>
+          <BotonReporte 
+            impresiones={impresiones} 
+            operadoresAsignados={operadoresAsignados} 
+            coloresPorMaquina={coloresPorMaquina} 
+          />
         </div>
 
         {/* Indicador de etiquetas faltantes para rollos */}

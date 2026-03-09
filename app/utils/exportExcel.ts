@@ -1,20 +1,20 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-export const generarExcelControl = async (maquinas: any[]) => {
+export const generarExcelControl = async (data: any[], nombreTurno: string = "Reporte") => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Control de Producción');
 
-  // 1. Definimos las columnas (Basado en tu flujo de trabajo)
+  // 1. Definimos las columnas
   worksheet.columns = [
     { header: 'MÁQUINA', key: 'id', width: 12 },
     { header: 'COLOR/TIPO (SISTEMA)', key: 'color', width: 25 },
     { header: 'KG (SISTEMA)', key: 'cantidad', width: 15 },
-    { header: 'KG MANUAL (OPERARIO)', key: 'manual', width: 25 }, // Columna para completar
+    { header: 'KG MANUAL (OPERARIO)', key: 'manual', width: 25 },
     { header: 'OBSERVACIONES', key: 'obs', width: 30 },
   ];
 
-  // 2. Le damos el estilo "profesional" (Encabezado oscuro)
+  // 2. Estilo profesional al encabezado
   const headerRow = worksheet.getRow(1);
   headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
   headerRow.fill = {
@@ -22,19 +22,18 @@ export const generarExcelControl = async (maquinas: any[]) => {
     pattern: 'solid',
     fgColor: { argb: '2D3748' }
   };
-  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-  // 3. Cargamos los datos actuales de las máquinas
-  maquinas.forEach((m) => {
+  // 3. Cargamos la data (USAMOS 'data', no 'maquinas')
+  data.forEach((m) => {
     const row = worksheet.addRow({
-      id: `Máquina ${m.id || m.numero || '?'}`,
+      id: `Máquina ${m.id}`,
       color: m.color || 'Sin material',
       cantidad: m.cantidad || 0,
-      manual: '', // Vacío para que escriban
+      manual: '', 
       obs: ''
     });
 
-    // 4. Resaltamos la celda manual en AMARILLO para que el pibe sepa dónde anotar
+    // Resaltamos la celda manual en AMARILLO para el pibe
     const cellManual = row.getCell('manual');
     cellManual.fill = {
       type: 'pattern',
@@ -46,8 +45,8 @@ export const generarExcelControl = async (maquinas: any[]) => {
     };
   });
 
-  // 5. Generamos el archivo con la fecha de hoy
+  // 4. Generar y descargar
   const buffer = await workbook.xlsx.writeBuffer();
-  const fechaStr = new Date().toLocaleDateString().replace(/\//g, '-');
-  saveAs(new Blob([buffer]), `Planilla_GST3D_${fechaStr}.xlsx`);
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  saveAs(blob, `Control_Produccion_${nombreTurno}_${new Date().toLocaleDateString()}.xlsx`);
 };
