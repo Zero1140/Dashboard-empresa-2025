@@ -545,8 +545,6 @@ export default function MaquinasPage({ modoEdicion, supervisorActual, onSupabase
           </div>
           <BotonReporte 
             impresiones={impresiones} 
-            operadoresAsignados={operadoresAsignados} 
-            coloresPorMaquina={coloresPorMaquina} 
           />
         </div>
 

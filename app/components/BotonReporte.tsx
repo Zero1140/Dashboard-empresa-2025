@@ -1,70 +1,79 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { generarExcelControl } from '../utils/exportExcel';
 import { ImpresionEtiqueta } from '../types';
 
 interface BotonReporteProps {
   impresiones: ImpresionEtiqueta[];
-  operadoresAsignados: Record<number, string>;
-  coloresPorMaquina: Record<number, { chica: string; grande: string }>;
 }
 
-const BotonReporte: React.FC<BotonReporteProps> = ({ 
-  impresiones, 
-  operadoresAsignados, 
-  coloresPorMaquina 
-}) => {
+const BotonReporte: React.FC<BotonReporteProps> = ({ impresiones }) => {
+  const [mostrarMenu, setMostrarMenu] = useState(false);
 
-  const obtenerDatosPorTurno = () => {
-    const horaActual = new Date().getHours();
-    let inicio = 6, fin = 14, nombre = "Mañana";
-
-    if (horaActual >= 14 && horaActual < 22) {
-      inicio = 14; fin = 22; nombre = "Tarde";
-    } else if (horaActual >= 22 || horaActual < 6) {
-      inicio = 22; fin = 6; nombre = "Noche";
-    }
-
-    const dataFiltrada = Array.from({ length: 8 }, (_, i) => {
-      const id = i + 1;
-      const op = operadoresAsignados[id] || "Sin asignar";
+  const obtenerReportePorRango = (diasAtras: number, filtroMes: boolean = false) => {
+    const ahora = new Date();
+    const dataReporte: any[] = [];
+    
+    // Si es reporte mensual, filtramos todo el mes actual
+    const impresionesFiltradas = impresiones.filter(imp => {
+      const fechaImp = new Date(imp.fecha);
+      if (filtroMes) return fechaImp.getMonth() === ahora.getMonth() && fechaImp.getFullYear() === ahora.getFullYear();
       
-      const totalTurno = impresiones
-        .filter(imp => {
-          const h = new Date(imp.fecha).getHours();
-          const mismoOp = imp.operador === op;
-          // Lógica para turnos (incluye el cruce de medianoche)
-          const enHorario = inicio < fin 
-            ? (h >= inicio && h < fin) 
-            : (h >= 22 || h < 6);
-          return mismoOp && enHorario;
-        })
-        .reduce((acc, curr) => acc + (curr.cantidadChicas || 0) + (curr.cantidadGrandes || 0), 0);
-
-      return {
-        id,
-        color: coloresPorMaquina[id]?.chica || "Sin material",
-        cantidad: totalTurno,
-        operador: op
-      };
+      const limite = new Date();
+      limite.setDate(ahora.getDate() - diasAtras);
+      limite.setHours(0,0,0,0);
+      return fechaImp >= limite;
     });
 
-    return { dataFiltrada, nombre };
+    // Agrupación mágica: Día_Turno_Maquina_Color
+    const agrupado: Record<string, any> = {};
+
+    impresionesFiltradas.forEach(imp => {
+      const fecha = new Date(imp.fecha);
+      const diaStr = fecha.toLocaleDateString();
+      const h = fecha.getHours();
+      let turno = "Noche";
+      if (h >= 6 && h < 14) turno = "Mañana";
+      else if (h >= 14 && h < 22) turno = "Tarde";
+
+      const colorBase = imp.etiquetaChica.replace(/_GRANDE$/, "");
+      const key = `${diaStr}_${turno}_${imp.maquinaId}_${colorBase}`;
+
+      if (!agrupado[key]) {
+        agrupado[key] = {
+          fecha: diaStr,
+          turno,
+          maquinaId: imp.maquinaId,
+          operador: imp.operador,
+          color: colorBase,
+          cantidad: 0
+        };
+      }
+      agrupado[key].cantidad += (imp.cantidadChicas || 0) + (imp.cantidadGrandes || 0);
+    });
+
+    return Object.values(agrupado).sort((a, b) => b.maquinaId - a.maquinaId);
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <label className="block text-[#a0aec0] text-xs font-bold mb-2 uppercase tracking-wide">Reporte:</label>
+    <div className="relative inline-block text-left">
       <button 
-        onClick={() => {
-          const { dataFiltrada, nombre } = obtenerDatosPorTurno();
-          generarExcelControl(dataFiltrada, nombre);
-        }}
-        className="bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all duration-200 flex items-center gap-2 shadow-lg"
+        onClick={() => setMostrarMenu(!mostrarMenu)}
+        className="bg-[#0f1419] text-white px-5 py-3 rounded-xl border border-[#2d3748] hover:border-[#00d4ff]/50 transition-all flex items-center gap-2 shadow-lg"
       >
-        <span>📊</span>
-        <span className="font-medium">Descargar Turno</span>
+        <span>📊</span> <span className="font-medium">Reportes Producción</span>
       </button>
+
+      {mostrarMenu && (
+        <div className="absolute right-0 mt-2 w-56 rounded-xl bg-[#1a2332] border border-[#2d3748] shadow-2xl z-50 overflow-hidden">
+          <div className="p-2 space-y-1">
+            <button onClick={() => { generarExcelControl(obtenerReportePorRango(0), "Turno_Actual"); setMostrarMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#00d4ff]/20 rounded-lg">📅 Hoy</button>
+            <button onClick={() => { generarExcelControl(obtenerReportePorRango(3), "Ultimos_3_Dias"); setMostrarMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#00d4ff]/20 rounded-lg">⏳ Últimos 3 días</button>
+            <div className="border-t border-[#2d3748] my-1"></div>
+            <button onClick={() => { generarExcelControl(obtenerReportePorRango(0, true), "Reporte_Mensual"); setMostrarMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-[#ffb800] hover:bg-[#ffb800]/10 rounded-lg font-bold">🏆 Control Mensual</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

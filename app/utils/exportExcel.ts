@@ -5,14 +5,16 @@ export const generarExcelControl = async (data: any[], nombreTurno: string = "Re
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Control de Producción');
 
-  // 1. Definimos las columnas
-  worksheet.columns = [
-    { header: 'MÁQUINA', key: 'id', width: 12 },
-    { header: 'COLOR/TIPO (SISTEMA)', key: 'color', width: 25 },
-    { header: 'KG (SISTEMA)', key: 'cantidad', width: 15 },
-    { header: 'KG MANUAL (OPERARIO)', key: 'manual', width: 25 },
-    { header: 'OBSERVACIONES', key: 'obs', width: 30 },
-  ];
+// En app/utils/exportExcel.ts
+worksheet.columns = [
+  { header: 'FECHA', key: 'fecha', width: 12 },
+  { header: 'TURNO', key: 'turno', width: 10 },
+  { header: 'MÁQ', key: 'maquinaId', width: 8 },
+  { header: 'OPERADOR', key: 'operador', width: 20 },
+  { header: 'COLOR/MATERIAL', key: 'color', width: 25 },
+  { header: 'KG SISTEMA', key: 'cantidad', width: 15 },
+  { header: 'KG MANUAL', key: 'manual', width: 20 },
+];
 
   // 2. Estilo profesional al encabezado
   const headerRow = worksheet.getRow(1);
