@@ -32,8 +32,10 @@ def split_into_article_chunks(
     Split cleaned legal text into one Chunk per Artigo.
     Matches patterns like: 'Artigo 80.º', 'Artigo 80', 'ARTIGO 80'
     """
+    # Match article headers with or without trailing newline
+    # Handles: 'Artigo 80.º', 'Artigo 80', 'ARTIGO 80 — Titulo', inline variants
     pattern = re.compile(
-        r"(Artigo\s+\d+\.?[°º]?\s*[A-Z]?\.?\s*[-–]?\s*\n)",
+        r"(Artigo\s+\d+\.?[°º]?\s*[A-Z]?\.?(?:\s*[-–][^\n]*)?\s*\n|Artigo\s+\d+\.?[°º]?\s*(?=[A-Z\n]))",
         re.IGNORECASE,
     )
     parts = pattern.split(text)
@@ -48,7 +50,7 @@ def split_into_article_chunks(
 
         body_lines = [l.strip() for l in artigo_body.split("\n") if l.strip()]
         titulo = body_lines[0] if body_lines else None
-        if titulo and re.match(r"Artigo\s+\d+", titulo, re.IGNORECASE):
+        if titulo and re.match(r"Artigo\s+\d+", titulo, re.IGNORECASE | re.UNICODE):
             titulo = None
 
         full_text = f"{artigo_header}\n{artigo_body}".strip()
