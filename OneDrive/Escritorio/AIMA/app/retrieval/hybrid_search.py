@@ -44,7 +44,8 @@ class HybridSearcher:
         bm25_scores = bm25.get_scores(query_tokens)
 
         # Combined score: 60% semantic + 40% BM25 (normalized)
-        max_bm25 = max(bm25_scores) if max(bm25_scores) > 0 else 1.0
+        raw_max = max(bm25_scores)
+        max_bm25 = raw_max if raw_max > 0 else 1.0
         scored = []
         for i, candidate in enumerate(candidates):
             bm25_norm = bm25_scores[i] / max_bm25
@@ -80,10 +81,11 @@ class HybridSearcher:
             query=query,
             top_k=self.top_k_final,
         )
-        # Get texts matching the top sources
-        source_keys = {(s.lei, s.artigo) for s in sources}
+        # Build texts in same order as ranked sources
+        source_map = {(c["lei"], c["artigo"]): c["texto"] for c in candidates}
         texts = [
-            c["texto"] for c in candidates
-            if (c["lei"], c["artigo"]) in source_keys
+            source_map[(s.lei, s.artigo)]
+            for s in sources
+            if (s.lei, s.artigo) in source_map
         ]
         return sources, texts
