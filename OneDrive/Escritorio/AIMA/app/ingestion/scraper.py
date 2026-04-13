@@ -1,7 +1,10 @@
+import logging
 import re
 import time
 import requests
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class DREScraper:
@@ -22,6 +25,7 @@ class DREScraper:
         "manifestação de interesse",
         "reagrupamento familiar",
     ]
+    MAX_RESULTS_PER_KEYWORD = 500  # safety cap to avoid unbounded pagination
 
     def search_diplomas(
         self,
@@ -58,7 +62,7 @@ class DREScraper:
             if not results:
                 break
             all_results.extend(results)
-            if len(all_results) >= data.get("total", 0):
+            if len(all_results) >= min(data.get("total", 0), self.MAX_RESULTS_PER_KEYWORD):
                 break
             start += rows
             time.sleep(0.5)
@@ -78,7 +82,7 @@ class DREScraper:
         'Decreto-Lei n.º 84/2007, ...' → 'Decreto-Lei 84/2007'
         """
         match = re.match(
-            r"(Lei|Decreto-Lei|Portaria|Despacho)[^\d]*(\d+/\d+)",
+            r"(Lei|Decreto-Lei|Portaria|Despacho|Resolução|Decreto|Aviso|Despacho Normativo)[^\d]*(\d+/\d+)",
             title,
             re.IGNORECASE,
         )
@@ -86,6 +90,7 @@ class DREScraper:
             tipo = match.group(1).title()
             numero = match.group(2)
             return f"{tipo} {numero}"
+        logger.warning("extract_lei_name: could not parse title '%s', using raw title", title[:80])
         return title[:60].strip()
 
     def get_all_immigration_diplomas(self, after_date: str | None = None) -> list[dict]:
@@ -93,11 +98,14 @@ class DREScraper:
         seen: set[str] = set()
         all_diplomas: list[dict] = []
         for keyword in self.IMMIGRATION_KEYWORDS:
-            results = self.search_diplomas(keyword=keyword, after_date=after_date)
-            for r in results:
-                doc_id = str(r.get("id", ""))
-                if doc_id and doc_id not in seen:
-                    seen.add(doc_id)
-                    all_diplomas.append(r)
+            try:
+                results = self.search_diplomas(keyword=keyword, after_date=after_date)
+                for r in results:
+                    doc_id = str(r.get("id", ""))
+                    if doc_id and doc_id not in seen:
+                        seen.add(doc_id)
+                        all_diplomas.append(r)
+            except Exception as e:
+                logger.warning("get_all_immigration_diplomas: keyword '%s' failed: %s", keyword, e)
             time.sleep(1)
         return all_diplomas
