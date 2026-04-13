@@ -38,11 +38,12 @@ class ChromaStore:
         )
 
     def search(self, query_embedding: list[float], top_k: int) -> list[dict]:
-        if self.count() == 0:
+        n = self.count()
+        if n == 0:
             return []
         results = self._collection.query(
             query_embeddings=[query_embedding],
-            n_results=min(top_k, self.count()),
+            n_results=min(top_k, n),
             include=["documents", "metadatas", "distances"],
         )
         output = []
