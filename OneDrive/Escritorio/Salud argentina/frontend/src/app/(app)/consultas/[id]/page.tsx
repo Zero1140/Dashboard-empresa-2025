@@ -1,6 +1,6 @@
 // frontend/src/app/(app)/consultas/[id]/page.tsx
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -25,8 +25,9 @@ export default function ConsultaRoomPage() {
   const [diagTexto, setDiagTexto] = useState("");
   const [notas, setNotas] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [c, rxs] = await Promise.all([
         api.getConsultation(id),
@@ -42,9 +43,9 @@ export default function ConsultaRoomPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   const handleUpdateStatus = async (estado: string) => {
     if (!consultation) return;
@@ -58,6 +59,7 @@ export default function ConsultaRoomPage() {
 
   const handleSaveNotes = async () => {
     setSaving(true);
+    setSaveError("");
     try {
       const updated = await api.updateConsultation(id, {
         diagnostico_snomed_code: diagCode || undefined,
@@ -65,7 +67,9 @@ export default function ConsultaRoomPage() {
         notas_clinicas: notas || undefined,
       });
       setConsultation(updated);
-    } catch { }
+    } catch {
+      setSaveError("Error al guardar — intentá de nuevo");
+    }
     setSaving(false);
   };
 
@@ -123,6 +127,7 @@ export default function ConsultaRoomPage() {
               src={consultation.sesion_video_url}
               allow="camera; microphone; fullscreen; display-capture"
               className="w-full h-full rounded-lg border border-border min-h-[500px]"
+              title="Teleconsulta — Jitsi Meet"
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center space-y-3">
@@ -177,6 +182,7 @@ export default function ConsultaRoomPage() {
                 Guardar notas
               </button>
             )}
+            {saveError && <p className="text-danger text-xs">{saveError}</p>}
           </div>
 
           {/* Prescriptions */}
@@ -200,7 +206,7 @@ export default function ConsultaRoomPage() {
                   <p className="text-success/70 text-xs font-mono">{lastCuir}</p>
                 </div>
                 <button
-                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/recetas/${lastCuir}`)}
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/recetas/${lastCuir}`).catch(() => {})}
                   className="text-success/70 text-xs hover:text-success border border-success/20 rounded px-2 py-1"
                 >
                   Copiar QR link
@@ -242,24 +248,24 @@ export default function ConsultaRoomPage() {
             <form onSubmit={handleCreatePrescription} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-text-2 text-xs uppercase tracking-widest block mb-1">SNOMED CT</label>
-                  <input value={rxMedCode} onChange={(e) => setRxMedCode(e.target.value)}
+                  <label htmlFor="rx-med-code" className="text-text-2 text-xs uppercase tracking-widest block mb-1">SNOMED CT</label>
+                  <input id="rx-med-code" value={rxMedCode} onChange={(e) => setRxMedCode(e.target.value)}
                     className="input-base font-mono text-sm" placeholder="Ej: 372687004" required />
                 </div>
                 <div>
-                  <label className="text-text-2 text-xs uppercase tracking-widest block mb-1">Cantidad</label>
-                  <input type="number" min={1} value={rxCantidad} onChange={(e) => setRxCantidad(Number(e.target.value))}
+                  <label htmlFor="rx-cantidad" className="text-text-2 text-xs uppercase tracking-widest block mb-1">Cantidad</label>
+                  <input id="rx-cantidad" type="number" min={1} value={rxCantidad} onChange={(e) => setRxCantidad(Number(e.target.value))}
                     className="input-base text-sm" required />
                 </div>
               </div>
               <div>
-                <label className="text-text-2 text-xs uppercase tracking-widest block mb-1">Medicamento</label>
-                <input value={rxMedNombre} onChange={(e) => setRxMedNombre(e.target.value)}
+                <label htmlFor="rx-med-nombre" className="text-text-2 text-xs uppercase tracking-widest block mb-1">Medicamento</label>
+                <input id="rx-med-nombre" value={rxMedNombre} onChange={(e) => setRxMedNombre(e.target.value)}
                   className="input-base text-sm" placeholder="Ej: Amoxicilina 500mg" required />
               </div>
               <div>
-                <label className="text-text-2 text-xs uppercase tracking-widest block mb-1">Posología</label>
-                <textarea value={rxPosologia} onChange={(e) => setRxPosologia(e.target.value)}
+                <label htmlFor="rx-posologia" className="text-text-2 text-xs uppercase tracking-widest block mb-1">Posología</label>
+                <textarea id="rx-posologia" value={rxPosologia} onChange={(e) => setRxPosologia(e.target.value)}
                   className="input-base text-sm resize-none h-16" placeholder="Ej: 1 comprimido cada 8 horas por 7 días" required />
               </div>
               {rxError && <p className="text-danger text-xs">{rxError}</p>}
