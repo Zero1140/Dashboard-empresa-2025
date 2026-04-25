@@ -59,6 +59,12 @@ export default function PublicPrescriptionPage() {
           </div>
         )}
 
+        {!loading && !notFound && !rx && (
+          <div className="card p-8 max-w-sm w-full text-center space-y-3">
+            <p className="text-text-3 text-sm">No se pudo cargar la receta.</p>
+          </div>
+        )}
+
         {rx && (
           <div className="card p-6 max-w-lg w-full space-y-5 animate-fadeIn">
             {/* Status prominente */}
@@ -94,7 +100,7 @@ export default function PublicPrescriptionPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-text-3 text-[10px] uppercase tracking-widest mb-1">Cantidad</p>
-                  <p className="text-text text-sm font-medium">{rx.cantidad ?? "—"} unidades</p>
+                  <p className="text-text text-sm font-medium">{rx.cantidad != null ? `${rx.cantidad} unidades` : "—"}</p>
                 </div>
                 <div>
                   <p className="text-text-3 text-[10px] uppercase tracking-widest mb-1">Cobertura</p>
