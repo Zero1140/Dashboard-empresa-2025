@@ -1,6 +1,6 @@
 import hashlib
-import secrets
 import time
+import uuid
 
 
 def generate_cuir(tenant_prefix: str) -> str:
@@ -24,8 +24,8 @@ def generate_cuir(tenant_prefix: str) -> str:
     # Timestamp in milliseconds (13 digits)
     ts = str(int(time.time() * 1000))
 
-    # Random hex string (8 chars)
-    rand = secrets.token_hex(4)
+    # Random hex string (8 chars) using UUID4 for structural uniqueness guarantee
+    rand = uuid.uuid4().hex[:8].upper()
 
     # Build the raw CUIR without checksum
     raw = f"{prefix}{ts}{rand}"

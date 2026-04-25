@@ -1,7 +1,5 @@
 import hashlib
 
-import pytest
-
 from app.services.cuir import generate_cuir
 
 
