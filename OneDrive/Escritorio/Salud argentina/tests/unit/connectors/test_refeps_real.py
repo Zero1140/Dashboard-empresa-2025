@@ -149,8 +149,8 @@ async def test_verify_sin_titulos(connector):
 @respx.mock
 async def test_verify_http_500_returns_error_result(connector):
     respx.get(REST_URL).mock(return_value=Response(500))
-    # Patch tenacity sleep so the 3 retry attempts don't actually wait
-    with patch("tenacity.nap.sleep", new_callable=AsyncMock):
+    # Patch asyncio.sleep so the 3 retry attempts don't actually wait
+    with patch("asyncio.sleep", new_callable=AsyncMock):
         result = await connector.verify_matricula(dni="12345678")
     assert result.found is False
     assert result.error == "HTTP 500"
