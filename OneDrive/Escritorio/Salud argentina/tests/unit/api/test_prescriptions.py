@@ -182,7 +182,6 @@ def test_programada_consultation_returns_422(client):
 
 
 def test_fecha_vencimiento_is_30_days(client):
-    from datetime import date, timedelta
     mock_consultation = make_mock_consultation("en_curso")
     mock_prescription = make_mock_prescription()
     expected_vencimiento = (date.today() + timedelta(days=30)).isoformat()

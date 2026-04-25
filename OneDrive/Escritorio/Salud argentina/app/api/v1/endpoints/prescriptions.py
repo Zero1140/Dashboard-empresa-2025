@@ -12,7 +12,6 @@ from app.core.database import AsyncSessionLocal, get_tenant_db
 from app.core.security import TokenPayload
 from app.models.consultation import Consultation
 from app.models.prescription import Prescription
-from app.models.prescription import Prescription as PrescriptionModel  # alias for select() calls
 from app.services.cuir import generate_cuir
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,6 @@ router = APIRouter(tags=["Prescripciones"])
 
 
 class CreatePrescriptionRequest(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
     medicamento_snomed_code: str
     medicamento_nombre: str
     cantidad: int = 1
@@ -163,14 +161,14 @@ async def create_prescription(
 @router.get("/consultations/{consultation_id}/prescriptions", response_model=list[PrescriptionResponse])
 async def list_prescriptions(
     consultation_id: str,
-    current_user: TokenPayload = Depends(require_role("prestador", "platform_admin")),
+    current_user: TokenPayload = Depends(require_role("prestador")),
 ):
     async with get_tenant_db(current_user.tenant_id) as session:
         await _get_consultation_or_403(session, consultation_id, current_user.tenant_id, current_user.sub)
         result = await session.execute(
-            select(PrescriptionModel).where(
-                PrescriptionModel.consulta_id == uuid.UUID(consultation_id),
-                PrescriptionModel.tenant_id == uuid.UUID(current_user.tenant_id),
+            select(Prescription).where(
+                Prescription.consulta_id == uuid.UUID(consultation_id),
+                Prescription.tenant_id == uuid.UUID(current_user.tenant_id),
             )
         )
         return [_to_prescription_response(rx) for rx in result.scalars().all()]
@@ -183,9 +181,9 @@ async def cancel_prescription(
 ):
     async with get_tenant_db(current_user.tenant_id) as session:
         result = await session.execute(
-            select(PrescriptionModel).where(
-                PrescriptionModel.id == uuid.UUID(prescription_id),
-                PrescriptionModel.tenant_id == uuid.UUID(current_user.tenant_id),
+            select(Prescription).where(
+                Prescription.id == uuid.UUID(prescription_id),
+                Prescription.tenant_id == uuid.UUID(current_user.tenant_id),
             )
         )
         rx = result.scalar_one_or_none()
@@ -203,6 +201,8 @@ async def cancel_prescription(
             c = consult_result.scalar_one_or_none()
             if c is not None and c.medico_id != uuid.UUID(current_user.sub):
                 raise HTTPException(status_code=403, detail="Sin permisos sobre esta receta.")
+        elif current_user.role != "platform_admin":
+            raise HTTPException(status_code=403, detail="Sin permisos sobre esta receta.")
 
         if rx.estado in ("dispensada", "anulada"):
             raise HTTPException(status_code=422, detail=f"No se puede anular una receta con estado '{rx.estado}'.")
@@ -216,7 +216,7 @@ async def get_prescription_public(cuir: str):
     """Lookup público para farmacias — no requiere autenticación."""
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            select(PrescriptionModel).where(PrescriptionModel.cuir == cuir)
+            select(Prescription).where(Prescription.cuir == cuir)
         )
         rx = result.scalar_one_or_none()
         if rx is None:
