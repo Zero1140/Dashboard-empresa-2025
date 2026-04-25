@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
@@ -68,7 +68,7 @@ def _to_prescription_response(rx: Prescription) -> PrescriptionResponse:
         fecha_vencimiento=rx.fecha_vencimiento,
         estado=rx.estado,
         cobertura_verificada=rx.cobertura_verificada,
-        qr_url=f"/v1/prescriptions/{rx.cuir}",
+        qr_url=f"/recetas/{rx.cuir}",
         created_at=rx.created_at.isoformat(),
     )
 
@@ -148,7 +148,7 @@ async def create_prescription(
             medicamento_descripcion=body.medicamento_nombre,
             cantidad=body.cantidad,
             posologia=body.posologia,
-            fecha_vencimiento=date.today() + timedelta(days=30),
+            fecha_vencimiento=datetime.now(timezone.utc).date() + timedelta(days=30),
             estado="activa",
             cobertura_verificada=cobertura_verificada,
         )

@@ -201,7 +201,9 @@ async def list_consultations(
             stmt = stmt.where(Consultation.estado == estado)
         if fecha_desde:
             try:
-                dt = datetime.fromisoformat(fecha_desde).replace(tzinfo=timezone.utc)
+                dt = datetime.fromisoformat(fecha_desde)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
                 stmt = stmt.where(Consultation.fecha_consulta >= dt)
             except ValueError:
                 raise HTTPException(status_code=422, detail="fecha_desde inválida — usar formato ISO 8601.")
@@ -212,7 +214,7 @@ async def list_consultations(
 @router.get("/{consultation_id}", response_model=ConsultationResponse)
 async def get_consultation(
     consultation_id: str,
-    current_user: TokenPayload = Depends(require_role("prestador", "platform_admin")),
+    current_user: TokenPayload = Depends(require_role("prestador")),
 ):
     async with get_tenant_db(current_user.tenant_id) as session:
         result = await session.execute(
@@ -233,7 +235,7 @@ async def get_consultation(
 async def patch_consultation_status(
     consultation_id: str,
     body: PatchStatusRequest,
-    current_user: TokenPayload = Depends(require_role("prestador", "platform_admin")),
+    current_user: TokenPayload = Depends(require_role("prestador")),
 ):
     async with get_tenant_db(current_user.tenant_id) as session:
         result = await session.execute(
@@ -263,7 +265,7 @@ async def patch_consultation_status(
 async def update_consultation(
     consultation_id: str,
     body: UpdateConsultationRequest,
-    current_user: TokenPayload = Depends(require_role("prestador", "platform_admin")),
+    current_user: TokenPayload = Depends(require_role("prestador")),
 ):
     async with get_tenant_db(current_user.tenant_id) as session:
         result = await session.execute(
