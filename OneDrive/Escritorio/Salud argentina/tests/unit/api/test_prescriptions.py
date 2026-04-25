@@ -230,3 +230,156 @@ def test_cuir_not_found_returns_404():
             resp = c.get("/v1/prescriptions/NOTEXIST00000000000000000AB")
 
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/consultations/{id}/prescriptions — list prescriptions
+# ---------------------------------------------------------------------------
+
+def test_list_prescriptions_returns_list(client):
+    mock_consultation = make_mock_consultation("en_curso")
+    rx1 = make_mock_prescription()
+    rx2 = make_mock_prescription()
+    rx2.id = uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+    rx2.cuir = "DEVP17454948273341a3f9c21CD"
+
+    mock_scalars = MagicMock()
+    mock_scalars.all = MagicMock(return_value=[rx1, rx2])
+    mock_list_result = MagicMock()
+    mock_list_result.scalars = MagicMock(return_value=mock_scalars)
+
+    # First execute: _get_consultation_or_403 lookup → returns mock_consultation
+    # Second execute: list prescriptions → returns list result
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[
+        MagicMock(scalar_one_or_none=MagicMock(return_value=mock_consultation)),
+        mock_list_result,
+    ])
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("app.api.v1.endpoints.prescriptions.get_tenant_db", return_value=mock_session):
+        resp = client.get(f"/v1/consultations/{CONSULTATION_ID}/prescriptions")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 2
+    assert data[0]["cuir"] == rx1.cuir
+    assert data[1]["cuir"] == rx2.cuir
+
+
+def test_list_prescriptions_consultation_not_found_returns_404(client):
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    )
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("app.api.v1.endpoints.prescriptions.get_tenant_db", return_value=mock_session):
+        resp = client.get(f"/v1/consultations/{CONSULTATION_ID}/prescriptions")
+
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# DELETE /v1/prescriptions/{id}/cancel — cancel prescription
+# ---------------------------------------------------------------------------
+
+def test_cancel_prescription_sets_estado_anulada(client):
+    mock_consultation = make_mock_consultation("en_curso")
+    rx = make_mock_prescription()
+    rx.estado = "activa"
+
+    # First execute: prescription lookup
+    # Second execute: consultation ownership check
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[
+        MagicMock(scalar_one_or_none=MagicMock(return_value=rx)),
+        MagicMock(scalar_one_or_none=MagicMock(return_value=mock_consultation)),
+    ])
+    mock_session.flush = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    prescription_id = str(rx.id)
+    with patch("app.api.v1.endpoints.prescriptions.get_tenant_db", return_value=mock_session):
+        resp = client.delete(f"/v1/prescriptions/{prescription_id}/cancel")
+
+    assert resp.status_code == 200
+    assert rx.estado == "anulada"
+    data = resp.json()
+    assert data["estado"] == "anulada"
+
+
+def test_cancel_prescription_not_found_returns_404(client):
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    )
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("app.api.v1.endpoints.prescriptions.get_tenant_db", return_value=mock_session):
+        resp = client.delete(f"/v1/prescriptions/{uuid.uuid4()}/cancel")
+
+    assert resp.status_code == 404
+
+
+def test_cancel_already_anulada_returns_422(client):
+    mock_consultation = make_mock_consultation("en_curso")
+    rx = make_mock_prescription()
+    rx.estado = "anulada"
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[
+        MagicMock(scalar_one_or_none=MagicMock(return_value=rx)),
+        MagicMock(scalar_one_or_none=MagicMock(return_value=mock_consultation)),
+    ])
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("app.api.v1.endpoints.prescriptions.get_tenant_db", return_value=mock_session):
+        resp = client.delete(f"/v1/prescriptions/{rx.id}/cancel")
+
+    assert resp.status_code == 422
+
+
+def test_cancel_prescription_wrong_doctor_returns_403(client):
+    mock_consultation = make_mock_consultation("en_curso")
+    mock_consultation.medico_id = uuid.UUID("99999999-9999-9999-9999-999999999999")
+    rx = make_mock_prescription()
+    rx.estado = "activa"
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[
+        MagicMock(scalar_one_or_none=MagicMock(return_value=rx)),
+        MagicMock(scalar_one_or_none=MagicMock(return_value=mock_consultation)),
+    ])
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("app.api.v1.endpoints.prescriptions.get_tenant_db", return_value=mock_session):
+        resp = client.delete(f"/v1/prescriptions/{rx.id}/cancel")
+
+    assert resp.status_code == 403
+
+
+def test_cancel_prescription_no_consulta_id_non_admin_returns_403(client):
+    """A prescription with no consulta_id can only be cancelled by platform_admin."""
+    rx = make_mock_prescription()
+    rx.estado = "activa"
+    rx.consulta_id = None  # no associated consultation
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=rx))
+    )
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    # client fixture uses role="prestador", not "platform_admin"
+    with patch("app.api.v1.endpoints.prescriptions.get_tenant_db", return_value=mock_session):
+        resp = client.delete(f"/v1/prescriptions/{rx.id}/cancel")
+
+    assert resp.status_code == 403
