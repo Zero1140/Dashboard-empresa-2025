@@ -1,0 +1,56 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saludos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saludos_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-saludos_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/sql/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql
+      - ./migrations/sql/002_add_consultations.sql:/docker-entrypoint-initdb.d/002_add_consultations.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-saludos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  celery:
+    build: .
+    command: celery -A app.worker worker --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
