@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime
 
@@ -12,6 +13,8 @@ from app.core.security import TokenPayload
 from app.models.consultation import Consultation
 from app.models.practitioner import Practitioner
 from app.services.video import create_jitsi_room
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/consultations", tags=["Consultas"])
 
@@ -34,6 +37,13 @@ class PatchStatusRequest(BaseModel):
     estado: str
 
 
+class PrescriptionSummary(BaseModel):
+    id: str
+    cuir: str
+    medicamento_nombre: str | None
+    estado: str
+
+
 class ConsultationResponse(BaseModel):
     id: str
     tipo: str
@@ -52,6 +62,7 @@ class ConsultationResponse(BaseModel):
     diagnostico_texto: str | None
     notas_clinicas: str | None
     created_at: datetime
+    prescriptions: list[PrescriptionSummary] = []
 
 
 VALID_TRANSITIONS = {
@@ -83,6 +94,15 @@ def _to_response(c: Consultation) -> ConsultationResponse:
         diagnostico_texto=c.diagnostico_texto,
         notas_clinicas=c.notas_clinicas,
         created_at=c.created_at,
+        prescriptions=[
+            PrescriptionSummary(
+                id=str(rx.id),
+                cuir=rx.cuir,
+                medicamento_nombre=rx.medicamento_nombre,
+                estado=rx.estado,
+            )
+            for rx in (c.prescriptions or [])
+        ],
     )
 
 
@@ -126,7 +146,7 @@ async def create_consultation(
                 )
                 cobertura_verificada = cov.activa
             except Exception:
-                pass
+                logger.warning("Eligibility check failed for afiliado_id=%s", body.paciente_afiliado_id, exc_info=True)
 
         consultation = Consultation(
             tenant_id=uuid.UUID(current_user.tenant_id),
@@ -151,6 +171,7 @@ async def create_consultation(
 async def list_consultations(
     tipo: str | None = Query(default=None),
     estado: str | None = Query(default=None),
+    fecha_desde: str | None = Query(default=None),
     current_user: TokenPayload = Depends(require_role("prestador", "platform_admin")),
 ):
     async with get_tenant_db(current_user.tenant_id) as session:
@@ -166,6 +187,10 @@ async def list_consultations(
             stmt = stmt.where(Consultation.tipo == tipo)
         if estado:
             stmt = stmt.where(Consultation.estado == estado)
+        if fecha_desde:
+            from datetime import datetime, timezone
+            dt = datetime.fromisoformat(fecha_desde).replace(tzinfo=timezone.utc)
+            stmt = stmt.where(Consultation.fecha_consulta >= dt)
         result = await session.execute(stmt)
         return [_to_response(c) for c in result.scalars().all()]
 

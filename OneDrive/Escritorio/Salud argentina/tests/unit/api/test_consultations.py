@@ -48,6 +48,7 @@ def make_mock_consultation(tipo: str = "teleconsulta"):
     c.diagnostico_texto = None
     c.notas_clinicas = None
     c.created_at = datetime.now(UTC)
+    c.prescriptions = []
     return c
 
 
@@ -128,3 +129,40 @@ def test_suspended_practitioner_returns_403(client):
         })
 
     assert resp.status_code == 403
+
+
+def test_create_with_coverage_verificada(client):
+    mock_practitioner = make_mock_practitioner()
+    mock_consultation = make_mock_consultation("teleconsulta")
+    mock_consultation.paciente_afiliado_id = "SWISS-001"
+    mock_consultation.financiador_id = "swiss-medical"
+    mock_consultation.cobertura_verificada = True
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=mock_practitioner)))
+    mock_session.add = MagicMock()
+    mock_session.flush = AsyncMock()
+    mock_session.refresh = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    mock_coverage = MagicMock()
+    mock_coverage.activa = True
+
+    mock_connector = MagicMock()
+    mock_connector.check_coverage = AsyncMock(return_value=mock_coverage)
+
+    with patch("app.api.v1.endpoints.consultations.get_tenant_db", return_value=mock_session):
+        with patch("app.api.v1.endpoints.consultations.Consultation", return_value=mock_consultation):
+            with patch("app.api.v1.endpoints.consultations.get_eligibility_connector", return_value=mock_connector):
+                resp = client.post("/v1/consultations", json={
+                    "tipo": "teleconsulta",
+                    "paciente_dni": "12345678",
+                    "paciente_nombre": "Juan Pérez",
+                    "paciente_afiliado_id": "SWISS-001",
+                    "financiador_id": "swiss-medical",
+                })
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["cobertura_verificada"] is True
