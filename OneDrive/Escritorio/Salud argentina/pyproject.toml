@@ -48,6 +48,9 @@ ignore = ["E501"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing --cov-fail-under=80"
+markers = [
+    "integration: marks tests that require real external credentials (skipped by default)",
+]
 
 [tool.mypy]
 python_version = "3.12"
