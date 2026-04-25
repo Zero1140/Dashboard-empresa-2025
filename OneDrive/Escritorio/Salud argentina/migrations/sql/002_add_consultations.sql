@@ -43,9 +43,11 @@ CREATE INDEX IF NOT EXISTS ix_consultations_tenant_estado
 
 ALTER TABLE consultations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS tenant_isolation_consultations ON consultations;
 CREATE POLICY tenant_isolation_consultations ON consultations
     USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
 
+DROP TRIGGER IF EXISTS update_consultations_updated_at ON consultations;
 CREATE TRIGGER update_consultations_updated_at BEFORE UPDATE ON consultations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -54,6 +56,9 @@ CREATE TRIGGER update_consultations_updated_at BEFORE UPDATE ON consultations
 -- ============================================================
 ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS
     consulta_id UUID REFERENCES consultations(id);
+
+CREATE INDEX IF NOT EXISTS ix_prescriptions_consulta_id
+    ON prescriptions (consulta_id) WHERE consulta_id IS NOT NULL;
 
 ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS
     medicamento_nombre TEXT;
@@ -97,7 +102,7 @@ BEGIN
         tenant_id, user_id, cufp, dni, matricula_nacional,
         nombre, apellido, especialidad, estado_matricula, fuente_verificacion
     )
-    VALUES (
+    SELECT
         v_tenant_id,
         v_user_id,
         'CUFP-00001234',
@@ -108,6 +113,7 @@ BEGIN
         'Medicina General',
         'vigente',
         'mock'
-    )
-    ON CONFLICT DO NOTHING;
+    WHERE NOT EXISTS (
+        SELECT 1 FROM practitioners WHERE tenant_id = v_tenant_id AND cufp = 'CUFP-00001234'
+    );
 END $$;

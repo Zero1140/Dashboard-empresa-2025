@@ -8,6 +8,7 @@ Create Date: 2026-04-24
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
 
 revision = "002"
@@ -39,25 +40,37 @@ def upgrade() -> None:
         sa.Column("sesion_video_id", sa.String(100), nullable=True),
         sa.Column("fecha_consulta", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("NOW()")),
         sa.Column("diagnostico_snomed_code", sa.String(50), nullable=True),
-        sa.Column("diagnostico_texto", sa.String(500), nullable=True),
+        sa.Column("diagnostico_texto", sa.Text(), nullable=True),
         sa.Column("notas_clinicas", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("NOW()")),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("NOW()")),
     )
     op.create_index("ix_consultations_tenant_medico", "consultations", ["tenant_id", "medico_id"])
     op.create_index("ix_consultations_tenant_estado", "consultations", ["tenant_id", "estado"])
-    op.execute("ALTER TABLE consultations ENABLE ROW LEVEL SECURITY")
-    op.execute("""
+    op.create_check_constraint(
+        "ck_consultations_tipo",
+        "consultations",
+        "tipo IN ('teleconsulta', 'externa')"
+    )
+    op.create_check_constraint(
+        "ck_consultations_estado",
+        "consultations",
+        "estado IN ('programada', 'en_curso', 'completada', 'cancelada')"
+    )
+    op.execute(text("ALTER TABLE consultations ENABLE ROW LEVEL SECURITY"))
+    op.execute(text("""
         CREATE POLICY tenant_isolation_consultations ON consultations
         USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID)
-    """)
-    op.execute("""
+    """))
+    op.execute(text("""
         CREATE TRIGGER update_consultations_updated_at BEFORE UPDATE ON consultations
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
-    """)
+    """))
 
     # prescriptions: new columns
     op.add_column("prescriptions", sa.Column("consulta_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("consultations.id"), nullable=True))
+    op.create_index("ix_prescriptions_consulta_id", "prescriptions", ["consulta_id"],
+                    postgresql_where=sa.text("consulta_id IS NOT NULL"))
     op.add_column("prescriptions", sa.Column("medicamento_nombre", sa.String(255), nullable=True))
     op.add_column("prescriptions", sa.Column("cantidad", sa.Integer(), nullable=True, server_default="1"))
     op.add_column("prescriptions", sa.Column("posologia", sa.String(500), nullable=True))
@@ -69,8 +82,12 @@ def downgrade() -> None:
     op.drop_column("prescriptions", "posologia")
     op.drop_column("prescriptions", "cantidad")
     op.drop_column("prescriptions", "medicamento_nombre")
+    op.drop_index("ix_prescriptions_consulta_id", "prescriptions")
+    op.drop_constraint("prescriptions_consulta_id_fkey", "prescriptions", type_="foreignkey")
     op.drop_column("prescriptions", "consulta_id")
+    op.drop_constraint("ck_consultations_tipo", "consultations", type_="check")
+    op.drop_constraint("ck_consultations_estado", "consultations", type_="check")
     op.drop_table("consultations")
     op.drop_index("ix_practitioners_user_id", "practitioners")
-    op.drop_constraint("fk_practitioners_user_id", "practitioners")
+    op.drop_constraint("fk_practitioners_user_id", "practitioners", type_="foreignkey")
     op.drop_column("practitioners", "user_id")
