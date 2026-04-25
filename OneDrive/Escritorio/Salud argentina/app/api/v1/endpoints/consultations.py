@@ -1,9 +1,9 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 
 from app.api.v1.deps import require_role
@@ -20,6 +20,8 @@ router = APIRouter(prefix="/consultations", tags=["Consultas"])
 
 
 class CreateConsultationRequest(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     tipo: str
     paciente_dni: str
     paciente_nombre: str
@@ -28,16 +30,22 @@ class CreateConsultationRequest(BaseModel):
 
 
 class UpdateConsultationRequest(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     diagnostico_snomed_code: str | None = None
     diagnostico_texto: str | None = None
     notas_clinicas: str | None = None
 
 
 class PatchStatusRequest(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     estado: str
 
 
 class PrescriptionSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     cuir: str
     medicamento_nombre: str | None
@@ -45,6 +53,8 @@ class PrescriptionSummary(BaseModel):
 
 
 class ConsultationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     tipo: str
     estado: str
@@ -68,6 +78,8 @@ class ConsultationResponse(BaseModel):
 VALID_TRANSITIONS = {
     "programada": {"en_curso", "cancelada"},
     "en_curso": {"completada", "cancelada"},
+    "completada": set(),
+    "cancelada": set(),
 }
 
 
@@ -117,14 +129,14 @@ async def _get_verified_practitioner(session, tenant_id: str, user_id: str):
     if practitioner is None:
         raise HTTPException(status_code=403, detail="Sin perfil de prestador asociado.")
     if practitioner.estado_matricula != "vigente":
-        raise HTTPException(status_code=403, detail="Matrícula no vigente — no puede emitir recetas.")
+        raise HTTPException(status_code=403, detail="Matrícula no vigente — no puede crear consultas.")
     return practitioner
 
 
 @router.post("", response_model=ConsultationResponse, status_code=status.HTTP_201_CREATED)
 async def create_consultation(
     body: CreateConsultationRequest,
-    current_user: TokenPayload = Depends(require_role("prestador", "platform_admin")),
+    current_user: TokenPayload = Depends(require_role("prestador")),
 ):
     if body.tipo not in ("teleconsulta", "externa"):
         raise HTTPException(status_code=422, detail="tipo debe ser 'teleconsulta' o 'externa'.")
@@ -163,7 +175,7 @@ async def create_consultation(
         )
         session.add(consultation)
         await session.flush()
-        await session.refresh(consultation)
+        await session.refresh(consultation, attribute_names=["prescriptions"])
         return _to_response(consultation)
 
 
@@ -172,7 +184,7 @@ async def list_consultations(
     tipo: str | None = Query(default=None),
     estado: str | None = Query(default=None),
     fecha_desde: str | None = Query(default=None),
-    current_user: TokenPayload = Depends(require_role("prestador", "platform_admin")),
+    current_user: TokenPayload = Depends(require_role("prestador")),
 ):
     async with get_tenant_db(current_user.tenant_id) as session:
         stmt = (
@@ -188,9 +200,11 @@ async def list_consultations(
         if estado:
             stmt = stmt.where(Consultation.estado == estado)
         if fecha_desde:
-            from datetime import datetime, timezone
-            dt = datetime.fromisoformat(fecha_desde).replace(tzinfo=timezone.utc)
-            stmt = stmt.where(Consultation.fecha_consulta >= dt)
+            try:
+                dt = datetime.fromisoformat(fecha_desde).replace(tzinfo=timezone.utc)
+                stmt = stmt.where(Consultation.fecha_consulta >= dt)
+            except ValueError:
+                raise HTTPException(status_code=422, detail="fecha_desde inválida — usar formato ISO 8601.")
         result = await session.execute(stmt)
         return [_to_response(c) for c in result.scalars().all()]
 
@@ -210,7 +224,7 @@ async def get_consultation(
         c = result.scalar_one_or_none()
         if c is None:
             raise HTTPException(status_code=404, detail="Consulta no encontrada.")
-        if str(c.medico_id) != current_user.sub:
+        if c.medico_id != uuid.UUID(current_user.sub):
             raise HTTPException(status_code=403, detail="Sin permisos sobre esta consulta.")
         return _to_response(c)
 
@@ -231,7 +245,7 @@ async def patch_consultation_status(
         c = result.scalar_one_or_none()
         if c is None:
             raise HTTPException(status_code=404, detail="Consulta no encontrada.")
-        if str(c.medico_id) != current_user.sub:
+        if c.medico_id != uuid.UUID(current_user.sub):
             raise HTTPException(status_code=403, detail="Sin permisos sobre esta consulta.")
 
         allowed = VALID_TRANSITIONS.get(c.estado, set())
@@ -261,10 +275,10 @@ async def update_consultation(
         c = result.scalar_one_or_none()
         if c is None:
             raise HTTPException(status_code=404, detail="Consulta no encontrada.")
-        if str(c.medico_id) != current_user.sub:
+        if c.medico_id != uuid.UUID(current_user.sub):
             raise HTTPException(status_code=403, detail="Sin permisos sobre esta consulta.")
-        if c.estado == "cancelada":
-            raise HTTPException(status_code=422, detail="No se puede modificar una consulta cancelada.")
+        if c.estado in ("cancelada", "completada"):
+            raise HTTPException(status_code=422, detail="No se puede modificar una consulta finalizada.")
 
         if body.diagnostico_snomed_code is not None:
             c.diagnostico_snomed_code = body.diagnostico_snomed_code
