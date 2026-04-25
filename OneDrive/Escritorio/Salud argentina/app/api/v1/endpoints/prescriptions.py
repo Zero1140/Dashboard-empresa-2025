@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import select, text as sa_text
 
 from app.api.v1.deps import require_role
 from app.connectors.registry import get_eligibility_connector
@@ -118,11 +118,21 @@ async def create_prescription(
             except Exception:
                 logger.warning("Eligibility check failed during prescription creation", exc_info=True)
 
-        # Generate CUIR — timestamp(ms) + UUID4 entropy makes collisions astronomically
-        # unlikely (< 1 in 10^19). The unique DB constraint is the authoritative guard;
-        # a DB-level IntegrityError on duplicate CUIR is the correct failure path.
+        # Generate CUIR with up to 3 retries (spec: Decreto 98/2023)
         tenant_prefix = current_user.tenant_id.replace("-", "")[:4]
-        cuir = generate_cuir(tenant_prefix)
+        cuir = None
+        for attempt in range(3):
+            candidate = generate_cuir(tenant_prefix)
+            existing = await session.execute(
+                sa_text("SELECT cuir FROM prescriptions WHERE cuir = :c"),
+                {"c": candidate},
+            )
+            if existing.scalar_one_or_none() is None:
+                cuir = candidate
+                break
+            logger.warning("CUIR collision on attempt %d: %s", attempt + 1, candidate)
+        if cuir is None:
+            raise HTTPException(status_code=500, detail="Error generando CUIR — reintentar.")
 
         prescription = Prescription(
             tenant_id=uuid.UUID(current_user.tenant_id),
@@ -144,9 +154,6 @@ async def create_prescription(
             estado="activa",
             cobertura_verificada=cobertura_verificada,
         )
-        # Ensure the generated CUIR is always present on the object
-        # (guards against ORM not yet reflecting the kwarg before flush).
-        prescription.cuir = cuir
         session.add(prescription)
         await session.flush()
         await session.refresh(prescription)
@@ -184,6 +191,19 @@ async def cancel_prescription(
         rx = result.scalar_one_or_none()
         if rx is None:
             raise HTTPException(status_code=404, detail="Receta no encontrada.")
+
+        # Verify the authenticated user owns the consultation this prescription belongs to
+        if rx.consulta_id:
+            consult_result = await session.execute(
+                select(Consultation).where(
+                    Consultation.id == rx.consulta_id,
+                    Consultation.tenant_id == uuid.UUID(current_user.tenant_id),
+                )
+            )
+            c = consult_result.scalar_one_or_none()
+            if c is not None and c.medico_id != uuid.UUID(current_user.sub):
+                raise HTTPException(status_code=403, detail="Sin permisos sobre esta receta.")
+
         if rx.estado in ("dispensada", "anulada"):
             raise HTTPException(status_code=422, detail=f"No se puede anular una receta con estado '{rx.estado}'.")
         rx.estado = "anulada"
