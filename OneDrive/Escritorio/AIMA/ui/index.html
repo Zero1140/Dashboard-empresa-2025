@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIMA — Assistente Legal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>AIMA — Assistente de Legislação</h1>
+      <span>Imigração e Residência em Portugal · Diário da República</span>
+    </div>
+  </header>
+
+  <div id="chat">
+    <div class="msg assistant">
+      <div class="bubble">
+Olá! Sou o assistente jurídico especializado em legislação portuguesa de imigração e residência.
+
+Pode perguntar-me sobre:
+• Autorização de residência (temporária e permanente)
+• Reagrupamento familiar
+• Vistos e manifestações de interesse
+• Requisitos e prazos legais
+
+⚠️ As minhas respostas baseiam-se estritamente no texto legal do Diário da República. Para decisões importantes, consulte sempre um advogado.
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar">A carregar...</div>
+
+  <div id="input-area">
+    <textarea
+      id="question"
+      placeholder="Faça a sua pergunta sobre legislação de imigração... (Enter para enviar)"
+      rows="2"
+    ></textarea>
+    <button id="send-btn">Enviar</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
