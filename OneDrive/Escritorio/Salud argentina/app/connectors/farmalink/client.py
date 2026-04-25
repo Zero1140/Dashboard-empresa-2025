@@ -119,7 +119,7 @@ class FarmalinkConnector(EligibilityConnector, PrescriptionConnector):
     async def health_check(self) -> bool:
         try:
             resp = await self._http.get(f"{self._base_url}/health", timeout=5.0)
-            return resp.status_code < 500
+            return resp.status_code < 400
         except Exception as exc:
             logger.warning("Farmalink health check fallo: %s", exc)
             return False
