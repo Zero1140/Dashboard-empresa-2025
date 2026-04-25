@@ -75,6 +75,11 @@ class CredentialCache(CredentialConnector):
     async def health_check(self) -> bool:
         return await self._inner.health_check()
 
+    async def close(self) -> None:
+        await self._inner.close()
+        if self._redis is not None:
+            await self._redis.aclose()
+
 
 def _cache_key(dni: str | None, matricula: str | None, cufp: str | None) -> str | None:
     if dni:

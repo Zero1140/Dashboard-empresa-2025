@@ -27,14 +27,8 @@ def get_credential_connector() -> CredentialConnector:
 
 
 @lru_cache
-def get_eligibility_connector() -> EligibilityConnector:
-    """
-    Farmalink es el hub principal: OSDE + Swiss Medical + Medife + IOMA + 20 mas.
-    Cuando llegue homologacion, cambiar FARMALINK_MOCK_MODE=false.
-    """
-    if settings.farmalink_mock_mode:
-        from app.connectors.farmalink.mock import MockFarmalinkConnector
-        return MockFarmalinkConnector()
+def _get_farmalink_connector():
+    """Single shared FarmalinkConnector instance — one HTTP connection pool for both uses."""
     from app.connectors.farmalink.client import FarmalinkConnector
     return FarmalinkConnector(
         base_url=settings.farmalink_base_url,
@@ -43,13 +37,21 @@ def get_eligibility_connector() -> EligibilityConnector:
 
 
 @lru_cache
+def get_eligibility_connector() -> EligibilityConnector:
+    """
+    Farmalink es el hub principal: OSDE + Swiss Medical + Medife + IOMA + 20 mas.
+    Cuando llegue homologacion, cambiar FARMALINK_MOCK_MODE=false.
+    """
+    if settings.farmalink_mock_mode:
+        from app.connectors.farmalink.mock import MockFarmalinkConnector
+        return MockFarmalinkConnector()
+    return _get_farmalink_connector()
+
+
+@lru_cache
 def get_prescription_connector() -> PrescriptionConnector:
     """Returns the prescription connector. Farmalink routes prescriptions to pharmacies."""
     if settings.farmalink_mock_mode:
         from app.connectors.farmalink.mock import MockFarmalinkConnector
         return MockFarmalinkConnector()
-    from app.connectors.farmalink.client import FarmalinkConnector
-    return FarmalinkConnector(
-        base_url=settings.farmalink_base_url,
-        api_key=settings.farmalink_api_key,
-    )
+    return _get_farmalink_connector()

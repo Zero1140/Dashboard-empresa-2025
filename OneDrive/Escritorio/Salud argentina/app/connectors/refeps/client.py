@@ -19,7 +19,7 @@ REST:  https://sisa.msal.gov.ar/sisa/services/rest/profesional/buscar
 import logging
 
 import httpx
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.connectors.base import CredentialConnector, PractitionerVerification
 
@@ -78,7 +78,10 @@ class REFEPSConnector(CredentialConnector):
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(min=1, max=5),
-        retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)),
+        retry=retry_if_exception(
+            lambda exc: isinstance(exc, httpx.RequestError)
+            or (isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500)
+        ),
         reraise=True,
     )
     async def _fetch_with_retry(self, params: dict[str, str]) -> PractitionerVerification:

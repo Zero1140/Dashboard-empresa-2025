@@ -3,6 +3,8 @@
 
 from unittest.mock import AsyncMock, patch
 
+import httpx
+
 import pytest
 import respx
 from httpx import Response
@@ -154,4 +156,15 @@ async def test_verify_http_500_returns_error_result(connector):
         result = await connector.verify_matricula(dni="12345678")
     assert result.found is False
     assert result.error == "HTTP 500"
+    assert result.fuente == "refeps_rest"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_verify_network_error_returns_error_result(connector):
+    respx.get(REST_URL).mock(side_effect=httpx.ConnectError("timeout"))
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        result = await connector.verify_matricula(dni="12345678")
+    assert result.found is False
+    assert result.error is not None
     assert result.fuente == "refeps_rest"
