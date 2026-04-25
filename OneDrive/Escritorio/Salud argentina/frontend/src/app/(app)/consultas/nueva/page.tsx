@@ -39,6 +39,7 @@ export default function NuevaConsultaPage() {
 
   const handleSubmit = async () => {
     if (!tipo) return;
+    if (!pacienteDni.trim() || !pacienteNombre.trim()) return;
     setLoading(true);
     setError("");
     try {
@@ -52,6 +53,7 @@ export default function NuevaConsultaPage() {
       router.push(`/consultas/${consultation.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al crear la consulta");
+    } finally {
       setLoading(false);
     }
   };
@@ -120,13 +122,13 @@ export default function NuevaConsultaPage() {
             <div className="card p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">DNI *</label>
-                  <input value={pacienteDni} onChange={(e) => setPacienteDni(e.target.value)}
+                  <label htmlFor="nueva-dni" className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">DNI *</label>
+                  <input id="nueva-dni" value={pacienteDni} onChange={(e) => setPacienteDni(e.target.value)}
                     className="input-base font-mono" placeholder="Ej: 12345678" />
                 </div>
                 <div>
-                  <label className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">Nombre completo *</label>
-                  <input value={pacienteNombre} onChange={(e) => setPacienteNombre(e.target.value)}
+                  <label htmlFor="nueva-nombre" className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">Nombre completo *</label>
+                  <input id="nueva-nombre" value={pacienteNombre} onChange={(e) => setPacienteNombre(e.target.value)}
                     className="input-base" placeholder="Ej: Juan Pérez" />
                 </div>
               </div>
@@ -134,15 +136,15 @@ export default function NuevaConsultaPage() {
               <p className="text-text-3 text-[10px] uppercase tracking-widest">Cobertura (opcional)</p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">Financiador</label>
-                  <select value={financiadorId} onChange={(e) => setFinanciadorId(e.target.value)} className="input-base">
+                  <label htmlFor="nueva-financiador" className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">Financiador</label>
+                  <select id="nueva-financiador" value={financiadorId} onChange={(e) => setFinanciadorId(e.target.value)} className="input-base">
                     <option value="">Sin financiador</option>
                     {financiadores.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">ID Afiliado</label>
-                  <input value={afiliadoId} onChange={(e) => setAfiliadoId(e.target.value)}
+                  <label htmlFor="nueva-afiliado" className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">ID Afiliado</label>
+                  <input id="nueva-afiliado" value={afiliadoId} onChange={(e) => setAfiliadoId(e.target.value)}
                     className="input-base font-mono" placeholder="Ej: SWISS-001" />
                 </div>
               </div>
