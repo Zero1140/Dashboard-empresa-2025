@@ -1,6 +1,8 @@
 # tests/unit/connectors/test_refeps_real.py
 """Unit tests for REFEPSConnector.verify_matricula() -- no real network calls."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import respx
 from httpx import Response
@@ -147,7 +149,9 @@ async def test_verify_sin_titulos(connector):
 @respx.mock
 async def test_verify_http_500_returns_error_result(connector):
     respx.get(REST_URL).mock(return_value=Response(500))
-    result = await connector.verify_matricula(dni="12345678")
+    # Patch tenacity sleep so the 3 retry attempts don't actually wait
+    with patch("tenacity.nap.sleep", new_callable=AsyncMock):
+        result = await connector.verify_matricula(dni="12345678")
     assert result.found is False
     assert result.error == "HTTP 500"
     assert result.fuente == "refeps_rest"

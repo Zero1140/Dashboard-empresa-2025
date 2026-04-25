@@ -19,7 +19,7 @@ REST:  https://sisa.msal.gov.ar/sisa/services/rest/profesional/buscar
 import logging
 
 import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.connectors.base import CredentialConnector, PractitionerVerification
 
@@ -38,7 +38,7 @@ class REFEPSConnector(CredentialConnector):
 
     def __init__(self, ws_url: str, rest_url: str, username: str, password: str):
         self._rest_url = rest_url
-        self._ws_url = ws_url
+        self._ws_url = ws_url  # Reserved for SOAP fallback (not yet implemented)
         self._auth = (username, password)
         self._client = httpx.AsyncClient(
             auth=self._auth,
@@ -62,24 +62,28 @@ class REFEPSConnector(CredentialConnector):
         elif cufp:
             params["nroDoc"] = cufp
 
-        return await self._fetch_with_retry(params)
-
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=5))
-    async def _fetch_with_retry(self, params: dict[str, str]) -> PractitionerVerification:
         try:
-            resp = await self._client.get(self._rest_url, params=params)
-            resp.raise_for_status()
+            return await self._fetch_with_retry(params)
         except httpx.HTTPStatusError as exc:
-            logger.error("REFEPS HTTP error %s", exc.response.status_code)
+            logger.error("REFEPS HTTP error %s after retries", exc.response.status_code)
             return PractitionerVerification(
                 found=False,
                 fuente="refeps_rest",
                 error=f"HTTP {exc.response.status_code}",
             )
         except httpx.RequestError as exc:
-            logger.error("REFEPS request error: %s", exc)
+            logger.error("REFEPS request error after retries: %s", exc)
             return PractitionerVerification(found=False, fuente="refeps_rest", error=str(exc))
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(min=1, max=5),
+        retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)),
+        reraise=True,
+    )
+    async def _fetch_with_retry(self, params: dict[str, str]) -> PractitionerVerification:
+        resp = await self._client.get(self._rest_url, params=params)
+        resp.raise_for_status()
         data = resp.json()
 
         if data.get("resultado") == "ERROR":
@@ -96,10 +100,13 @@ class REFEPSConnector(CredentialConnector):
     async def health_check(self) -> bool:
         try:
             resp = await self._client.get(self._rest_url, timeout=5.0)
-            return resp.status_code < 500
+            return resp.status_code < 400
         except Exception as exc:
             logger.warning("REFEPS health check fallo: %s", exc)
             return False
+
+    async def close(self) -> None:
+        await self._client.aclose()
 
 
 def _parse_profesional(p: dict) -> PractitionerVerification:
