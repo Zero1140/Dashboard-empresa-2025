@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
+    jwt_refresh_expire_days: int = 7
 
     # Conectores — modo mock
     refeps_mock_mode: bool = True

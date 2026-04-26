@@ -3,8 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.core.redis import close_redis, get_redis
 from app.middleware.audit import AuditMiddleware
 
@@ -44,6 +47,13 @@ def _log_startup_warnings() -> None:
             "Revisar PENDING_INTEGRATIONS.md y completar las credenciales reales."
         )
 
+    if settings.is_production:
+        if settings.jwt_secret_key in ("change-me", "secret", "") or len(settings.jwt_secret_key) < 32:
+            raise RuntimeError(
+                "JWT_SECRET_KEY demasiado débil para producción. "
+                "Generar con: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+
 
 app = FastAPI(
     title="SaludOS Argentina",
@@ -53,6 +63,9 @@ app = FastAPI(
     docs_url="/docs" if not settings.is_production else None,
     redoc_url="/redoc" if not settings.is_production else None,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(AuditMiddleware)
 app.add_middleware(
