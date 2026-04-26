@@ -26,6 +26,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations/sql/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql
       - ./migrations/sql/002_add_consultations.sql:/docker-entrypoint-initdb.d/002_add_consultations.sql
+      - ./migrations/sql/003_add_practitioner_invitations.sql:/docker-entrypoint-initdb.d/003_add_practitioner_invitations.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-saludos}"]
       interval: 5s
