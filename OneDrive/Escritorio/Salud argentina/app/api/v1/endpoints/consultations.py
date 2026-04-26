@@ -1,9 +1,10 @@
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy import select
 
 from app.api.v1.deps import require_role
@@ -27,6 +28,14 @@ class CreateConsultationRequest(BaseModel):
     paciente_nombre: str
     paciente_afiliado_id: str | None = None
     financiador_id: str | None = None
+
+    @field_validator("paciente_dni")
+    @classmethod
+    def validate_paciente_dni(cls, v: str) -> str:
+        stripped = v.strip()
+        if not re.match(r"^\d{7,8}$", stripped):
+            raise ValueError("DNI del paciente debe tener 7 u 8 dígitos numéricos")
+        return stripped
 
 
 class UpdateConsultationRequest(BaseModel):

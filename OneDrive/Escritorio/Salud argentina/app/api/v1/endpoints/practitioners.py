@@ -1,11 +1,12 @@
 # app/api/v1/endpoints/practitioners.py
 import logging
+import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
-from pydantic import BaseModel, ConfigDict, EmailStr
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,6 +45,31 @@ class RegisterRequest(BaseModel):
     dni: str
     especialidad: str
     password: str
+    acepta_terminos: bool
+
+    @field_validator("acepta_terminos")
+    @classmethod
+    def must_accept_terms(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("Debe aceptar los términos de uso para registrarse")
+        return v
+
+    @field_validator("dni")
+    @classmethod
+    def validate_dni_format(cls, v: str) -> str:
+        stripped = v.strip()
+        if not re.match(r"^\d{7,8}$", stripped):
+            raise ValueError("DNI debe tener 7 u 8 dígitos numéricos")
+        return stripped
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("La contraseña debe tener al menos 8 caracteres")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("La contraseña debe contener al menos un número")
+        return v
 
 
 class PatchProvinceRequest(BaseModel):
@@ -191,6 +217,7 @@ async def get_invitation_info(token: str = Path(..., min_length=10)):
 async def register_practitioner(
     body: RegisterRequest,
     token: str = Path(..., min_length=10),
+    request: Request = None,  # for IP logging
 ):
     """Prestador completa su registro. Crea User + Practitioner y verifica REFEPS."""
     async with AsyncSessionLocal() as db:
@@ -232,6 +259,8 @@ async def register_practitioner(
             refeps_verificado_en=datetime.now(tz=timezone.utc).isoformat(),
             aprobado=False,
         )
+        practitioner.consent_recorded_at = datetime.now(tz=timezone.utc)
+        practitioner.consent_ip = request.client.host if request and request.client else None
         db.add(practitioner)
         await db.flush()
 

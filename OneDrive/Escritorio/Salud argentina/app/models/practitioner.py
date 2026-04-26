@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -58,5 +59,11 @@ class Practitioner(Base, UUIDMixin, TimestampMixin):
 
     # Estado en la cartilla del tenant (aprobado por el admin)
     aprobado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Consentimiento informado (Ley 25.326)
+    consent_recorded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    consent_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="practitioners")
