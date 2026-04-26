@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS practitioner_invitations (
     estado          TEXT NOT NULL DEFAULT 'pendiente'
                         CHECK (estado IN ('pendiente','aceptada','aprobada','expirada','rechazada')),
     practitioner_id UUID REFERENCES practitioners(id),
-    invited_by_id   UUID NOT NULL REFERENCES users(id),
+    invited_by_id   UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     expires_at      TIMESTAMPTZ NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -27,7 +27,8 @@ CREATE INDEX IF NOT EXISTS ix_pi_practitioner   ON practitioner_invitations (pra
 -- Row-Level Security
 ALTER TABLE practitioner_invitations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY pi_tenant_isolation ON practitioner_invitations
-    USING (tenant_id::text = current_setting('app.current_tenant_id', true));
+    USING (tenant_id::text = current_setting('app.current_tenant_id', true))
+    WITH CHECK (tenant_id::text = current_setting('app.current_tenant_id', true));
 
 -- ============================================================
 -- PRACTITIONER PROVINCES
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS practitioner_provinces (
     provincia           TEXT NOT NULL,
     estado              TEXT NOT NULL DEFAULT 'pendiente'
                             CHECK (estado IN ('pendiente','tramitando','habilitado')),
-    updated_by_id       UUID REFERENCES users(id),
+    updated_by_id       UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (practitioner_id, tenant_id, provincia)
@@ -49,7 +50,8 @@ CREATE INDEX IF NOT EXISTS ix_pp_practitioner ON practitioner_provinces (practit
 
 ALTER TABLE practitioner_provinces ENABLE ROW LEVEL SECURITY;
 CREATE POLICY pp_tenant_isolation ON practitioner_provinces
-    USING (tenant_id::text = current_setting('app.current_tenant_id', true));
+    USING (tenant_id::text = current_setting('app.current_tenant_id', true))
+    WITH CHECK (tenant_id::text = current_setting('app.current_tenant_id', true));
 
 -- ============================================================
 -- Extend practitioners: add aprobado flag for cartilla
