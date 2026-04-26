@@ -17,7 +17,7 @@ export default function RegistroPage() {
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
-    nombre: "", apellido: "", dni: "", especialidad: "", password: "", confirm: "",
+    nombre: "", apellido: "", dni: "", especialidad: "", password: "", confirm: "", acepta_terminos: false,
   });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ refeps_verificado: boolean; estado_matricula: string } | null>(null);
@@ -45,6 +45,7 @@ export default function RegistroPage() {
         dni: form.dni,
         especialidad: form.especialidad,
         password: form.password,
+        acepta_terminos: form.acepta_terminos,
       });
       setDone(result);
     } catch (err) {
@@ -185,6 +186,26 @@ export default function RegistroPage() {
               />
             </div>
 
+            <div>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  required
+                  className="mt-0.5 w-4 h-4 accent-accent flex-shrink-0"
+                  checked={form.acepta_terminos}
+                  onChange={(e) => setForm((f) => ({ ...f, acepta_terminos: e.target.checked }))}
+                />
+                <span className="text-text-2 text-xs leading-relaxed">
+                  Acepto los{" "}
+                  <a href="/privacidad" target="_blank" className="text-accent underline">
+                    términos de uso y política de privacidad
+                  </a>
+                  {" "}de SaludOS Argentina, y autorizo el tratamiento de mis datos personales
+                  conforme a la Ley 25.326.
+                </span>
+              </label>
+            </div>
+
             {submitError && (
               <div className="bg-danger-bg border border-danger/20 rounded-lg px-4 py-3">
                 <p className="text-danger text-sm">{submitError}</p>
@@ -198,9 +219,6 @@ export default function RegistroPage() {
           </form>
         </div>
 
-        <p className="text-center text-text-3 text-xs">
-          Al registrarte aceptás los términos de uso de SaludOS Argentina y el tratamiento de tus datos según la Ley 25.326.
-        </p>
       </div>
     </div>
   );

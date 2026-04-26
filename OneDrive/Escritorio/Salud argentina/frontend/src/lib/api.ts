@@ -5,16 +5,51 @@ function getToken(): string | null {
   return localStorage.getItem("saludos_token");
 }
 
+async function attemptTokenRefresh(): Promise<boolean> {
+  const refreshToken = localStorage.getItem("saludos_refresh_token");
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${BASE}/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    localStorage.setItem("saludos_token", data.access_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
+  const makeHeaders = (t: string | null) => ({
+    "Content-Type": "application/json",
+    ...(t ? { Authorization: `Bearer ${t}` } : {}),
+    ...options.headers,
   });
+
+  const res = await fetch(`${BASE}${path}`, { ...options, headers: makeHeaders(token) });
+
+  if (res.status === 401) {
+    const refreshed = await attemptTokenRefresh();
+    if (refreshed) {
+      const newToken = localStorage.getItem("saludos_token");
+      const retryRes = await fetch(`${BASE}${path}`, { ...options, headers: makeHeaders(newToken) });
+      if (!retryRes.ok) {
+        const err = await retryRes.json().catch(() => ({ detail: retryRes.statusText }));
+        throw new Error(err.detail || `HTTP ${retryRes.status}`);
+      }
+      return retryRes.json();
+    }
+    // Refresh failed — clear tokens and redirect
+    localStorage.removeItem("saludos_token");
+    localStorage.removeItem("saludos_refresh_token");
+    if (typeof window !== "undefined") window.location.href = "/login";
+    throw new Error("Sesión expirada");
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -35,7 +70,27 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || "Credenciales incorrectas");
     }
-    return res.json();
+    const data = await res.json();
+    localStorage.setItem("saludos_token", data.access_token);
+    if (data.refresh_token) {
+      localStorage.setItem("saludos_refresh_token", data.refresh_token);
+    }
+    return data;
+  },
+
+  async logout(): Promise<void> {
+    const refreshToken = localStorage.getItem("saludos_refresh_token");
+    if (refreshToken) {
+      try {
+        await fetch(`${BASE}/v1/auth/logout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      } catch { /* ignore network errors on logout */ }
+    }
+    localStorage.removeItem("saludos_token");
+    localStorage.removeItem("saludos_refresh_token");
   },
 
   health: () => request<import("./types").HealthResponse>("/v1/health"),
@@ -142,6 +197,7 @@ export const api = {
       dni: string;
       especialidad: string;
       password: string;
+      acepta_terminos: boolean;
     }
   ): Promise<{ message: string; refeps_verificado: boolean; estado_matricula: string }> {
     return request(`/v1/practitioners/register/${token}`, {
