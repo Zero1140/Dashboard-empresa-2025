@@ -109,28 +109,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div>
-          <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Estado de conectores</p>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { id: "refeps", name: "REFEPS/SISA", sub: "Credencialización" },
-              { id: "farmalink", name: "Farmalink Hub", sub: "Elegibilidad" },
-              { id: "osde", name: "OSDE FHIR", sub: "Cobertura OSDE" },
-            ].map((c) => {
-              const st = connectorStatus(c.id);
-              return (
-                <div key={c.id} className={`card p-4 ${st === "mock" ? "border-warning/20" : "border-success/20"}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <StatusBadge status={st} />
-                    <Link href="/integraciones" className="text-text-3 hover:text-accent text-xs">→</Link>
+        {!loading && (
+          <div>
+            <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Estado de conectores</p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { id: "refeps", name: "REFEPS/SISA", sub: "Credencialización" },
+                { id: "farmalink", name: "Farmalink Hub", sub: "Elegibilidad" },
+                { id: "osde", name: "OSDE FHIR", sub: "Cobertura OSDE" },
+              ].map((c) => {
+                const st = connectorStatus(c.id);
+                return (
+                  <div key={c.id} className={`card p-4 ${st === "mock" ? "border-warning/20" : "border-success/20"}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <StatusBadge status={st} />
+                      <Link href="/integraciones" className="text-text-3 hover:text-accent text-xs">→</Link>
+                    </div>
+                    <p className="text-text font-medium text-sm">{c.name}</p>
+                    <p className="text-text-3 text-xs">{c.sub}</p>
                   </div>
-                  <p className="text-text font-medium text-sm">{c.name}</p>
-                  <p className="text-text-3 text-xs">{c.sub}</p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="card p-4 flex items-center gap-4">
           <div className="flex gap-1">

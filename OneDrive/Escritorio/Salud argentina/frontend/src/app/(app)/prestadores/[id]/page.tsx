@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -33,7 +33,7 @@ export default function PractitionerDetailPage() {
   const [verifying, setVerifying] = useState(false);
   const [patchingProvince, setPatchingProvince] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const data = await api.getPractitioner(id);
       setPractitioner(data);
@@ -42,9 +42,9 @@ export default function PractitionerDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, router]);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   const handleApprove = async () => {
     setApproving(true);
