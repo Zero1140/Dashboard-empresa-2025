@@ -261,10 +261,21 @@ async def list_practitioners(
         result = await db.execute(q)
         practitioners = list(result.scalars().all())
 
-        out = []
-        for p in practitioners:
-            _, provinces = await _get_practitioner_with_provinces(p.id, p.tenant_id, db)
-            out.append(_to_practitioner_out(p, provinces))
+        # Load all provinces for this tenant in one batch query
+        provinces_result = await db.execute(
+            select(PractitionerProvince).where(
+                PractitionerProvince.tenant_id == uuid.UUID(current_user.tenant_id),
+            )
+        )
+        all_provinces = list(provinces_result.scalars().all())
+        provinces_by_practitioner: dict = {}
+        for pp in all_provinces:
+            provinces_by_practitioner.setdefault(pp.practitioner_id, []).append(pp)
+
+        out = [
+            _to_practitioner_out(p, provinces_by_practitioner.get(p.id, []))
+            for p in practitioners
+        ]
     return out
 
 
