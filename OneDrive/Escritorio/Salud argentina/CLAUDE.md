@@ -342,6 +342,50 @@ Open-RSD (ref):    https://github.com/SALUD-AR/Open-RSD
 
 ---
 
+## Fase 2 — Credencialización de Médicos (EN DISEÑO)
+
+> **Estado:** Brainstorming completado, pendiente escribir spec y plan de implementación.
+> Retomar con: `/brainstorm` o decirle a Claude "continuá con el diseño de Fase 2".
+
+### Decisiones tomadas
+
+**Flujo principal:**
+Admin del tenant invita por email → Médico completa su perfil (texto, sin upload de archivos) → Sistema verifica automáticamente → Admin aprueba → Médico queda en la cartilla del tenant.
+
+**Verificación de identidad:**
+- **MVP:** REFEPS es suficiente — si la matrícula existe con ese DNI, hay verificación implícita de identidad.
+- **Futuro:** RENAPER API (gobierno argentino, DNI + biometría). Diseñar el conector como stub ahora, activar cuando lleguen credenciales (proceso burocrático similar a REFEPS).
+
+**Tracking de provincias:**
+Estado individual por provincia: `pendiente` / `tramitando` / `habilitado`. El admin puede actualizar cada provincia manualmente. Re-verificación automática contra REFEPS cada 7 días.
+
+**Arquitectura elegida — Opción C (híbrido):**
+- Verificación inicial al registrarse: **síncrona** (respuesta inmediata al médico).
+- Re-verificación periódica: **Celery beat** semanal sobre todos los practitioners activos.
+- Requiere levantar infraestructura Celery (no existe todavía en el proyecto).
+
+### Componentes a implementar
+
+| Componente | Descripción |
+|---|---|
+| `PractitionerInvitation` model | Token de invitación, email, estado, expiración |
+| `PractitionerProvince` model | Estado por provincia para cada practitioner |
+| API invitaciones | `POST /practitioners/invite`, `GET/POST /practitioners/register/{token}` |
+| API cartilla | `GET /practitioners`, `GET /practitioners/{id}`, `POST /practitioners/{id}/approve` |
+| API provincias | `PATCH /practitioners/{id}/provinces/{province}` |
+| `RENAPERConnector` | Stub del conector (misma interfaz que REFEPS), activar con credenciales reales |
+| Celery setup | `app/tasks/__init__.py`, `app/tasks/verify_practitioners.py`, beat schedule |
+| Email invitación | Resend — template con link de registro |
+| Frontend `/prestadores` | Lista cartilla (ya existe el directorio) |
+| Frontend `/prestadores/invitar` | Formulario de invitación |
+| Frontend `/prestadores/[id]` | Detalle + estado por provincia |
+| Frontend `/registro/[token]` | Página pública de auto-registro (fuera del grupo `(app)`) |
+
+### Próximo paso
+Continuar brainstorming → escribir spec completo → generar plan de implementación → ejecutar con subagent-driven-development.
+
+---
+
 ## Contactos y Recursos Externos
 
 - **SSS (Superintendencia):** https://www.sssalud.gob.ar
