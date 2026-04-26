@@ -92,3 +92,43 @@ export interface PublicPrescription {
   fecha_vencimiento: string | null;
   cobertura_verificada: boolean;
 }
+
+export interface PractitionerProvince {
+  provincia: string;
+  estado: "pendiente" | "tramitando" | "habilitado";
+}
+
+export interface Practitioner {
+  id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  cufp: string | null;
+  matricula_nacional: string | null;
+  especialidad: string | null;
+  estado_matricula: "vigente" | "suspendida" | "inhabilitada" | "desconocido";
+  provincias_habilitadas: string[];
+  fuente_verificacion: string;
+  aprobado: boolean;
+  provinces: PractitionerProvince[];
+}
+
+export interface PractitionerInvitation {
+  id: string;
+  email: string;
+  estado: string;
+  expires_at: string;
+}
+
+export interface InvitationInfo {
+  email: string;
+  expires_at: string;
+  tenant_id: string;
+}
+
+export interface DashboardStats {
+  practitioners_total: number;
+  practitioners_aprobados: number;
+  consultations_today: number;
+  prescriptions_active: number;
+}

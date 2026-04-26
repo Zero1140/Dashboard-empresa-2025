@@ -121,4 +121,59 @@ export const api = {
       if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
       return res.json() as Promise<import("./types").PublicPrescription>;
     }),
+
+  // ── Practitioners ──────────────────────────────────────────────────────
+  async invitePractitioner(email: string): Promise<import("./types").PractitionerInvitation> {
+    return request("/v1/practitioners/invite", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async getInvitationInfo(token: string): Promise<import("./types").InvitationInfo> {
+    return request(`/v1/practitioners/register/${token}`);
+  },
+
+  async registerPractitioner(
+    token: string,
+    data: {
+      nombre: string;
+      apellido: string;
+      dni: string;
+      especialidad: string;
+      password: string;
+    }
+  ): Promise<{ message: string; refeps_verificado: boolean; estado_matricula: string }> {
+    return request(`/v1/practitioners/register/${token}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async listPractitioners(soloAprobados = true): Promise<import("./types").Practitioner[]> {
+    return request(`/v1/practitioners?solo_aprobados=${soloAprobados}`);
+  },
+
+  async getPractitioner(id: string): Promise<import("./types").Practitioner> {
+    return request(`/v1/practitioners/${id}`);
+  },
+
+  async approvePractitioner(id: string): Promise<{ message: string }> {
+    return request(`/v1/practitioners/${id}/approve`, { method: "POST" });
+  },
+
+  async patchPractitionerProvince(
+    practitionerId: string,
+    provincia: string,
+    estado: "pendiente" | "tramitando" | "habilitado"
+  ): Promise<{ provincia: string; estado: string }> {
+    return request(`/v1/practitioners/${practitionerId}/provinces/${encodeURIComponent(provincia)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ estado }),
+    });
+  },
+
+  async verifyPractitioner(id: string): Promise<{ verificado: boolean; estado_matricula: string }> {
+    return request(`/v1/practitioners/${id}/verify`, { method: "POST" });
+  },
 };
