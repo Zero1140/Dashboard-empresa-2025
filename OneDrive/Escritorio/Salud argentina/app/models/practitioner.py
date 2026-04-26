@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,5 +55,8 @@ class Practitioner(Base, UUIDMixin, TimestampMixin):
     fuente_verificacion: Mapped[str] = mapped_column(
         String(20), default="mock", nullable=False
     )  # mock | refeps_ws | refeps_rest | manual
+
+    # Estado en la cartilla del tenant (aprobado por el admin)
+    aprobado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="practitioners")
