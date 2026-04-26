@@ -27,6 +27,20 @@ def get_credential_connector() -> CredentialConnector:
 
 
 @lru_cache
+def get_osde_connector() -> EligibilityConnector:
+    """OSDE FHIR R4 — verificación de afiliados OSDE (~3.5M)."""
+    if settings.osde_mock_mode:
+        from app.connectors.osde.mock import MockOSDEConnector
+        return MockOSDEConnector()
+    from app.connectors.osde.client import OSDEConnector
+    return OSDEConnector(
+        base_url=settings.osde_fhir_base_url,
+        client_id=settings.osde_client_id,
+        client_secret=settings.osde_client_secret,
+    )
+
+
+@lru_cache
 def _get_farmalink_connector():
     """Single shared FarmalinkConnector instance — one HTTP connection pool for both uses."""
     from app.connectors.farmalink.client import FarmalinkConnector
