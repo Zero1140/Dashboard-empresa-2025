@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.redis import close_redis, get_redis
+from app.middleware.audit import AuditMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ app = FastAPI(
     redoc_url="/redoc" if not settings.is_production else None,
 )
 
+app.add_middleware(AuditMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.app_allowed_origins,
