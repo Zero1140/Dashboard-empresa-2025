@@ -329,16 +329,125 @@ Open-RSD (ref):    https://github.com/SALUD-AR/Open-RSD
 - [x] Definición de visión y modelo de negocio
 - [x] Flujo maestro con dos tracks paralelos (`docs/flujo-maestro.md`)
 - [x] Identificación de APIs reales disponibles hoy
+- [x] Fundación técnica (FastAPI + PostgreSQL + FHIR R4) — branch `feat/conectores-reales`
+- [x] Credencialización Fase 2: invitaciones, cartilla, provincias, Celery re-verificación
+- [x] Compliance legal: audit log a DB, derecho de supresión, consent_events (Ley 25.326)
 - [ ] Constitución legal (SRL + AFIP)
-- [ ] Solicitud acceso WS REFEPS (Formulario A1)
+- [ ] Solicitud acceso WS REFEPS (Formulario A1 → soporte@sisa.msal.gov.ar)
 - [ ] Registro ReNaPDiS vía TAD
-- [ ] Integración sandbox OSDE FHIR (disponible hoy, sin credenciales)
-- [ ] Fundación técnica (FastAPI + PostgreSQL + FHIR R4)
+- [ ] Integración sandbox OSDE FHIR
 - [ ] Reclutamiento 20 médicos fundadores
 
 ## Documentos Clave
 
 - `docs/flujo-maestro.md` — Diagramas de flujo completos (Track A + Track B + Gantt + Checklists)
+- `docs/superpowers/plans/2026-04-26-infrastructure-complete.md` — Plan ejecutado (14 tareas)
+
+---
+
+## Demo Local — Cómo levantar y probar la plataforma
+
+> **Pendiente ejecutar.** Todo corre en modo MOCK (sin credenciales reales). Los tres conectores
+> (REFEPS, Farmalink, OSDE) devuelven datos de prueba realistas.
+
+### Requisitos previos
+- Docker Desktop corriendo
+- Puerto 3000 (frontend), 8000 (API), 5432 (PostgreSQL), 6379 (Redis) libres
+
+### Paso 1 — Levantar el stack
+
+```bash
+cd "C:\Users\guill\OneDrive\Escritorio\Salud argentina"
+docker compose up --build
+```
+
+### Paso 2 — Aplicar migraciones (primera vez o después de reset)
+
+```bash
+docker compose exec db psql -U saludos -d saludos_db -f /migrations/sql/001_initial_schema.sql
+docker compose exec db psql -U saludos -d saludos_db -f /migrations/sql/002_add_consultations.sql
+docker compose exec db psql -U saludos -d saludos_db -f /migrations/sql/003_add_practitioner_invitations.sql
+docker compose exec db psql -U saludos -d saludos_db -f /migrations/sql/004_consent_and_refresh_tokens.sql
+docker compose exec db psql -U saludos -d saludos_db -f /migrations/sql/005_consent_events.sql
+```
+
+### Paso 3 — Cargar datos demo
+
+```bash
+docker compose exec api python scripts/seed_demo.py
+```
+
+Carga: 10 médicos argentinos con nombres/CUFPs/especialidades reales, 7 consultas (completadas/en curso/programadas), 5 recetas con CUIRs válidos.
+
+### Paso 4 — Frontend (si no corre en Docker)
+
+```bash
+cd frontend && npm install && npm run dev
+# → http://localhost:3000
+```
+
+### Credenciales demo
+
+| Rol | Email | Password |
+|---|---|---|
+| Admin del tenant (financiador_admin) | `admin@dev.saludos.ar` | `dev123` |
+| Médico aprobado (prestador) | `medico@dev.saludos.ar` | `dev123` |
+
+### Flujos principales a probar
+
+**Como admin:**
+1. Dashboard → banner "modo DEMO" + métricas reales de la DB
+2. `/prestadores` → lista de 10 médicos, filtros por especialidad
+3. `/prestadores/{id}` → detalle + grid de 24 provincias con estados
+4. `/prestadores/invitar` → enviar invitación (link aparece en log de Docker si no hay Resend key)
+5. `/elegibilidad` → verificar cobertura de afiliado (mock de OSDE/Swiss/Medifé)
+6. `/credenciales` → verificar matrícula por DNI (mock de REFEPS, < 100ms)
+
+**Como médico:**
+1. `/consultas` → historial de consultas propias
+2. `/consultas/{id}` → ver diagnóstico, crear receta nueva
+3. La receta genera CUIR automáticamente
+
+**Flujo de registro completo:**
+1. Admin invita desde `/prestadores/invitar`
+2. Copiás el link del log: `docker compose logs api | grep registro`
+3. Abrís `/registro/{token}` — formulario público, acepta términos
+4. Sistema verifica REFEPS mock → devuelve estado de matrícula
+5. Admin aprueba desde el panel
+
+**Vista de farmacia (pública, sin login):**
+- `/recetas/{cuir}` — cualquier CUIR de los seeds funciona
+
+### Verificar el audit log funcionando
+
+```bash
+# Login y verificar una credencial
+TOKEN=$(curl -s -X POST http://localhost:8000/v1/auth/token \
+  -d "username=medico@dev.saludos.ar&password=dev123" \
+  | python -m json.tool | grep access_token | cut -d'"' -f4)
+
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/v1/credentials/verify?dni=20123456"
+
+# Ver audit log en DB
+docker compose exec db psql -U saludos -d saludos_db \
+  -c "SELECT action, resource, ip_address, created_at FROM audit_log ORDER BY created_at DESC LIMIT 5;"
+```
+
+### Confirmar estado de conectores
+
+```bash
+curl http://localhost:8000/v1/health | python -m json.tool
+# Debe mostrar mock_warnings para refeps, farmalink, osde
+```
+
+### Tests
+
+```bash
+# Desde el proyecto (sin Docker)
+python -m pytest tests/unit/ -q
+# → 121 tests, 82.78% coverage
+```
 
 ---
 
