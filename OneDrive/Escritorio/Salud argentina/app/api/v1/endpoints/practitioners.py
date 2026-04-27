@@ -259,7 +259,7 @@ async def register_practitioner(
             estado_matricula=verification.estado_matricula if verification.found else "desconocido",
             provincias_habilitadas=verification.provincias_habilitadas if verification.found else [],
             fuente_verificacion=verification.fuente,
-            refeps_verificado_en=datetime.now(tz=timezone.utc).isoformat(),
+            refeps_verificado_en=datetime.now(tz=timezone.utc),
             aprobado=False,
         )
         practitioner.consent_recorded_at = datetime.now(tz=timezone.utc)
@@ -419,7 +419,7 @@ async def verify_practitioner(
         if verification.found:
             p.cufp = verification.cufp
         p.fuente_verificacion = verification.fuente
-        p.refeps_verificado_en = datetime.now(tz=timezone.utc).isoformat()
+        p.refeps_verificado_en = datetime.now(tz=timezone.utc)
         db.add(p)
 
     return {

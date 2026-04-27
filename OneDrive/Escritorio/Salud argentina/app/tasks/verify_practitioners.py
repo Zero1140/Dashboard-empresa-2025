@@ -52,7 +52,7 @@ async def _verify_all_async() -> dict:
                     practitioner.estado_matricula = v.estado_matricula
                     practitioner.provincias_habilitadas = v.provincias_habilitadas
                     practitioner.fuente_verificacion = v.fuente
-                    practitioner.refeps_verificado_en = datetime.now(tz=timezone.utc).isoformat()
+                    practitioner.refeps_verificado_en = datetime.now(tz=timezone.utc)
                     db.add(practitioner)
                     await db.commit()
             updated += 1

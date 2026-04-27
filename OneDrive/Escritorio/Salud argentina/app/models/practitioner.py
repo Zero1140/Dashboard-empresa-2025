@@ -50,9 +50,9 @@ class Practitioner(Base, UUIDMixin, TimestampMixin):
     provincias_habilitadas: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
 
     # Metadatos de verificación
-    refeps_verificado_en: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )  # ISO datetime de última verificación
+    refeps_verificado_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # Timestamp UTC de última verificación REFEPS
     fuente_verificacion: Mapped[str] = mapped_column(
         String(20), default="mock", nullable=False
     )  # mock | refeps_ws | refeps_rest | manual

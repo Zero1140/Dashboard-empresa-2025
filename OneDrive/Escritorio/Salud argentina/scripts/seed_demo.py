@@ -24,7 +24,6 @@ from sqlalchemy import func, select
 
 # ── App imports ──────────────────────────────────────────────────────────────
 from app.core.database import AsyncSessionLocal
-from app.core.security import hash_password
 from app.models.consultation import Consultation
 from app.models.practitioner import Practitioner
 from app.models.prescription import Prescription
@@ -246,9 +245,9 @@ PRESCRIPTIONS_DATA = [
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _now_iso() -> str:
-    """Return current UTC time as ISO 8601 string — matches refeps_verificado_en (String field)."""
-    return datetime.now(UTC).isoformat()
+def _now_utc() -> datetime:
+    """Return current UTC time as datetime — matches refeps_verificado_en (TIMESTAMPTZ column)."""
+    return datetime.now(UTC)
 
 
 def _expiry_date() -> date:
@@ -284,9 +283,12 @@ async def seed() -> None:
 
         log.info("Tenant found: %s (%s)", tenant.slug, tenant.id)
 
-        # ── 2. Resolve or create admin user ────────────────────────────────
-        ADMIN_EMAIL = "medico@dev.saludos.ar"
+        # ── 2. Resolve or create admin user (financiador_admin) ───────────────
+        ADMIN_EMAIL = "admin@dev.saludos.ar"
         ADMIN_PASSWORD = "dev123"
+        # Precomputed bcrypt hash for "dev123" (generated with bcrypt 5.x / cost factor 12)
+        # To regenerate: import bcrypt; bcrypt.hashpw(b"dev123", bcrypt.gensalt()).decode()
+        DEV_PASSWORD_HASH = "$2b$12$fonJgn5AxQ/wxVJwlHSwYuFF0V67ruJ5BFwlQ6qXlhYxZqL/gRPlG"
 
         result = await db.execute(
             select(User).where(
@@ -300,7 +302,7 @@ async def seed() -> None:
             admin_user = User(
                 tenant_id=tenant.id,
                 email=ADMIN_EMAIL,
-                hashed_password=hash_password(ADMIN_PASSWORD),
+                hashed_password=DEV_PASSWORD_HASH,
                 role="financiador_admin",
                 activo=True,
             )
@@ -309,6 +311,31 @@ async def seed() -> None:
             log.info("Created admin user: %s (role=financiador_admin)", ADMIN_EMAIL)
         else:
             log.info("Admin user already exists: %s", ADMIN_EMAIL)
+
+        # ── 2b. Resolve medico user (prestador — created by migration 002) ───
+        MEDICO_EMAIL = "medico@dev.saludos.ar"
+        result = await db.execute(
+            select(User).where(
+                User.tenant_id == tenant.id,
+                User.email == MEDICO_EMAIL,
+            )
+        )
+        medico_user: User | None = result.scalar_one_or_none()
+        if medico_user is None:
+            medico_user = User(
+                tenant_id=tenant.id,
+                email=MEDICO_EMAIL,
+                hashed_password=DEV_PASSWORD_HASH,
+                role="prestador",
+                activo=True,
+            )
+            db.add(medico_user)
+            await db.flush()
+            log.info("Created medico user: %s (role=prestador)", MEDICO_EMAIL)
+        else:
+            log.info("Medico user already exists: %s", MEDICO_EMAIL)
+        # Use medico_user as the practitioner owner (links to practitioner record)
+        practitioner_owner = medico_user
 
         # ── 3. Seed practitioners ───────────────────────────────────────────
         practitioners_created = 0
@@ -336,7 +363,7 @@ async def seed() -> None:
 
             practitioner = Practitioner(
                 tenant_id=tenant.id,
-                user_id=admin_user.id,
+                user_id=practitioner_owner.id,
                 cufp=p_data["cufp"],
                 dni=p_data["dni"],
                 matricula_nacional=p_data["matricula"],
@@ -345,7 +372,7 @@ async def seed() -> None:
                 especialidad=p_data["especialidad"],
                 estado_matricula="vigente",
                 provincias_habilitadas=p_data["provincias"],
-                refeps_verificado_en=_now_iso(),
+                refeps_verificado_en=_now_utc(),
                 fuente_verificacion="mock",
                 aprobado=True,
             )
@@ -401,7 +428,7 @@ async def seed() -> None:
                     tenant_id=tenant.id,
                     tipo=c_data["tipo"],
                     estado=c_data["estado"],
-                    medico_id=admin_user.id,
+                    medico_id=practitioner_owner.id,
                     medico_cufp=prescriber.cufp or "",
                     paciente_dni=c_data["paciente_dni"],
                     paciente_nombre=c_data["paciente_nombre"],
@@ -495,8 +522,8 @@ async def seed() -> None:
     print("  SaludOS Demo Seed — DONE")
     print("=" * 60)
     print(f"  Tenant:  {tenant.slug}")
-    print(f"  Admin:   {ADMIN_EMAIL}  /  {ADMIN_PASSWORD}")
-    print(f"  Role:    financiador_admin")
+    print(f"  Admin:   {ADMIN_EMAIL}  /  {ADMIN_PASSWORD}  (financiador_admin)")
+    print(f"  Medico:  medico@dev.saludos.ar  /  {ADMIN_PASSWORD}  (prestador)")
     print()
     print(f"  Practitioners:  {len(PRACTITIONERS_DATA)} (10 especialistas AR)")
     print(f"  Consultations:  {len(CONSULTATIONS_DATA)} (variadas)")

@@ -89,7 +89,7 @@ BEGIN
     VALUES (
         v_tenant_id,
         'medico@dev.saludos.ar',
-        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMVJcSRfVEhUzW5jyTPGFRXC2u', -- password: dev123
+        '$2b$12$fonJgn5AxQ/wxVJwlHSwYuFF0V67ruJ5BFwlQ6qXlhYxZqL/gRPlG', -- password: dev123 (bcrypt 5.x, cost 12)
         'prestador'
     )
     ON CONFLICT (tenant_id, email) DO NOTHING;
@@ -100,7 +100,7 @@ BEGIN
     -- Create dev practitioner linked to the user
     INSERT INTO practitioners (
         tenant_id, user_id, cufp, dni, matricula_nacional,
-        nombre, apellido, especialidad, estado_matricula, fuente_verificacion
+        nombre, apellido, especialidad, estado_matricula, fuente_verificacion, aprobado
     )
     SELECT
         v_tenant_id,
@@ -112,7 +112,8 @@ BEGIN
         'García',
         'Medicina General',
         'vigente',
-        'mock'
+        'mock',
+        TRUE
     WHERE NOT EXISTS (
         SELECT 1 FROM practitioners WHERE tenant_id = v_tenant_id AND cufp = 'CUFP-00001234'
     );

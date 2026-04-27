@@ -27,6 +27,8 @@ services:
       - ./migrations/sql/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql
       - ./migrations/sql/002_add_consultations.sql:/docker-entrypoint-initdb.d/002_add_consultations.sql
       - ./migrations/sql/003_add_practitioner_invitations.sql:/docker-entrypoint-initdb.d/003_add_practitioner_invitations.sql
+      - ./migrations/sql/004_consent_and_refresh_tokens.sql:/docker-entrypoint-initdb.d/004_consent_and_refresh_tokens.sql
+      - ./migrations/sql/005_consent_events.sql:/docker-entrypoint-initdb.d/005_consent_events.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-saludos}"]
       interval: 5s
@@ -45,7 +47,7 @@ services:
 
   celery:
     build: .
-    command: celery -A app.worker worker --loglevel=info
+    command: .venv/bin/celery -A app.worker worker --loglevel=info
     env_file:
       - .env
     depends_on:
