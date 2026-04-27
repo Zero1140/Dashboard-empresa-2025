@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QFrame, QHeaderView, QHBoxLayout, QInputDialog, QLabel,
+    QFrame, QHeaderView, QInputDialog, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QProgressBar, QPushButton, QSplitter, QTableWidget,
     QTableWidgetItem, QVBoxLayout, QWidget, QApplication,
@@ -14,7 +14,7 @@ from ftp_worker import FTPWorker
 from models import ConsoleInfo, ConsoleType, GameEntry, TransferJob
 from queue_manager import QueueManager
 from scanner import ScannerThread
-from tray import SystemTray, set_autostart
+from tray import SystemTray
 
 
 class MainWindow(QMainWindow):
@@ -135,6 +135,8 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _start_scan(self):
+        if hasattr(self, '_scanner') and self._scanner.isRunning():
+            return
         self.btn_scan.setEnabled(False)
         self.btn_scan.setText("🔍 Buscando...")
         self._scanner = ScannerThread(self)
@@ -196,6 +198,11 @@ class MainWindow(QMainWindow):
                 item = self.console_list.item(i)
                 if item.data(Qt.ItemDataRole.UserRole) == old_id:
                     item.setText(f"🟢 {new_name.strip()}")
+            # Also update the progress table row if it exists
+            for row in range(self.progress_table.rowCount()):
+                if self.progress_table.item(row, 0).text() == old_id:
+                    self.progress_table.item(row, 0).setText(new_name.strip())
+                    break
             self.btn_load.setText(f"▶ Cargar a {new_name.strip()}")
 
     # ------------------------------------------------------------------
