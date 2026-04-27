@@ -1,4 +1,5 @@
 # app/api/v1/endpoints/practitioners.py
+import hashlib
 import logging
 import re
 import secrets
@@ -15,6 +16,7 @@ from app.connectors.registry import get_credential_connector
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, get_tenant_db
 from app.core.security import TokenPayload, hash_password
+from app.models.audit_log import AuditLog
 from app.models.practitioner import Practitioner
 from app.models.practitioner_invitation import PractitionerInvitation, PractitionerProvince
 from app.models.user import User
@@ -412,4 +414,53 @@ async def verify_practitioner(
         "verificado": verification.found,
         "estado_matricula": p.estado_matricula,
         "fuente": p.fuente_verificacion,
+    }
+
+
+@router.delete("/{practitioner_id}", status_code=200)
+async def erase_practitioner(
+    practitioner_id: str,
+    current_user: TokenPayload = Depends(require_role("financiador_admin", "platform_admin")),
+):
+    """
+    Anonimiza los datos personales de un prestador (derecho de supresión — Ley 25.326, Art. 16).
+    No borra el registro para preservar el audit trail. Registra la supresión en audit_log.
+    """
+    async with get_tenant_db(current_user.tenant_id) as db:
+        result = await db.execute(
+            select(Practitioner).where(
+                Practitioner.id == uuid.UUID(practitioner_id),
+                Practitioner.tenant_id == uuid.UUID(current_user.tenant_id),
+            )
+        )
+        p = result.scalar_one_or_none()
+        if not p:
+            raise HTTPException(status_code=404, detail="Prestador no encontrado")
+
+        # Anonymize PII in-place — soft erasure, not hard delete
+        p.nombre = "[ELIMINADO]"
+        p.apellido = "[ELIMINADO]"
+        p.dni = hashlib.sha256(p.dni.encode()).hexdigest()[:16]
+        p.cufp = None
+        p.matricula_nacional = None
+        p.especialidad = None
+        p.consent_ip = None
+        # consent_recorded_at is kept (timestamp, not PII)
+        db.add(p)
+
+    # Write erasure event to audit_log using AsyncSessionLocal directly
+    # (audit_log has no RLS so we bypass get_tenant_db)
+    async with AsyncSessionLocal() as audit_db:
+        audit_db.add(AuditLog(
+            tenant_id=uuid.UUID(current_user.tenant_id),
+            user_id=uuid.UUID(current_user.sub),
+            action="erasure_request",
+            resource=f"practitioners:{practitioner_id}",
+            ip_address=None,
+        ))
+        await audit_db.commit()
+
+    return {
+        "message": "Datos personales del prestador eliminados conforme Ley 25.326",
+        "id": practitioner_id,
     }
