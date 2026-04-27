@@ -97,27 +97,32 @@ class FTPWorker(QThread):
 
             try:
                 ftp = self._connect()
-                remote_dest = f"{job.remote_base_path}{job.game.name}"
-
-                if self._remote_exists(ftp, remote_dest) and not self.overwrite:
-                    ftp.quit()
-                    self.job_done.emit(self.console.console_id, job.game.name, True, "skipped")
-                    success_count += 1
-                    continue
-
                 try:
-                    ftp.mkd(remote_dest)
-                except ftplib.error_perm:
-                    pass  # ya existe, sobreescribir
+                    remote_dest = f"{job.remote_base_path}{job.game.name}"
 
-                total_size = self._folder_size(job.game.local_path)
-                sent = [0]
-                self._upload_folder(ftp, job.game.local_path, remote_dest,
-                                    job.game.name, total_size, sent)
-                ftp.quit()
+                    if self._remote_exists(ftp, remote_dest) and not self.overwrite:
+                        self.job_done.emit(self.console.console_id, job.game.name, True, "skipped")
+                        success_count += 1
+                        continue
 
-                self.job_done.emit(self.console.console_id, job.game.name, True, "")
-                success_count += 1
+                    try:
+                        ftp.mkd(remote_dest)
+                    except ftplib.error_perm:
+                        pass  # ya existe, sobreescribir
+
+                    total_size = self._folder_size(job.game.local_path)
+                    sent = [0]
+                    self._upload_folder(ftp, job.game.local_path, remote_dest,
+                                        job.game.name, total_size, sent)
+
+                    self.job_done.emit(self.console.console_id, job.game.name, True, "")
+                    success_count += 1
+
+                finally:
+                    try:
+                        ftp.quit()
+                    except Exception:
+                        pass  # conexión ya cerrada o perdida
 
             except OSError as e:
                 # Disco lleno en consola (errno 28) u otros errores de I/O graves
