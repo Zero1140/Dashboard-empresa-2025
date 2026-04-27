@@ -1,4 +1,9 @@
 import sys
+import os
+
+# Asegura que los módulos locales sean encontrados sin importar desde dónde se ejecute
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
 from config import load_config, save_config
 from main_window import MainWindow
