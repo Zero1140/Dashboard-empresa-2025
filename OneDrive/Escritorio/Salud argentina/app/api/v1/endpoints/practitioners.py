@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal, get_tenant_db
 from app.core.security import TokenPayload, hash_password
 from app.models.audit_log import AuditLog
+from app.models.consent_event import ConsentEvent
 from app.models.practitioner import Practitioner
 from app.models.practitioner_invitation import PractitionerInvitation, PractitionerProvince
 from app.models.user import User
@@ -266,6 +267,17 @@ async def register_practitioner(
         db.add(practitioner)
         await db.flush()
 
+        # Insert consent event for audit history (Ley 25.326 / AAIP)
+        consent_event = ConsentEvent(
+            practitioner_id=practitioner.id,
+            tenant_id=inv.tenant_id,
+            action="accepted",
+            tos_version="1.0",
+            ip_address=request.client.host if request and request.client else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+        )
+        db.add(consent_event)
+
         inv.estado = "aceptada"
         inv.practitioner_id = practitioner.id
         db.add(inv)
@@ -464,3 +476,36 @@ async def erase_practitioner(
         "message": "Datos personales del prestador eliminados conforme Ley 25.326",
         "id": practitioner_id,
     }
+
+
+@router.get("/{practitioner_id}/consent-history")
+async def get_consent_history(
+    practitioner_id: str,
+    current_user: TokenPayload = Depends(require_role("financiador_admin", "platform_admin")),
+):
+    """
+    Exporta el historial de consentimientos de un prestador (requisito AAIP).
+    Solo accesible para admins.
+    """
+    async with get_tenant_db(current_user.tenant_id) as db:
+        result = await db.execute(
+            select(ConsentEvent)
+            .where(
+                ConsentEvent.practitioner_id == uuid.UUID(practitioner_id),
+                ConsentEvent.tenant_id == uuid.UUID(current_user.tenant_id),
+            )
+            .order_by(ConsentEvent.recorded_at.desc())
+        )
+        events = list(result.scalars().all())
+
+    return [
+        {
+            "id": str(e.id),
+            "action": e.action,
+            "tos_version": e.tos_version,
+            "ip_address": e.ip_address,
+            "user_agent": e.user_agent,
+            "recorded_at": e.recorded_at.isoformat() if e.recorded_at else None,
+        }
+        for e in events
+    ]
