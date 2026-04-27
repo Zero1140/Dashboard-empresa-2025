@@ -1,6 +1,13 @@
 """Tests for Celery config and FHIR practitioner converter."""
 
 
+def test_worker_module_exports_celery_app():
+    """app.worker must re-export celery_app so Docker CMD works."""
+    import app.worker as worker
+    from app.tasks import celery_app
+    assert worker.celery_app is celery_app
+
+
 def test_celery_app_configured():
     from app.tasks import celery_app
     assert celery_app.main == "saludos"
