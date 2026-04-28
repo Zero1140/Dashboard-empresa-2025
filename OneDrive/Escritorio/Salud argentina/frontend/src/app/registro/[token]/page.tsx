@@ -77,9 +77,9 @@ export default function RegistroPage() {
   };
 
   const validatePassword = (value: string): string => {
-    if (value && value.length >= 8 && !/\d/.test(value)) {
-      return "La contraseña debe contener al menos un número";
-    }
+    if (!value) return "";
+    if (value.length < 8) return "La contraseña debe tener mínimo 8 caracteres";
+    if (!/\d/.test(value)) return "La contraseña debe contener al menos un número";
     return "";
   };
 
@@ -113,6 +113,12 @@ export default function RegistroPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!form.especialidad) {
+      setFieldErrors((prev) => ({ ...prev }));
+      setSubmitError("Seleccioná una especialidad antes de continuar.");
+      return;
+    }
 
     // Run all validations before submitting
     const dniErr = validateDni(form.dni);
