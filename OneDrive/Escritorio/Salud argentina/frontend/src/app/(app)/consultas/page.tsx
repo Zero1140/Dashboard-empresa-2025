@@ -98,10 +98,25 @@ export default function ConsultasPage() {
         </div>
 
         {/* Table */}
+        {loading ? (
+          <div className="card overflow-hidden animate-pulse">
+            <div className="divide-y divide-border">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="px-5 py-4 flex items-center gap-4">
+                  <div className="h-3 bg-border/60 rounded w-20" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 bg-border/60 rounded w-32" />
+                    <div className="h-2.5 bg-border/60 rounded w-20" />
+                  </div>
+                  <div className="h-5 bg-border/60 rounded-full w-16 hidden md:block" />
+                  <div className="h-5 bg-border/60 rounded-full w-14" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
         <div className="card overflow-hidden">
-          {loading ? (
-            <div className="py-12 text-center"><span className="spinner" /></div>
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-text-3 text-sm">
                 {search ? "No hay consultas que coincidan con la búsqueda." : "No hay consultas aún."}
@@ -158,6 +173,7 @@ export default function ConsultasPage() {
             </table>
           )}
         </div>
+        )} {/* end loading conditional */}
       </div>
     </div>
   );

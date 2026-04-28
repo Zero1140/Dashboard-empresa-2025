@@ -111,8 +111,38 @@ export default function PrestadoresPage() {
 
         {/* List */}
         {loading ? (
-          <div className="card py-12 text-center">
-            <span className="spinner" />
+          <div className="animate-pulse space-y-3">
+            {/* Desktop skeleton table */}
+            <div className="hidden md:block card overflow-hidden">
+              <div className="divide-y divide-border">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="px-4 py-3 flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-full bg-border/60 flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 bg-border/60 rounded w-36" />
+                      <div className="h-2.5 bg-border/60 rounded w-24" />
+                    </div>
+                    <div className="h-3 bg-border/60 rounded w-20 hidden lg:block" />
+                    <div className="h-5 bg-border/60 rounded-full w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Mobile skeleton cards */}
+            <div className="md:hidden space-y-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="card p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-border/60" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-3 bg-border/60 rounded w-28" />
+                      <div className="h-2.5 bg-border/60 rounded w-20" />
+                    </div>
+                  </div>
+                  <div className="h-3 bg-border/60 rounded w-1/3" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : filtered.length === 0 ? (
           <div className="card py-12 text-center space-y-3">
