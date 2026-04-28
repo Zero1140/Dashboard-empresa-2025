@@ -608,7 +608,7 @@ class MainWindow(QMainWindow):
         if item_name:
             item_name.setText(f"❌ {game_name}")
         if item_st:
-            item_st.setText(f"Error: {error_msg[:45]}")
+            item_st.setText(f"❌ Error: {error_msg[:45]}")
 
         self._status(f"⚠️  {game_name}: {error_msg[:80]}")
 
