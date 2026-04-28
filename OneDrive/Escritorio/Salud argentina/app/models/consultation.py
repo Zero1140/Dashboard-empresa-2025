@@ -50,6 +50,9 @@ class Consultation(Base, UUIDMixin, TimestampMixin):
     diagnostico_snomed_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     diagnostico_texto: Mapped[str | None] = mapped_column(String(500), nullable=True)
     notas_clinicas: Mapped[str | None] = mapped_column(Text, nullable=True)
+    paciente_consentimiento_informado: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
 
     prescriptions: Mapped[list["Prescription"]] = relationship(
         "Prescription", back_populates="consultation", lazy="selectin"

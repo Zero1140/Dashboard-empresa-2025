@@ -29,6 +29,7 @@ class CreateConsultationRequest(BaseModel):
     paciente_nombre: str
     paciente_afiliado_id: str | None = None
     financiador_id: str | None = None
+    paciente_consentimiento_informado: bool = False
 
     @field_validator("paciente_dni")
     @classmethod
@@ -81,6 +82,7 @@ class ConsultationResponse(BaseModel):
     diagnostico_snomed_code: str | None
     diagnostico_texto: str | None
     notas_clinicas: str | None
+    paciente_consentimiento_informado: bool
     created_at: datetime
     prescriptions: list[PrescriptionSummary] = []
 
@@ -115,6 +117,7 @@ def _to_response(c: Consultation) -> ConsultationResponse:
         diagnostico_snomed_code=c.diagnostico_snomed_code,
         diagnostico_texto=c.diagnostico_texto,
         notas_clinicas=c.notas_clinicas,
+        paciente_consentimiento_informado=c.paciente_consentimiento_informado,
         created_at=c.created_at,
         prescriptions=[
             PrescriptionSummary(
@@ -183,6 +186,7 @@ async def create_consultation(
             financiador_id=body.financiador_id,
             cobertura_verificada=cobertura_verificada,
             sesion_video_id=video_id,
+            paciente_consentimiento_informado=body.paciente_consentimiento_informado,
         )
         session.add(consultation)
         await session.flush()
