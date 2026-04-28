@@ -37,6 +37,7 @@ def get_osde_connector() -> EligibilityConnector:
         base_url=settings.osde_fhir_base_url,
         client_id=settings.osde_client_id,
         client_secret=settings.osde_client_secret,
+        token_url=settings.osde_token_url,
     )
 
 

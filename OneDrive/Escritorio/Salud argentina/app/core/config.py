@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     osde_fhir_base_url: str = "https://sandbox.farmalink.com.ar/apis-docs/FARMALINK_RE/farmalink/v3"
     osde_client_id: str = ""
     osde_client_secret: str = ""
+    osde_token_url: str = "https://sandbox.farmalink.com.ar/oauth2/token"
 
     farmalink_mock_mode: bool = True
     farmalink_base_url: str = "https://sandbox.farmalink.com.ar"
