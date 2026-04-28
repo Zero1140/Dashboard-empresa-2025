@@ -82,8 +82,6 @@ async def test_erase_anonymizes_fields():
     tenant_session, mock_db = _make_tenant_session(fake_p)
     audit_session, mock_audit_db = _make_audit_session()
 
-    expected_dni_hash = hashlib.sha256("12345678".encode()).hexdigest()[:16]
-
     with patch("app.api.v1.endpoints.practitioners.get_tenant_db", return_value=tenant_session), \
          patch("app.api.v1.endpoints.practitioners.AsyncSessionLocal", return_value=audit_session):
         result = await erase_practitioner(
@@ -93,8 +91,7 @@ async def test_erase_anonymizes_fields():
 
     assert fake_p.nombre == "[ELIMINADO]"
     assert fake_p.apellido == "[ELIMINADO]"
-    assert fake_p.dni == expected_dni_hash
-    assert len(fake_p.dni) == 16
+    assert fake_p.dni == "[ELIMINADO]"
     assert fake_p.cufp is None
     assert fake_p.matricula_nacional is None
     assert fake_p.especialidad is None
@@ -192,14 +189,14 @@ def test_erase_forbidden_for_prestador_role():
 
 @pytest.mark.asyncio
 async def test_erase_endpoint_requires_auth():
-    """DELETE /v1/practitioners/{id} with no token must return 403."""
+    """DELETE /v1/practitioners/{id} with no token must return 401."""
     from httpx import ASGITransport, AsyncClient
     from app.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.delete(f"/v1/practitioners/{PRACTITIONER_ID}")
 
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
 
 # ---------------------------------------------------------------------------

@@ -27,7 +27,7 @@ async def test_list_practitioners_requires_auth():
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/v1/practitioners")
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -37,7 +37,7 @@ async def test_invite_requires_auth():
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/practitioners/invite", json={"email": "dr@test.com"})
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
 
 def test_register_token_not_found():

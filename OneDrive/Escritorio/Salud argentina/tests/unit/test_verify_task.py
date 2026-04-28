@@ -106,6 +106,8 @@ async def test_verify_all_async_updates_found_practitioner():
     verify_response.estado_matricula = "vigente"
     verify_response.provincias_habilitadas = ["Buenos Aires"]
     verify_response.fuente = "REFEPS"
+    verify_response.cufp = None
+    verify_response.matricula_nacional = None
 
     mock_connector = AsyncMock()
     mock_connector.verify_matricula = AsyncMock(return_value=verify_response)

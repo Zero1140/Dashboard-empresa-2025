@@ -135,8 +135,8 @@ async def test_admin_audit_log_unauthorized_role():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/v1/admin/audit-log")
 
-    # No Authorization header → HTTPBearer returns 403
-    assert resp.status_code == 403
+    # No Authorization header → HTTPBearer returns 401
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
