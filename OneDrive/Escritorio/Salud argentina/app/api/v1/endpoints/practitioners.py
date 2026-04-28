@@ -80,6 +80,13 @@ class PatchProvinceRequest(BaseModel):
     estado: str
 
 
+class PractitionerProfileUpdate(BaseModel):
+    nombre: str | None = None
+    apellido: str | None = None
+    especialidad: str | None = None
+    matricula_nacional: str | None = None
+
+
 class ProvinceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     provincia: str
@@ -436,6 +443,55 @@ async def verify_practitioner(
         "estado_matricula": p.estado_matricula,
         "fuente": p.fuente_verificacion,
     }
+
+
+@router.patch("/{practitioner_id}/profile", summary="Rectificar datos del prestador (Art. 16 Ley 25.326)")
+async def update_practitioner_profile(
+    practitioner_id: str,
+    body: PractitionerProfileUpdate,
+    current_user: TokenPayload = Depends(require_role("financiador_admin", "platform_admin")),
+) -> dict:
+    """Rectificación de datos personales del prestador — Art. 16 Ley 25.326."""
+    async with get_tenant_db(current_user.tenant_id) as db:
+        result = await db.execute(
+            select(Practitioner).where(
+                Practitioner.id == uuid.UUID(practitioner_id),
+                Practitioner.tenant_id == uuid.UUID(current_user.tenant_id),
+            )
+        )
+        practitioner = result.scalar_one_or_none()
+        if not practitioner:
+            raise HTTPException(status_code=404, detail="Prestador no encontrado")
+
+        changed_fields = []
+        if body.nombre is not None:
+            practitioner.nombre = body.nombre
+            changed_fields.append("nombre")
+        if body.apellido is not None:
+            practitioner.apellido = body.apellido
+            changed_fields.append("apellido")
+        if body.especialidad is not None:
+            practitioner.especialidad = body.especialidad
+            changed_fields.append("especialidad")
+        if body.matricula_nacional is not None:
+            practitioner.matricula_nacional = body.matricula_nacional
+            practitioner.matricula_hash = hmac_sha256(body.matricula_nacional)
+            changed_fields.append("matricula_nacional")
+
+        if not changed_fields:
+            return {"message": "Sin cambios"}
+
+        db.add(practitioner)
+
+        audit = AuditLog(
+            tenant_id=uuid.UUID(current_user.tenant_id),
+            user_id=uuid.UUID(current_user.sub),
+            action="update",
+            resource=f"practitioners:{practitioner_id}:fields={','.join(changed_fields)}",
+        )
+        db.add(audit)
+
+    return {"message": "Datos actualizados", "fields_updated": changed_fields}
 
 
 @router.delete("/{practitioner_id}", status_code=200)
