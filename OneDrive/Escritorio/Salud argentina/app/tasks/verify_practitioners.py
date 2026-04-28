@@ -20,6 +20,7 @@ def verify_all_active() -> dict:
 
 async def _verify_all_async() -> dict:
     from sqlalchemy import select
+    from app.core.encryption import hmac_sha256
     from app.models.practitioner import Practitioner
     from app.connectors.registry import get_credential_connector
 
@@ -53,6 +54,12 @@ async def _verify_all_async() -> dict:
                     practitioner.provincias_habilitadas = v.provincias_habilitadas
                     practitioner.fuente_verificacion = v.fuente
                     practitioner.refeps_verificado_en = datetime.now(tz=timezone.utc)
+                    if v.cufp:
+                        practitioner.cufp = v.cufp
+                        practitioner.cufp_hash = hmac_sha256(v.cufp)
+                    if v.matricula_nacional:
+                        practitioner.matricula_nacional = v.matricula_nacional
+                        practitioner.matricula_hash = hmac_sha256(v.matricula_nacional)
                     db.add(practitioner)
                     await db.commit()
             updated += 1

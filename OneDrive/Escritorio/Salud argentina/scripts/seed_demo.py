@@ -24,6 +24,7 @@ from sqlalchemy import func, select
 
 # ── App imports ──────────────────────────────────────────────────────────────
 from app.core.database import AsyncSessionLocal
+from app.core.encryption import hmac_sha256
 from app.models.consultation import Consultation
 from app.models.practitioner import Practitioner
 from app.models.prescription import Prescription
@@ -342,11 +343,11 @@ async def seed() -> None:
         practitioner_objects: list[Practitioner] = []
 
         for p_data in PRACTITIONERS_DATA:
-            # Idempotency: check by (tenant_id, dni)
+            # Idempotency: check by (tenant_id, dni_hash) — DNI is encrypted, search by hash
             result = await db.execute(
                 select(Practitioner).where(
                     Practitioner.tenant_id == tenant.id,
-                    Practitioner.dni == p_data["dni"],
+                    Practitioner.dni_hash == hmac_sha256(p_data["dni"]),
                 )
             )
             existing: Practitioner | None = result.scalar_one_or_none()
@@ -365,8 +366,11 @@ async def seed() -> None:
                 tenant_id=tenant.id,
                 user_id=practitioner_owner.id,
                 cufp=p_data["cufp"],
+                cufp_hash=hmac_sha256(p_data["cufp"]) if p_data["cufp"] else None,
                 dni=p_data["dni"],
+                dni_hash=hmac_sha256(p_data["dni"]),
                 matricula_nacional=p_data["matricula"],
+                matricula_hash=hmac_sha256(p_data["matricula"]) if p_data["matricula"] else None,
                 nombre=p_data["nombre"],
                 apellido=p_data["apellido"],
                 especialidad=p_data["especialidad"],
@@ -431,6 +435,7 @@ async def seed() -> None:
                     medico_id=practitioner_owner.id,
                     medico_cufp=prescriber.cufp or "",
                     paciente_dni=c_data["paciente_dni"],
+                    paciente_dni_hash=hmac_sha256(c_data["paciente_dni"]),
                     paciente_nombre=c_data["paciente_nombre"],
                     paciente_afiliado_id=c_data["afiliado_id"],
                     financiador_id=c_data["financiador_id"],

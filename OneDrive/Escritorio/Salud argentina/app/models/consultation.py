@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.encryption import EncryptedString, hmac_sha256
 from app.models.base import TimestampMixin, UUIDMixin
 
 
@@ -34,7 +35,8 @@ class Consultation(Base, UUIDMixin, TimestampMixin):
     )
     medico_cufp: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    paciente_dni: Mapped[str] = mapped_column(String(20), nullable=False)
+    paciente_dni: Mapped[str] = mapped_column(EncryptedString(255), nullable=False)
+    paciente_dni_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     paciente_nombre: Mapped[str] = mapped_column(String(200), nullable=False)
     paciente_afiliado_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     financiador_id: Mapped[str | None] = mapped_column(String(100), nullable=True)

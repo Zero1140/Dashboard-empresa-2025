@@ -15,6 +15,7 @@ from app.api.v1.deps import get_current_user, require_role
 from app.connectors.registry import get_credential_connector
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, get_tenant_db
+from app.core.encryption import hmac_sha256
 from app.core.security import TokenPayload, hash_password
 from app.models.audit_log import AuditLog
 from app.models.consent_event import ConsentEvent
@@ -247,15 +248,19 @@ async def register_practitioner(
         db.add(new_user)
         await db.flush()
 
+        _cufp_value = verification.cufp if verification.found else None
         practitioner = Practitioner(
             tenant_id=inv.tenant_id,
             user_id=new_user.id,
             dni=body.dni,
+            dni_hash=hmac_sha256(body.dni),
             nombre=body.nombre,
             apellido=body.apellido,
             especialidad=body.especialidad,
-            cufp=verification.cufp if verification.found else None,
+            cufp=_cufp_value,
+            cufp_hash=hmac_sha256(_cufp_value) if _cufp_value else None,
             matricula_nacional=verification.matricula_nacional if verification.found else None,
+            matricula_hash=hmac_sha256(verification.matricula_nacional) if (verification.found and verification.matricula_nacional) else None,
             estado_matricula=verification.estado_matricula if verification.found else "desconocido",
             provincias_habilitadas=verification.provincias_habilitadas if verification.found else [],
             fuente_verificacion=verification.fuente,
@@ -418,6 +423,10 @@ async def verify_practitioner(
         p.provincias_habilitadas = verification.provincias_habilitadas if verification.found else []
         if verification.found:
             p.cufp = verification.cufp
+            p.cufp_hash = hmac_sha256(verification.cufp) if verification.cufp else None
+            if verification.matricula_nacional:
+                p.matricula_nacional = verification.matricula_nacional
+                p.matricula_hash = hmac_sha256(verification.matricula_nacional)
         p.fuente_verificacion = verification.fuente
         p.refeps_verificado_en = datetime.now(tz=timezone.utc)
         db.add(p)
@@ -453,8 +462,11 @@ async def erase_practitioner(
         p.nombre = "[ELIMINADO]"
         p.apellido = "[ELIMINADO]"
         p.dni = "[ELIMINADO]"
+        p.dni_hash = None  # Clear hash — avoids HMAC fingerprint of the sentinel value
         p.cufp = None
+        p.cufp_hash = None
         p.matricula_nacional = None
+        p.matricula_hash = None
         p.especialidad = None
         p.consent_ip = None
         # consent_recorded_at is kept (timestamp, not PII)

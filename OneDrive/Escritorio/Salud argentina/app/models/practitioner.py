@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.encryption import EncryptedString, hmac_sha256
 from app.models.base import TimestampMixin, UUIDMixin
 
 
@@ -17,8 +18,8 @@ class Practitioner(Base, UUIDMixin, TimestampMixin):
 
     __tablename__ = "practitioners"
     __table_args__ = (
-        Index("ix_practitioners_tenant_dni", "tenant_id", "dni"),
-        Index("ix_practitioners_cufp", "cufp"),
+        Index("ix_practitioners_tenant_dni_hash", "tenant_id", "dni_hash"),
+        Index("ix_practitioners_cufp_hash", "cufp_hash"),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -30,14 +31,17 @@ class Practitioner(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
     )
 
-    # Identificación
-    cufp: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
-    dni: Mapped[str] = mapped_column(String(20), nullable=False)
-    matricula_nacional: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Identificación — encriptado en reposo, _hash para búsquedas
+    cufp: Mapped[str | None] = mapped_column(EncryptedString(255), nullable=True)
+    cufp_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    dni: Mapped[str] = mapped_column(EncryptedString(255), nullable=False)
+    dni_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    matricula_nacional: Mapped[str | None] = mapped_column(EncryptedString(255), nullable=True)
+    matricula_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
-    # Datos personales
-    nombre: Mapped[str] = mapped_column(String(150), nullable=False)
-    apellido: Mapped[str] = mapped_column(String(150), nullable=False)
+    # Datos personales — encriptado en reposo
+    nombre: Mapped[str] = mapped_column(EncryptedString(255), nullable=False)
+    apellido: Mapped[str] = mapped_column(EncryptedString(255), nullable=False)
 
     # Profesión y especialidad (SNOMED CT)
     profesion_snomed: Mapped[str | None] = mapped_column(String(50), nullable=True)

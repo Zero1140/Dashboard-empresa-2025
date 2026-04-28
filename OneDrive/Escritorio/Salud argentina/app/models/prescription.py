@@ -64,6 +64,10 @@ class Prescription(Base, UUIDMixin, TimestampMixin):
     posologia: Mapped[str | None] = mapped_column(String(500), nullable=True)
     fecha_vencimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # Firma digital — pendiente (Ley 27.553 Art. 4)
+    # Requires CA homologated by ANMAT (~3-4 months). Stub column for future activation.
+    firma_digital: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+
     consultation: Mapped["Consultation | None"] = relationship(
         "Consultation", back_populates="prescriptions"
     )

@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.api.v1.deps import require_role
 from app.connectors.registry import get_eligibility_connector
 from app.core.database import get_tenant_db
+from app.core.encryption import hmac_sha256
 from app.core.security import TokenPayload
 from app.models.consultation import Consultation
 from app.models.practitioner import Practitioner
@@ -176,6 +177,7 @@ async def create_consultation(
             medico_id=uuid.UUID(current_user.sub),
             medico_cufp=practitioner.cufp or "",
             paciente_dni=body.paciente_dni,
+            paciente_dni_hash=hmac_sha256(body.paciente_dni),
             paciente_nombre=body.paciente_nombre,
             paciente_afiliado_id=body.paciente_afiliado_id,
             financiador_id=body.financiador_id,
