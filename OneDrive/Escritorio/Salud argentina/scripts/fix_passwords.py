@@ -1,3 +1,5 @@
+# WARNING: This script bypasses Row-Level Security (RLS) and requires a superuser
+# database connection. Do NOT run in production without explicit authorization.
 """Fix demo user passwords in the database."""
 import asyncio
 from sqlalchemy import update

@@ -1,3 +1,4 @@
+import uuid as _uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -38,9 +39,14 @@ async def get_tenant_db(tenant_id: str) -> AsyncGenerator[AsyncSession, None]:
     Session con row-level security activada para el tenant dado.
     Usar en todos los endpoints que acceden a datos de un tenant.
     """
+    try:
+        _uuid.UUID(tenant_id)  # raises ValueError if not a valid UUID
+    except ValueError:
+        raise ValueError(f"tenant_id inválido: {tenant_id}")
+
     async with AsyncSessionLocal() as session:
         # SET LOCAL doesn't support parameterized values in PostgreSQL;
-        # tenant_id is a UUID from our own system (safe to interpolate).
+        # tenant_id is validated as a UUID above before interpolation.
         await session.execute(
             text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'")
         )

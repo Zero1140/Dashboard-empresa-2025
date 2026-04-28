@@ -452,7 +452,7 @@ async def erase_practitioner(
         # Anonymize PII in-place — soft erasure, not hard delete
         p.nombre = "[ELIMINADO]"
         p.apellido = "[ELIMINADO]"
-        p.dni = hashlib.sha256(p.dni.encode()).hexdigest()[:16]
+        p.dni = "[ELIMINADO]"
         p.cufp = None
         p.matricula_nacional = None
         p.especialidad = None
