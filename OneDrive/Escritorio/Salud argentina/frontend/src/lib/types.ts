@@ -132,3 +132,28 @@ export interface DashboardStats {
   consultations_today: number;
   prescriptions_active: number;
 }
+
+export interface ConsentEvent {
+  id: string;
+  action: string;
+  tos_version: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  recorded_at: string;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  action: string;
+  resource: string | null;
+  user_id: string | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface PractitionerProfileUpdate {
+  nombre?: string;
+  apellido?: string;
+  especialidad?: string;
+  matricula_nacional?: string;
+}

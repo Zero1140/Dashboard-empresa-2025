@@ -232,4 +232,51 @@ export const api = {
   async verifyPractitioner(id: string): Promise<{ verificado: boolean; estado_matricula: string }> {
     return request(`/v1/practitioners/${id}/verify`, { method: "POST" });
   },
+
+  async erasePractitioner(id: string): Promise<{ message: string }> {
+    return request(`/v1/practitioners/${id}`, { method: "DELETE" });
+  },
+
+  async getConsentHistory(practitionerId: string): Promise<import("./types").ConsentEvent[]> {
+    return request(`/v1/practitioners/${practitionerId}/consent-history`);
+  },
+
+  async getAuditLog(params?: {
+    limit?: number;
+    offset?: number;
+    action?: string;
+  }): Promise<import("./types").AuditLogEntry[]> {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    if (params?.action) q.set("action", params.action);
+    return request(`/v1/admin/audit-log${q.toString() ? `?${q}` : ""}`);
+  },
+
+  async updatePractitionerProfile(
+    id: string,
+    data: import("./types").PractitionerProfileUpdate
+  ): Promise<{ message: string; fields_updated: string[] }> {
+    return request(`/v1/practitioners/${id}/profile`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    return request("/v1/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async confirmPasswordReset(
+    token: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
+    return request("/v1/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+  },
 };
