@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
 import MonoId from "@/components/ui/MonoId";
@@ -32,6 +33,8 @@ export default function PractitionerDetailPage() {
   const [approving, setApproving] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [patchingProvince, setPatchingProvince] = useState<string | null>(null);
+  const [showEraseModal, setShowEraseModal] = useState(false);
+  const [erasing, setErasing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +66,17 @@ export default function PractitionerDetailPage() {
       await load();
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleErase = async () => {
+    setErasing(true);
+    try {
+      await api.erasePractitioner(id);
+      router.push("/prestadores");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error al procesar la solicitud");
+      setErasing(false);
     }
   };
 
@@ -148,6 +162,24 @@ export default function PractitionerDetailPage() {
               Re-verificar REFEPS
             </button>
           </div>
+
+          <div className="border-t border-border pt-4 mt-4">
+            <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Derechos Ley 25.326</p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/prestadores/${id}/consentimientos`}
+                className="btn-secondary text-xs px-3 py-1.5"
+              >
+                Ver consentimientos →
+              </Link>
+              <button
+                onClick={() => setShowEraseModal(true)}
+                className="text-xs px-3 py-1.5 border border-danger/30 text-danger rounded hover:bg-danger-bg transition-colors"
+              >
+                Solicitar supresión (Art. 16)
+              </button>
+            </div>
+          </div>
         </div>
 
         {(practitioner.provincias_habilitadas ?? []).length > 0 && (
@@ -190,6 +222,45 @@ export default function PractitionerDetailPage() {
           </div>
         </div>
       </div>
+
+      {showEraseModal && (
+        <div className="fixed inset-0 bg-base/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card p-6 w-full max-w-md space-y-4 animate-fadeIn border-danger/20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-danger-bg flex items-center justify-center flex-shrink-0">
+                <svg className="text-danger" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <h3 className="text-text font-semibold">Confirmar supresión de datos</h3>
+            </div>
+            <p className="text-text-2 text-sm leading-relaxed">
+              Esta acción anonimiza los datos personales del prestador conforme al Art. 16 de la Ley 25.326
+              (derecho al olvido). Se preserva el audit trail pero el nombre, DNI y matrícula quedarán como
+              <span className="font-mono text-danger"> [ELIMINADO]</span>.
+            </p>
+            <p className="text-danger text-xs font-medium">Esta acción no se puede deshacer.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleErase}
+                disabled={erasing}
+                className="flex-1 text-sm py-2 border border-danger/30 text-danger rounded hover:bg-danger-bg transition-colors flex items-center justify-center gap-2"
+              >
+                {erasing && <span className="spinner" />}
+                {erasing ? "Procesando..." : "Confirmar supresión"}
+              </button>
+              <button
+                onClick={() => setShowEraseModal(false)}
+                disabled={erasing}
+                className="flex-1 btn-secondary text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
