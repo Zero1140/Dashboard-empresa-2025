@@ -5,11 +5,12 @@ import Sidebar from "@/components/layout/Sidebar";
 import BottomNav from "@/components/layout/BottomNav";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { ToastProvider } from "@/context/ToastContext";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, useSessionExpiry } from "@/lib/auth";
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { open, setOpen } = useSidebar();
+  useSessionExpiry();
 
   useEffect(() => {
     if (!isAuthenticated()) {
