@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { saveToken } from "@/lib/auth";
@@ -91,6 +92,13 @@ export default function LoginPage() {
               {loading ? <span className="spinner" /> : null}
               {loading ? "Verificando..." : "Ingresar"}
             </button>
+
+            <Link
+              href="/reset-password"
+              className="block text-center text-text-3 text-xs hover:text-accent transition-colors mt-2"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
 
             <p className="text-center text-text-3 text-xs">
               Al iniciar sesión aceptás nuestra{" "}
