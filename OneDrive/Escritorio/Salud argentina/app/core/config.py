@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     invitation_secret: str = "change-me-invitation"
     frontend_base_url: str = "http://localhost:3000"
 
+    # Encriptación en reposo (Ley 25.326)
+    encryption_key: str = ""   # Fernet key — 32 bytes base64. Obligatoria en producción.
+    hmac_secret: str = ""      # HMAC secret — 32 bytes. Obligatoria en producción.
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
