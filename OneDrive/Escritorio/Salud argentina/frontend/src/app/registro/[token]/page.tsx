@@ -16,6 +16,19 @@ type RegistrationResult = {
   estado_matricula: string;
 };
 
+const ESPECIALIDADES = [
+  "Alergia e Inmunología", "Anestesiología", "Cardiología",
+  "Cirugía General", "Cirugía Plástica", "Clínica Médica",
+  "Dermatología", "Diagnóstico por Imágenes", "Endocrinología",
+  "Gastroenterología", "Geriatría", "Ginecología y Obstetricia",
+  "Hematología", "Infectología", "Kinesiología",
+  "Medicina Familiar", "Medicina Interna", "Medicina del Trabajo",
+  "Nefrología", "Neonatología", "Neurología",
+  "Nutrición", "Oftalmología", "Oncología",
+  "Ortopedia y Traumatología", "Otorrinolaringología", "Pediatría",
+  "Psiquiatría", "Reumatología", "Urología",
+] as const;
+
 export default function RegistroPage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
@@ -387,13 +400,17 @@ export default function RegistroPage() {
                 <label className="text-text-2 text-[10px] uppercase tracking-widest block mb-1.5">
                   Especialidad <span className="text-danger">*</span>
                 </label>
-                <input
+                <select
                   value={form.especialidad}
                   onChange={(e) => handleFieldChange("especialidad", e.target.value)}
                   className="input-base"
-                  placeholder="Ej: Cardiología, Clínica médica"
                   required
-                />
+                >
+                  <option value="">Seleccioná tu especialidad</option>
+                  {ESPECIALIDADES.map((e) => (
+                    <option key={e} value={e}>{e}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Contraseña */}
@@ -428,13 +445,26 @@ export default function RegistroPage() {
                   type="password"
                   value={form.confirm}
                   onChange={(e) => handleFieldChange("confirm", e.target.value)}
-                  className={`input-base ${fieldErrors.confirm ? "border-danger" : ""}`}
+                  className={`input-base ${
+                    fieldErrors.confirm
+                      ? "border-danger"
+                      : form.confirm && form.confirm === form.password
+                      ? "border-success"
+                      : ""
+                  }`}
                   required
                   autoComplete="new-password"
                 />
-                {fieldErrors.confirm && (
+                {form.confirm && form.confirm === form.password ? (
+                  <p className="text-success text-xs mt-1 flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Las contraseñas coinciden
+                  </p>
+                ) : fieldErrors.confirm ? (
                   <p className="text-danger text-xs mt-1">{fieldErrors.confirm}</p>
-                )}
+                ) : null}
               </div>
 
               {/* Términos */}
