@@ -7,6 +7,17 @@ import { api } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import type { Invitation } from "@/lib/types";
 
+function relativeExpiry(iso: string): { label: string; urgent: boolean } {
+  const diff = new Date(iso).getTime() - Date.now();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { label: "Expirada", urgent: true };
+  if (days === 0) return { label: "Vence hoy", urgent: true };
+  if (days === 1) return { label: "Vence mañana", urgent: true };
+  if (days <= 3) return { label: `Vence en ${days} días`, urgent: true };
+  if (days <= 7) return { label: `Vence en ${days} días`, urgent: false };
+  return { label: `Vence el ${new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}`, urgent: false };
+}
+
 export default function InvitarPrestadorPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -226,8 +237,16 @@ export default function InvitarPrestadorPage() {
                         <td className="py-2.5 pr-4 text-text-2 text-xs">
                           {new Date(inv.created_at).toLocaleDateString("es-AR")}
                         </td>
-                        <td className="py-2.5 pr-4 text-text-2 text-xs">
-                          {new Date(inv.expires_at).toLocaleDateString("es-AR")}
+                        <td className="py-2.5 pr-4">
+                          {(() => {
+                            const exp = relativeExpiry(inv.expires_at);
+                            const isExpired = exp.label === "Expirada";
+                            return (
+                              <span className={`text-xs ${isExpired ? "text-danger" : exp.urgent ? "text-warning font-medium" : "text-text-3"}`}>
+                                {exp.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="py-2.5">
                           <div className="flex items-center gap-2">
@@ -269,7 +288,18 @@ export default function InvitarPrestadorPage() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-text-3 text-[11px] space-y-0.5">
                         <p>Enviada: {new Date(inv.created_at).toLocaleDateString("es-AR")}</p>
-                        <p>Vence: {new Date(inv.expires_at).toLocaleDateString("es-AR")}</p>
+                        <p>
+                          Vence:{" "}
+                          {(() => {
+                            const exp = relativeExpiry(inv.expires_at);
+                            const isExpired = exp.label === "Expirada";
+                            return (
+                              <span className={`${isExpired ? "text-danger" : exp.urgent ? "text-warning font-medium" : ""}`}>
+                                {exp.label}
+                              </span>
+                            );
+                          })()}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {(inv.estado === "pendiente" || inv.estado === "expirada") && (

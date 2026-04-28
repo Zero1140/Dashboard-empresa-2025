@@ -8,6 +8,17 @@ import MonoId from "@/components/ui/MonoId";
 import { api } from "@/lib/api";
 import type { PublicPrescription } from "@/lib/types";
 
+function relativeExpiry(iso: string): { label: string; urgent: boolean } {
+  const diff = new Date(iso).getTime() - Date.now();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { label: "Expirada", urgent: true };
+  if (days === 0) return { label: "Vence hoy", urgent: true };
+  if (days === 1) return { label: "Vence mañana", urgent: true };
+  if (days <= 3) return { label: `Vence en ${days} días`, urgent: true };
+  if (days <= 7) return { label: `Vence en ${days} días`, urgent: false };
+  return { label: `Vence el ${new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}`, urgent: false };
+}
+
 const ESTADO_LABELS: Record<string, string> = {
   activa: "Receta activa — válida para dispensación",
   dispensada: "Dispensada — ya fue entregada",
@@ -195,7 +206,18 @@ export default function PublicPrescriptionPage() {
               {rx.fecha_vencimiento && (
                 <div>
                   <p className="text-text-3 text-[10px] uppercase tracking-widest mb-1">Vencimiento</p>
-                  <p className="text-text-2 text-sm">{new Date(rx.fecha_vencimiento).toLocaleDateString("es-AR")}</p>
+                  <p className="text-text-2 text-sm">
+                    {new Date(rx.fecha_vencimiento).toLocaleDateString("es-AR")}
+                    {(() => {
+                      const exp = relativeExpiry(rx.fecha_vencimiento);
+                      const isExpired = exp.label === "Expirada";
+                      return (
+                        <span className={`text-xs ml-2 ${isExpired ? "text-danger" : exp.urgent ? "text-warning" : "text-text-3"}`}>
+                          · {exp.label}
+                        </span>
+                      );
+                    })()}
+                  </p>
                 </div>
               )}
 
