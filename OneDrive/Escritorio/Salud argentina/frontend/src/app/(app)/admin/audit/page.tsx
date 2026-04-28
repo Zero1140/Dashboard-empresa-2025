@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback } from "react";
 import TopBar from "@/components/layout/TopBar";
 import { api } from "@/lib/api";
 import type { AuditLogEntry } from "@/lib/types";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useToast } from "@/context/ToastContext";
 
 const ACTIONS = ["", "create", "read", "update", "delete", "login", "logout", "verify", "approve"];
 
@@ -13,17 +15,28 @@ function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: 
   return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
 }
 
-function downloadCsv(items: AuditLogEntry[]) {
-  const header = "fecha,accion,recurso,usuario_id,ip\n";
-  const rows = items.map((e) =>
-    [e.created_at, e.action, e.resource ?? "", e.user_id ?? "", e.ip_address ?? ""]
+function generateCSV(entries: AuditLogEntry[]): string {
+  const headers = ["Fecha", "Acción", "Recurso", "Usuario", "IP"];
+  const rows = entries.map((e) =>
+    [
+      e.created_at,
+      e.action,
+      e.resource ?? "",
+      e.user_id ?? "",
+      e.ip_address ?? "",
+    ]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(",")
   );
-  const blob = new Blob([header + rows.join("\n")], { type: "text/csv" });
+  return [headers.join(","), ...rows].join("\n");
+}
+
+function downloadCSV(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -36,6 +49,9 @@ export default function AuditLogPage() {
   const [toDate, setToDate] = useState("");
   const [userId, setUserId] = useState("");
   const [sort, setSort] = useState<{ field: AuditSortField; dir: "asc" | "desc" }>({ field: "created_at", dir: "desc" });
+  const [confirmExportOpen, setConfirmExportOpen] = useState(false);
+
+  const { addToast } = useToast();
 
   const handleSort = (field: AuditSortField) => {
     setSort((prev) =>
@@ -64,6 +80,25 @@ export default function AuditLogPage() {
   }, [action, fromDate, toDate, userId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const doExport = useCallback(() => {
+    const filename = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadCSV(generateCSV(items), filename);
+    addToast("Exportación completada.", "success");
+  }, [items, addToast]);
+
+  const handleExport = () => {
+    if (items.length > 100) {
+      setConfirmExportOpen(true);
+    } else {
+      doExport();
+    }
+  };
+
+  const handleConfirmExport = () => {
+    setConfirmExportOpen(false);
+    doExport();
+  };
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleString("es-AR", {
@@ -95,8 +130,9 @@ export default function AuditLogPage() {
         subtitle="Registro de accesos y operaciones sobre datos sensibles — Ley 25.326"
         action={
           <button
-            onClick={() => downloadCsv(items)}
+            onClick={handleExport}
             disabled={items.length === 0}
+            aria-label="Exportar registros del audit log como CSV"
             className="btn-secondary text-sm px-4 py-2 flex items-center gap-2"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -113,6 +149,7 @@ export default function AuditLogPage() {
           <select
             value={action}
             onChange={(e) => setAction(e.target.value)}
+            aria-label="Filtrar por tipo de acción"
             className="input-base w-44"
           >
             {ACTIONS.map((a) => (
@@ -120,8 +157,9 @@ export default function AuditLogPage() {
             ))}
           </select>
           <div className="flex flex-col gap-1">
-            <label className="text-text-3 text-[10px] uppercase tracking-widest">Desde</label>
+            <label htmlFor="audit-from-date" className="text-text-3 text-[10px] uppercase tracking-widest">Desde</label>
             <input
+              id="audit-from-date"
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
@@ -129,8 +167,9 @@ export default function AuditLogPage() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-text-3 text-[10px] uppercase tracking-widest">Hasta</label>
+            <label htmlFor="audit-to-date" className="text-text-3 text-[10px] uppercase tracking-widest">Hasta</label>
             <input
+              id="audit-to-date"
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
@@ -138,8 +177,9 @@ export default function AuditLogPage() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-text-3 text-[10px] uppercase tracking-widest">Usuario (ID)</label>
+            <label htmlFor="audit-user-id" className="text-text-3 text-[10px] uppercase tracking-widest">Usuario (ID)</label>
             <input
+              id="audit-user-id"
               type="text"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
@@ -251,6 +291,15 @@ export default function AuditLogPage() {
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmExportOpen}
+        title="Exportar audit log"
+        description={`Estás por exportar ${items.length} registros del audit log. Este archivo puede contener datos sensibles bajo Ley 25.326. ¿Confirmás la exportación?`}
+        confirmLabel="Exportar"
+        onConfirm={handleConfirmExport}
+        onCancel={() => setConfirmExportOpen(false)}
+      />
     </div>
   );
 }

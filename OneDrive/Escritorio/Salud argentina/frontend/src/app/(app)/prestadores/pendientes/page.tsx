@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -14,9 +14,16 @@ export default function PrestadoresPendientesPage() {
   const [approving, setApproving] = useState<Set<string>>(new Set());
   const [rejecting, setRejecting] = useState<Set<string>>(new Set());
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
+
+  // Bulk selection state
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
   const { addToast } = useToast();
 
-  useEffect(() => {
+  const fetchPending = useCallback(() => {
+    setLoading(true);
     api
       .listPractitioners(false)
       .then((all) => setPractitioners(all.filter((p) => !p.aprobado)))
@@ -24,15 +31,26 @@ export default function PrestadoresPendientesPage() {
       .finally(() => setLoading(false));
   }, [addToast]);
 
+  useEffect(() => {
+    fetchPending();
+  }, [fetchPending]);
+
+  // Sync indeterminate state on select-all checkbox
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate =
+      selected.size > 0 && selected.size < practitioners.length;
+  }, [selected, practitioners.length]);
+
   const handleApprove = useCallback(
     async (id: string) => {
       setApproving((prev) => new Set(prev).add(id));
       try {
         await api.approvePractitioner(id);
         setPractitioners((prev) => prev.filter((p) => p.id !== id));
-        addToast("Prestador aprobado correctamente.", "success");
+        addToast("Médico aprobado correctamente.", "success");
       } catch {
-        addToast("No se pudo aprobar el prestador. Intentá de nuevo.", "error");
+        addToast("No se pudo aprobar el médico. Intentá de nuevo.", "error");
       } finally {
         setApproving((prev) => {
           const next = new Set(prev);
@@ -65,6 +83,48 @@ export default function PrestadoresPendientesPage() {
     [addToast]
   );
 
+  // Bulk selection helpers
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selected.size === practitioners.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(practitioners.map((p) => p.id)));
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    setBulkLoading(true);
+    const ids = Array.from(selected);
+    let successCount = 0;
+    let errorCount = 0;
+    for (const id of ids) {
+      try {
+        await api.approvePractitioner(id);
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+    setBulkLoading(false);
+    setSelected(new Set());
+    if (successCount > 0) {
+      addToast(`${successCount} médico(s) aprobado(s) correctamente.`, "success");
+    }
+    if (errorCount > 0) {
+      addToast(`${errorCount} médico(s) no pudieron aprobarse. Intentá de nuevo.`, "error");
+    }
+    fetchPending();
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <TopBar
@@ -96,12 +156,23 @@ export default function PrestadoresPendientesPage() {
             </Link>
           </div>
         ) : (
-          <>
+          /* Add bottom padding so sticky bar doesn't cover last row when selection active */
+          <div className={selected.size > 0 ? "pb-24" : ""}>
             {/* Desktop table */}
             <div className="hidden md:block card overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left">
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        aria-label="Seleccionar todos los médicos pendientes"
+                        checked={selected.size === practitioners.length && practitioners.length > 0}
+                        onChange={toggleAll}
+                        className="w-4 h-4 accent-accent cursor-pointer"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-text-3 text-xs font-medium uppercase tracking-wide">Médico</th>
                     <th className="px-4 py-3 text-text-3 text-xs font-medium uppercase tracking-wide">DNI</th>
                     <th className="px-4 py-3 text-text-3 text-xs font-medium uppercase tracking-wide">Especialidad</th>
@@ -113,6 +184,15 @@ export default function PrestadoresPendientesPage() {
                 <tbody>
                   {practitioners.map((p) => (
                     <tr key={p.id} className="border-b border-border last:border-0 hover:bg-surface-2/40 transition-colors">
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Seleccionar a ${p.nombre} ${p.apellido}`}
+                          checked={selected.has(p.id)}
+                          onChange={() => toggleOne(p.id)}
+                          className="w-4 h-4 accent-accent cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <Link href={`/prestadores/${p.id}`} className="text-text font-medium hover:text-accent transition-colors">
                           {p.nombre} {p.apellido}
@@ -160,11 +240,20 @@ export default function PrestadoresPendientesPage() {
               {practitioners.map((p) => (
                 <div key={p.id} className="card p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <Link href={`/prestadores/${p.id}`} className="text-text font-medium hover:text-accent transition-colors">
-                        {p.nombre} {p.apellido}
-                      </Link>
-                      <p className="text-text-3 text-xs mt-0.5">{p.especialidad ?? "Sin especialidad"}</p>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Seleccionar a ${p.nombre} ${p.apellido}`}
+                        checked={selected.has(p.id)}
+                        onChange={() => toggleOne(p.id)}
+                        className="w-4 h-4 accent-accent cursor-pointer mt-0.5"
+                      />
+                      <div>
+                        <Link href={`/prestadores/${p.id}`} className="text-text font-medium hover:text-accent transition-colors">
+                          {p.nombre} {p.apellido}
+                        </Link>
+                        <p className="text-text-3 text-xs mt-0.5">{p.especialidad ?? "Sin especialidad"}</p>
+                      </div>
                     </div>
                     <StatusBadge status={p.estado_matricula} />
                   </div>
@@ -204,9 +293,25 @@ export default function PrestadoresPendientesPage() {
                 </div>
               ))}
             </div>
-          </>
+          </div>
         )}
       </div>
+
+      {/* Sticky bulk action bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white p-4 md:left-64">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+            <span className="text-sm text-text-2">{selected.size} médico(s) seleccionado(s)</span>
+            <button
+              onClick={handleBulkApprove}
+              disabled={bulkLoading}
+              className="btn-primary"
+            >
+              {bulkLoading ? "Aprobando..." : `Aprobar ${selected.size} médico(s)`}
+            </button>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         open={rejectModalId !== null}

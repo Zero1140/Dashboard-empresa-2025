@@ -129,10 +129,10 @@ export default function PractitionerDetailPage() {
     setApproving(true);
     try {
       await api.approvePractitioner(id);
-      addToast("Prestador aprobado y agregado a la cartilla.", "success");
+      addToast("Médico aprobado y agregado a la cartilla.", "success");
       await load();
     } catch (e) {
-      addToast(e instanceof Error ? e.message : "Error al aprobar el prestador.", "error");
+      addToast(e instanceof Error ? e.message : "Error al aprobar el médico.", "error");
     } finally {
       setApproving(false);
     }
@@ -211,7 +211,7 @@ export default function PractitionerDetailPage() {
     return (
       <div className="flex flex-col min-h-screen">
         <BackButton />
-        <TopBar title="Prestador" subtitle="Cargando..." />
+        <TopBar title="Médico" subtitle="Cargando..." />
         <div className="p-6 flex items-center justify-center py-24">
           <span className="spinner" />
         </div>
@@ -224,7 +224,7 @@ export default function PractitionerDetailPage() {
     return (
       <div className="flex flex-col min-h-screen">
         <BackButton />
-        <TopBar title="Prestador no encontrado" />
+        <TopBar title="Médico no encontrado" />
         <div className="p-6 flex items-center justify-center py-24">
           <div className="card p-8 max-w-md w-full text-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-danger-bg flex items-center justify-center mx-auto">
@@ -234,7 +234,7 @@ export default function PractitionerDetailPage() {
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
             </div>
-            <p className="text-text font-semibold">No se encontró el prestador.</p>
+            <p className="text-text font-semibold">No se encontró el médico.</p>
             <p className="text-text-3 text-sm">El ID solicitado no existe o no tenés acceso a este recurso.</p>
             <Link href="/prestadores" className="btn-secondary text-sm inline-block">
               ← Volver a la cartilla
@@ -306,7 +306,7 @@ export default function PractitionerDetailPage() {
 
         {/* ── Section 1: Datos básicos ──────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="text-text-3 text-[10px] uppercase tracking-widest font-medium">Datos del prestador</h2>
+          <h2 className="text-text-3 text-[10px] uppercase tracking-widest font-medium">Datos del médico</h2>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
             {/* DNI */}

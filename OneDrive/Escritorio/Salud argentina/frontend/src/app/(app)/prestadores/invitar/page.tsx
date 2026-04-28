@@ -99,8 +99,8 @@ export default function InvitarPrestadorPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <TopBar
-        title="Invitar Prestador"
-        subtitle="Motor OpenLoop — Onboarding de profesionales a la cartilla"
+        title="Invitar Médico"
+        subtitle="Motor OpenLoop — Onboarding de médicos a la cartilla"
       />
 
       <div className="p-6 max-w-xl space-y-6 animate-fadeIn">
@@ -141,7 +141,7 @@ export default function InvitarPrestadorPage() {
           </div>
         ) : (
           <div className="card p-5 space-y-4">
-            <h2 className="text-text font-semibold text-sm">Email del profesional</h2>
+            <h2 className="text-text font-semibold text-sm">Email del médico</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">

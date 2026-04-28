@@ -221,7 +221,7 @@ export default function PrestadoresPage() {
                       onClick={() => handleSort("nombre")}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("nombre"); } }}
                     >
-                      Profesional<SortIcon field="nombre" sort={sort} />
+                      Médico<SortIcon field="nombre" sort={sort} />
                     </th>
                     <th
                       scope="col"
