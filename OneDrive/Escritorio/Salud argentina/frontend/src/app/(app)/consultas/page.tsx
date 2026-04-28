@@ -16,6 +16,7 @@ export default function ConsultasPage() {
   const [loading, setLoading] = useState(true);
   const [filterTipo, setFilterTipo] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     api.listConsultations({ tipo: filterTipo || undefined, estado: filterEstado || undefined })
@@ -26,6 +27,15 @@ export default function ConsultasPage() {
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  const filtered = consultations.filter((c) => {
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.paciente_nombre.toLowerCase().includes(q) ||
+      c.paciente_dni.includes(q)
+    );
+  });
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -44,12 +54,12 @@ export default function ConsultasPage() {
 
       <div className="p-6 space-y-4 animate-fadeIn">
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Total", value: consultations.length, color: "text-text" },
-            { label: "En curso", value: consultations.filter(c => c.estado === "en_curso").length, color: "text-accent" },
-            { label: "Completadas", value: consultations.filter(c => c.estado === "completada").length, color: "text-success" },
-            { label: "Canceladas", value: consultations.filter(c => c.estado === "cancelada").length, color: "text-text-3" },
+            { label: "Total", value: filtered.length, color: "text-text" },
+            { label: "En curso", value: filtered.filter(c => c.estado === "en_curso").length, color: "text-accent" },
+            { label: "Completadas", value: filtered.filter(c => c.estado === "completada").length, color: "text-success" },
+            { label: "Canceladas", value: filtered.filter(c => c.estado === "cancelada").length, color: "text-text-3" },
           ].map((s) => (
             <div key={s.label} className="card p-4 text-center">
               <p className={`text-2xl font-semibold ${s.color}`}>{s.value}</p>
@@ -60,6 +70,18 @@ export default function ConsultasPage() {
 
         {/* Filters */}
         <div className="card p-4 flex flex-wrap gap-4 items-center">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input-base w-52"
+            placeholder="Buscar por nombre o DNI..."
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="text-text-3 hover:text-text text-xs">
+              × Limpiar
+            </button>
+          )}
           <select value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)} className="input-base w-44">
             <option value="">Todos los tipos</option>
             <option value="teleconsulta">Teleconsulta</option>
@@ -72,19 +94,23 @@ export default function ConsultasPage() {
             <option value="completada">Completada</option>
             <option value="cancelada">Cancelada</option>
           </select>
-          <p className="text-text-3 text-xs ml-auto">{consultations.length} consulta{consultations.length !== 1 ? "s" : ""}</p>
+          <p className="text-text-3 text-xs ml-auto">{filtered.length} de {consultations.length} consulta{consultations.length !== 1 ? "s" : ""}</p>
         </div>
 
         {/* Table */}
         <div className="card overflow-hidden">
           {loading ? (
             <div className="py-12 text-center"><span className="spinner" /></div>
-          ) : consultations.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div className="py-12 text-center">
-              <p className="text-text-3 text-sm">No hay consultas aún.</p>
-              <Link href="/consultas/nueva" className="text-accent text-sm mt-2 inline-block hover:underline">
-                Crear primera consulta →
-              </Link>
+              <p className="text-text-3 text-sm">
+                {search ? "No hay consultas que coincidan con la búsqueda." : "No hay consultas aún."}
+              </p>
+              {!search && (
+                <Link href="/consultas/nueva" className="text-accent text-sm mt-2 inline-block hover:underline">
+                  Crear primera consulta →
+                </Link>
+              )}
             </div>
           ) : (
             <table className="w-full">
@@ -99,7 +125,7 @@ export default function ConsultasPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {consultations.map((c) => (
+                {filtered.map((c) => (
                   <tr key={c.id} className="hover:bg-surface-2/50 transition-colors">
                     <td className="px-5 py-4 text-text-2 text-sm">{formatDate(c.fecha_consulta)}</td>
                     <td className="px-4 py-4">

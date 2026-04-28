@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { clearToken } from "@/lib/auth";
+import { clearToken, getRole } from "@/lib/auth";
+import { useSidebar } from "@/context/SidebarContext";
 
 const NAV = [
   {
@@ -17,7 +18,7 @@ const NAV = [
   {
     href: "/credenciales",
     label: "Credencialización",
-    sublabel: "Motor OpenLoop",
+    sublabel: "Verificar matrícula",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -28,8 +29,8 @@ const NAV = [
   },
   {
     href: "/elegibilidad",
-    label: "Elegibilidad",
-    sublabel: "Motor CareValidate",
+    label: "Cobertura",
+    sublabel: "Verificar afiliados",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
@@ -40,7 +41,7 @@ const NAV = [
   {
     href: "/consultas",
     label: "Consultas",
-    sublabel: "Receta Electrónica",
+    sublabel: "Receta electrónica",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M9 12h6M9 16h6M9 8h6" strokeLinecap="round"/>
@@ -51,7 +52,7 @@ const NAV = [
   },
   {
     href: "/prestadores",
-    label: "Red de Prestadores",
+    label: "Red de Médicos",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -86,7 +87,7 @@ const NAV_ADMIN = [
   },
   {
     href: "/admin/tenants",
-    label: "Tenants",
+    label: "Organizaciones",
     sublabel: "Obras sociales",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -102,16 +103,25 @@ const NAV_ADMIN = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { open, setOpen } = useSidebar();
+
+  const role = getRole();
 
   const handleLogout = () => {
     clearToken();
     router.push("/login");
   };
 
+  const close = () => setOpen(false);
+
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-surface border-r border-border flex flex-col z-40">
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-border">
+    <aside
+      className={`fixed left-0 top-0 h-screen w-60 bg-surface border-r border-border flex flex-col z-40 transition-transform duration-200 ease-in-out ${
+        open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      }`}
+    >
+      {/* Logo + mobile close */}
+      <div className="px-5 py-5 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded bg-accent flex items-center justify-center flex-shrink-0">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#080C18" strokeWidth="2.5">
@@ -123,6 +133,15 @@ export default function Sidebar() {
             <div className="text-text-3 text-[10px] tracking-wider uppercase">Argentina</div>
           </div>
         </div>
+        <button
+          className="md:hidden text-text-3 hover:text-text transition-colors p-1"
+          onClick={close}
+          aria-label="Cerrar menú"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
 
       {/* Navegación */}
@@ -134,7 +153,8 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-2.5 py-2.5 rounded-md text-sm transition-all duration-150 group ${
+              onClick={close}
+              className={`flex items-center gap-3 px-2.5 py-2.5 rounded-md text-sm transition-all duration-150 group min-h-[44px] ${
                 active
                   ? "bg-accent-glow text-accent border border-border-bright"
                   : "text-text-2 hover:text-text hover:bg-surface-2"
@@ -158,43 +178,59 @@ export default function Sidebar() {
           );
         })}
 
-        <div className="pt-3 mt-2 border-t border-border/50">
-          <p className="text-text-3 text-[10px] font-medium tracking-widest uppercase px-2 pb-2">Admin</p>
-          {NAV_ADMIN.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-2.5 py-2.5 rounded-md text-sm transition-all duration-150 group ${
-                  active
-                    ? "bg-accent-glow text-accent border border-border-bright"
-                    : "text-text-2 hover:text-text hover:bg-surface-2"
-                }`}
-              >
-                <span className={active ? "text-accent" : "text-text-3 group-hover:text-text-2"}>
-                  {item.icon}
-                </span>
-                <div className="min-w-0">
-                  <div className="leading-tight truncate">{item.label}</div>
-                  {item.sublabel && (
-                    <div className={`text-[10px] tracking-wide ${active ? "text-accent-dim" : "text-text-3"}`}>
-                      {item.sublabel}
-                    </div>
-                  )}
-                </div>
-                {active && <div className="ml-auto w-1 h-1 rounded-full bg-accent flex-shrink-0" />}
-              </Link>
-            );
-          })}
-        </div>
+        {role === "financiador_admin" && (
+          <div className="pt-3 mt-2 border-t border-border/50">
+            <p className="text-text-3 text-[10px] font-medium tracking-widest uppercase px-2 pb-2">Admin</p>
+            {NAV_ADMIN.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={close}
+                  className={`flex items-center gap-3 px-2.5 py-2.5 rounded-md text-sm transition-all duration-150 group min-h-[44px] ${
+                    active
+                      ? "bg-accent-glow text-accent border border-border-bright"
+                      : "text-text-2 hover:text-text hover:bg-surface-2"
+                  }`}
+                >
+                  <span className={active ? "text-accent" : "text-text-3 group-hover:text-text-2"}>
+                    {item.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="leading-tight truncate">{item.label}</div>
+                    {item.sublabel && (
+                      <div className={`text-[10px] tracking-wide ${active ? "text-accent-dim" : "text-text-3"}`}>
+                        {item.sublabel}
+                      </div>
+                    )}
+                  </div>
+                  {active && <div className="ml-auto w-1 h-1 rounded-full bg-accent flex-shrink-0" />}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-4 border-t border-border">
+      <div className="px-3 py-4 border-t border-border space-y-0.5">
+        {role === "prestador" && (
+          <Link
+            href="/perfil"
+            onClick={close}
+            className="flex items-center gap-3 px-2.5 py-2.5 rounded-md text-sm text-text-2 hover:text-text hover:bg-surface-2 transition-all min-h-[44px]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            Mi perfil
+          </Link>
+        )}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-2.5 py-2.5 rounded-md text-sm text-text-2 hover:text-danger hover:bg-danger-bg w-full transition-all duration-150"
+          className="flex items-center gap-3 px-2.5 py-2.5 rounded-md text-sm text-text-2 hover:text-danger hover:bg-danger-bg w-full transition-all duration-150 min-h-[44px]"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round"/>

@@ -14,6 +14,9 @@ const ESTADO_BADGE_MAP: Record<string, string> = {
 
 export default function PatientPortalPage() {
   const [dni, setDni] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [dniError, setDniError] = useState("");
+  const [nombreError, setNombreError] = useState("");
   const [results, setResults] = useState<PatientPrescription[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -21,8 +24,27 @@ export default function PatientPortalPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Client-side validation
+    let valid = true;
     const trimmedDni = dni.trim();
-    if (!trimmedDni) return;
+    const trimmedNombre = nombre.trim();
+
+    if (!/^\d{7,8}$/.test(trimmedDni)) {
+      setDniError("El DNI debe tener 7 u 8 dígitos.");
+      valid = false;
+    } else {
+      setDniError("");
+    }
+
+    if (trimmedNombre.length < 2) {
+      setNombreError("Ingresá al menos 2 letras de tu nombre.");
+      valid = false;
+    } else {
+      setNombreError("");
+    }
+
+    if (!valid) return;
 
     setLoading(true);
     setError("");
@@ -30,7 +52,7 @@ export default function PatientPortalPage() {
     setSearched(false);
 
     try {
-      const data = await api.getPatientPrescriptions(trimmedDni);
+      const data = await api.getPatientPrescriptions(trimmedDni, trimmedNombre);
       setResults(data);
       setSearched(true);
     } catch (err) {
@@ -61,28 +83,64 @@ export default function PatientPortalPage() {
         <div className="card p-6 w-full max-w-md mt-6">
           <h1 className="text-text font-semibold text-base mb-1">Mis recetas</h1>
           <p className="text-text-3 text-sm mb-5">
-            Ingresá tu DNI para consultar tus recetas electrónicas emitidas.
+            Ingresá tu DNI y nombre para consultar tus recetas electrónicas emitidas.
           </p>
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <input
-              type="text"
-              value={dni}
-              onChange={(e) => setDni(e.target.value)}
-              className="input-base flex-1 text-sm"
-              placeholder="Ej: 30123456"
-              inputMode="numeric"
-              maxLength={10}
-              required
-            />
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            {/* Nombre field */}
+            <div>
+              <label className="block text-text-3 text-xs uppercase tracking-widest mb-1">
+                Tu nombre
+              </label>
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => { setNombre(e.target.value); setNombreError(""); }}
+                className={`input-base w-full text-sm${nombreError ? " border-danger" : ""}`}
+                placeholder="Ej: María"
+                minLength={2}
+                required
+                autoComplete="given-name"
+              />
+              {nombreError && (
+                <p className="text-danger text-xs mt-1">{nombreError}</p>
+              )}
+            </div>
+
+            {/* DNI field */}
+            <div>
+              <label className="block text-text-3 text-xs uppercase tracking-widest mb-1">
+                DNI
+              </label>
+              <input
+                type="text"
+                value={dni}
+                onChange={(e) => { setDni(e.target.value); setDniError(""); }}
+                className={`input-base w-full text-sm${dniError ? " border-danger" : ""}`}
+                placeholder="Ej: 30123456"
+                pattern="[0-9]*"
+                inputMode="numeric"
+                maxLength={8}
+                required
+              />
+              {dniError && (
+                <p className="text-danger text-xs mt-1">{dniError}</p>
+              )}
+            </div>
+
             <button
               type="submit"
-              disabled={loading || !dni.trim()}
-              className="btn-primary text-sm whitespace-nowrap flex items-center gap-2"
+              disabled={loading || !dni.trim() || !nombre.trim()}
+              className="btn-primary text-sm flex items-center justify-center gap-2 mt-1"
             >
               {loading && <span className="spinner" />}
               {loading ? "Buscando..." : "Buscar mis recetas"}
             </button>
           </form>
+
+          {/* Privacy notice */}
+          <p className="text-text-3 text-[10px] mt-4 leading-relaxed">
+            Tu nombre se usa solo para verificar tu identidad. No se almacena. Ley 25.326.
+          </p>
         </div>
 
         {/* Error state */}

@@ -276,6 +276,29 @@ async def resend_invitation(
     return InvitationOut(id=inv_id, email=inv_email, estado=inv_estado, expires_at=inv_expires)
 
 
+@router.delete("/invitations/{invitation_id}", status_code=200, tags=["Prestadores"])
+async def revoke_invitation(
+    invitation_id: str,
+    current_user: TokenPayload = Depends(require_role("financiador_admin", "platform_admin")),
+):
+    """Revoke a pending invitation — only pending invitations can be revoked."""
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(PractitionerInvitation).where(
+                PractitionerInvitation.id == uuid.UUID(invitation_id),
+                PractitionerInvitation.tenant_id == uuid.UUID(current_user.tenant_id),
+            )
+        )
+        invitation = result.scalar_one_or_none()
+        if not invitation:
+            raise HTTPException(status_code=404, detail="Invitación no encontrada")
+        if invitation.estado != "pendiente":
+            raise HTTPException(status_code=400, detail="Solo se pueden revocar invitaciones pendientes")
+        await db.delete(invitation)
+        await db.commit()
+        return {"message": "Invitación revocada correctamente"}
+
+
 @router.get("/register/{token}")
 async def get_invitation_info(token: str = Path(..., min_length=10)):
     """Retorna info de la invitación para mostrar en el formulario de registro público."""
@@ -374,6 +397,34 @@ async def register_practitioner(
         "refeps_verificado": verification.found,
         "estado_matricula": verification.estado_matricula if verification.found else "no encontrado",
     }
+
+
+@router.get("/me", response_model=PractitionerOut, tags=["Prestadores"])
+async def get_my_practitioner_profile(
+    current_user: TokenPayload = Depends(get_current_user),
+):
+    """Devuelve el perfil del prestador del usuario autenticado (rol prestador)."""
+    async with get_tenant_db(current_user.tenant_id) as db:
+        result = await db.execute(
+            select(Practitioner).where(
+                Practitioner.user_id == uuid.UUID(current_user.sub),
+                Practitioner.tenant_id == uuid.UUID(current_user.tenant_id),
+            )
+        )
+        practitioner = result.scalar_one_or_none()
+        if not practitioner:
+            raise HTTPException(
+                status_code=404,
+                detail="No tenés un perfil de prestador asociado a este usuario",
+            )
+        provinces_result = await db.execute(
+            select(PractitionerProvince).where(
+                PractitionerProvince.practitioner_id == practitioner.id,
+                PractitionerProvince.tenant_id == uuid.UUID(current_user.tenant_id),
+            )
+        )
+        provinces = list(provinces_result.scalars().all())
+    return _to_practitioner_out(practitioner, provinces)
 
 
 @router.get("", response_model=list[PractitionerOut])
@@ -524,9 +575,13 @@ async def verify_practitioner(
 async def update_practitioner_profile(
     practitioner_id: str,
     body: PractitionerProfileUpdate,
-    current_user: TokenPayload = Depends(require_role("financiador_admin", "platform_admin")),
+    current_user: TokenPayload = Depends(get_current_user),
 ) -> dict:
-    """Rectificación de datos personales del prestador — Art. 16 Ley 25.326."""
+    """Rectificación de datos personales del prestador — Art. 16 Ley 25.326.
+    Admins pueden editar cualquier prestador del tenant.
+    Prestadores solo pueden editar su propio perfil.
+    """
+    is_admin = current_user.role in ("financiador_admin", "platform_admin")
     async with get_tenant_db(current_user.tenant_id) as db:
         result = await db.execute(
             select(Practitioner).where(
@@ -537,6 +592,10 @@ async def update_practitioner_profile(
         practitioner = result.scalar_one_or_none()
         if not practitioner:
             raise HTTPException(status_code=404, detail="Prestador no encontrado")
+
+        # Prestadores can only edit their own profile
+        if not is_admin and str(practitioner.user_id) != current_user.sub:
+            raise HTTPException(status_code=403, detail="Solo podés editar tu propio perfil")
 
         changed_fields = []
         if body.nombre is not None:

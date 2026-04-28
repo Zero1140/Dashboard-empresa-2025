@@ -117,13 +117,15 @@ export default function LoginPage() {
         </div>
 
         {/* Dev hint */}
-        <div className="mt-4 card p-3 border-info/20 bg-info-bg">
-          <p className="text-info text-xs font-medium mb-1">Modo desarrollo activo</p>
-          <p className="text-text-3 text-xs">
-            El sistema corre con conectores mock. El backend debe estar corriendo en{" "}
-            <span className="font-mono text-text-2">localhost:8000</span>
-          </p>
-        </div>
+        {process.env.NEXT_PUBLIC_APP_ENV !== "production" && (
+          <div className="mt-4 card p-3 border-info/20 bg-info-bg">
+            <p className="text-info text-xs font-medium mb-1">Modo desarrollo activo</p>
+            <p className="text-text-3 text-xs">
+              El sistema corre con conectores mock. El backend debe estar corriendo en{" "}
+              <span className="font-mono text-text-2">localhost:8000</span>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

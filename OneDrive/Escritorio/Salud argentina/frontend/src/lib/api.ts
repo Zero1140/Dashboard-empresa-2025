@@ -207,6 +207,10 @@ export const api = {
     });
   },
 
+  async getMyProfile(): Promise<import("./types").Practitioner> {
+    return request("/v1/practitioners/me");
+  },
+
   async listPractitioners(soloAprobados = true): Promise<import("./types").Practitioner[]> {
     return request(`/v1/practitioners?solo_aprobados=${soloAprobados}`);
   },
@@ -246,6 +250,10 @@ export const api = {
     return request(`/v1/practitioners/invitations/${id}/resend`, { method: "POST" });
   },
 
+  async revokeInvitation(id: string): Promise<{ message: string }> {
+    return request(`/v1/practitioners/invitations/${id}`, { method: "DELETE" });
+  },
+
   async getConsentHistory(practitionerId: string): Promise<import("./types").ConsentEvent[]> {
     return request(`/v1/practitioners/${practitionerId}/consent-history`);
   },
@@ -256,6 +264,7 @@ export const api = {
     action?: string;
     from_date?: string;
     to_date?: string;
+    user_id?: string;
   }): Promise<import("./types").AuditLogEntry[]> {
     const q = new URLSearchParams();
     if (params?.limit) q.set("limit", String(params.limit));
@@ -263,6 +272,7 @@ export const api = {
     if (params?.action) q.set("action", params.action);
     if (params?.from_date) q.set("from_date", params.from_date);
     if (params?.to_date) q.set("to_date", params.to_date);
+    if (params?.user_id) q.set("user_id", params.user_id);
     return request(`/v1/admin/audit-log${q.toString() ? `?${q}` : ""}`);
   },
 
@@ -319,9 +329,14 @@ export const api = {
     });
   },
 
-  async getPatientPrescriptions(dni: string): Promise<import("./types").PatientPrescription[]> {
-    const res = await fetch(`${BASE}/v1/patient/prescriptions?dni=${encodeURIComponent(dni)}`);
-    if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
+  async getPatientPrescriptions(dni: string, nombre: string): Promise<import("./types").PatientPrescription[]> {
+    const res = await fetch(
+      `${BASE}/v1/patient/prescriptions?dni=${encodeURIComponent(dni)}&nombre=${encodeURIComponent(nombre)}`
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
     return res.json();
   },
 };

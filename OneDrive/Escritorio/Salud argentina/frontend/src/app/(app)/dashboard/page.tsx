@@ -5,12 +5,14 @@ import TopBar from "@/components/layout/TopBar";
 import StatCard from "@/components/ui/StatCard";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { api } from "@/lib/api";
+import { getRole } from "@/lib/auth";
 import type { DashboardStats, HealthResponse } from "@/lib/types";
 
 export default function DashboardPage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const role = getRole();
 
   useEffect(() => {
     const loadAll = async () => {
@@ -33,12 +35,15 @@ export default function DashboardPage() {
     return (health.mock_warnings ?? {})[id] ? "mock" : "ok";
   };
 
-  const QUICK_ACTIONS = [
-    { href: "/prestadores/invitar", label: "Invitar prestador",    icon: "👤" },
-    { href: "/consultas/nueva",     label: "Nueva consulta",       icon: "🩺" },
-    { href: "/credenciales",        label: "Verificar matrícula",  icon: "✅" },
-    { href: "/elegibilidad",        label: "Verificar cobertura",  icon: "🏥" },
+  const QUICK_ACTIONS_ALL = [
+    { href: "/prestadores/invitar", label: "Invitar prestador",    icon: "👤", adminOnly: true },
+    { href: "/consultas/nueva",     label: "Nueva consulta",       icon: "🩺", adminOnly: false },
+    { href: "/credenciales",        label: "Verificar matrícula",  icon: "✅", adminOnly: false },
+    { href: "/elegibilidad",        label: "Verificar cobertura",  icon: "🏥", adminOnly: false },
   ];
+  const QUICK_ACTIONS = QUICK_ACTIONS_ALL.filter(
+    (a) => !a.adminOnly || role === "financiador_admin"
+  );
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -64,7 +69,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {stats && stats.practitioners_pendientes > 0 && (
+        {role === "financiador_admin" && stats && stats.practitioners_pendientes > 0 && (
           <div className="card p-4 border-warning/20 bg-warning-bg flex items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <svg className="text-warning mt-0.5 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

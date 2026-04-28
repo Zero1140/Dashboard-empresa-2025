@@ -187,6 +187,41 @@ export default function IntegracionesPage() {
 
         {/* Cumplimiento regulatorio */}
         <div className="space-y-4">
+          {/* ReNaPDiS urgent warning — only shows while not registered */}
+          {!REGULATORY.find(r => r.norm === "Res. 1959/2024")?.done && (
+            <div className="card p-4 border-danger/20 bg-danger-bg flex items-start gap-3">
+              <svg className="text-danger mt-0.5 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <div className="text-xs space-y-2">
+                <p className="text-danger font-semibold">Registro ReNaPDiS pendiente — riesgo legal</p>
+                <p className="text-danger/80">
+                  La Resolución 1959/2024 exige que toda plataforma digital de salud esté registrada en el ReNaPDiS
+                  antes de operar. Operar sin registro expone a la plataforma a sanciones y puede invalidar los
+                  consentimientos informados obtenidos.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <a
+                    href="https://tramitesadistancia.gob.ar"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary text-xs px-3 py-1.5"
+                  >
+                    Iniciar trámite en TAD →
+                  </a>
+                  <a
+                    href="https://www.argentina.gob.ar/salud/digital/renapdis/plataformas-aprobadas"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary text-xs px-3 py-1.5"
+                  >
+                    Ver plataformas aprobadas →
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
           <h2 className="text-text-2 text-xs uppercase tracking-widest">Cumplimiento regulatorio</h2>
           <div className="card divide-y divide-border">
             {REGULATORY.map((r) => (

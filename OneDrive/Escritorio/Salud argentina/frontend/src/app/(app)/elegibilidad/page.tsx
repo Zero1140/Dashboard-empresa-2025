@@ -55,7 +55,7 @@ export default function ElegibilidadPage() {
     <div className="flex flex-col min-h-screen">
       <TopBar
         title="Elegibilidad"
-        subtitle="Motor CareValidate — verificación de cobertura en tiempo real"
+        subtitle="Verificá la cobertura de tus afiliados en tiempo real"
       />
 
       <div className="p-6 max-w-3xl space-y-6 animate-fadeIn">
@@ -65,7 +65,7 @@ export default function ElegibilidadPage() {
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           <div className="text-xs space-y-1">
-            <p className="text-accent font-medium">Motor CareValidate — Elegibilidad multi-financiador</p>
+            <p className="text-accent font-medium">Verificación de cobertura — 800+ financiadores disponibles</p>
             <p className="text-text-2">
               Equivalente al <span className="font-medium">Carrie AI Engine</span> adaptado al PMO argentino. Verifica cobertura activa contra{" "}
               {financiadores.length > 0 ? `${financiadores.length} financiadores` : "múltiples financiadores"} vía Farmalink Hub.

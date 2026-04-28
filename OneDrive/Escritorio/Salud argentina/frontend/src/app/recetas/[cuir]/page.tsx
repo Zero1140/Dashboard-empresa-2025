@@ -173,6 +173,7 @@ export default function PublicPrescriptionPage() {
                 <div>
                   <p className="text-text-3 text-[10px] uppercase tracking-widest mb-1">Paciente</p>
                   <p className="text-text-2 text-sm font-mono">{rx.paciente_nombre_parcial}</p>
+                  <p className="text-text-3 text-[10px] mt-0.5">Nombre parcial — protegido por Ley 25.326</p>
                 </div>
                 <div>
                   <p className="text-text-3 text-[10px] uppercase tracking-widest mb-1">Prescriptor CUFP</p>
@@ -190,20 +191,34 @@ export default function PublicPrescriptionPage() {
               <hr className="divider-accent" />
               <MonoId value={rx.cuir} label="CUIR" />
 
-              {/* QR para farmacia */}
-              <div className="border border-border rounded-lg p-4 flex flex-col items-center gap-3">
-                <p className="text-text-3 text-[10px] uppercase tracking-widest">Código QR — Farmacia</p>
-                <div className="bg-white p-3 rounded-md">
-                  <QRCode
-                    value={typeof window !== "undefined"
-                      ? `${window.location.origin}/recetas/${rx.cuir}`
-                      : `/recetas/${rx.cuir}`}
-                    size={140}
-                    level="M"
-                  />
+              {/* QR para farmacia — only active prescriptions */}
+              {rx.estado === "activa" && (
+                <div className="border border-border rounded-lg p-4 flex flex-col items-center gap-3">
+                  <p className="text-text-3 text-[10px] uppercase tracking-widest">Código QR — Farmacia</p>
+                  <div className="bg-white p-3 rounded-md">
+                    <QRCode
+                      value={typeof window !== "undefined"
+                        ? `${window.location.origin}/recetas/${rx.cuir}`
+                        : `/recetas/${rx.cuir}`}
+                      size={140}
+                      level="M"
+                    />
+                  </div>
+                  <p className="text-text-3 text-[10px] text-center">Escaneá para verificar en la farmacia</p>
                 </div>
-                <p className="text-text-3 text-[10px] text-center">Escaneá para verificar en la farmacia</p>
-              </div>
+              )}
+
+              {rx.estado !== "activa" && (
+                <div className="border border-border rounded-lg p-3 text-center">
+                  <p className="text-text-3 text-xs">Código QR no disponible — receta {rx.estado}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="text-center">
+              <a href="/paciente" className="text-accent text-xs hover:underline">
+                Ver todas mis recetas por DNI →
+              </a>
             </div>
 
             <p className="text-text-3 text-[10px] text-center">

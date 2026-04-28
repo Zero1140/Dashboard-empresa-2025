@@ -223,6 +223,7 @@ async def export_audit_log(
     action: str | None = Query(default=None, description="Filtrar por acción exacta"),
     from_date: str | None = Query(default=None, description="Fecha inicio ISO 8601 (ej: 2026-01-01)"),
     to_date: str | None = Query(default=None, description="Fecha fin ISO 8601 (ej: 2026-12-31)"),
+    user_id: str | None = Query(default=None, description="Filtrar por user_id UUID"),
     tenant_id: str | None = Query(
         default=None,
         description="Solo platform_admin: filtrar por tenant_id UUID",
@@ -264,6 +265,9 @@ async def export_audit_log(
             stmt = stmt.where(AuditLog.created_at <= dt_to)
         except ValueError:
             raise HTTPException(status_code=422, detail="to_date inválida — usar formato YYYY-MM-DD")
+
+    if user_id is not None:
+        stmt = stmt.where(AuditLog.user_id == user_id)
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(stmt)

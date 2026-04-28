@@ -16,6 +16,7 @@ export default function InvitarPrestadorPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [invLoading, setInvLoading] = useState(true);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const router = useRouter();
   const { addToast } = useToast();
@@ -62,6 +63,19 @@ export default function InvitarPrestadorPage() {
       addToast(err instanceof Error ? err.message : "Error al reenviar invitación", "error");
     } finally {
       setResendingId(null);
+    }
+  };
+
+  const handleRevoke = async (id: string) => {
+    setRevokingId(id);
+    try {
+      await api.revokeInvitation(id);
+      setInvitations((prev) => prev.filter((inv) => inv.id !== id));
+      addToast("Invitación revocada", "success");
+    } catch {
+      addToast("Error al revocar", "error");
+    } finally {
+      setRevokingId(null);
     }
   };
 
@@ -216,16 +230,27 @@ export default function InvitarPrestadorPage() {
                           {new Date(inv.expires_at).toLocaleDateString("es-AR")}
                         </td>
                         <td className="py-2.5">
-                          {(inv.estado === "pendiente" || inv.estado === "expirada") && (
-                            <button
-                              onClick={() => handleResend(inv)}
-                              disabled={resendingId === inv.id}
-                              className="btn-secondary text-xs px-3 py-1 flex items-center gap-1.5"
-                            >
-                              {resendingId === inv.id && <span className="spinner" />}
-                              Reenviar
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {(inv.estado === "pendiente" || inv.estado === "expirada") && (
+                              <button
+                                onClick={() => handleResend(inv)}
+                                disabled={resendingId === inv.id || revokingId === inv.id}
+                                className="btn-secondary text-xs px-3 py-1 flex items-center gap-1.5 disabled:opacity-50"
+                              >
+                                {resendingId === inv.id && <span className="spinner" />}
+                                Reenviar
+                              </button>
+                            )}
+                            {inv.estado === "pendiente" && (
+                              <button
+                                onClick={() => handleRevoke(inv.id)}
+                                disabled={revokingId === inv.id || resendingId === inv.id}
+                                className="text-danger text-xs hover:underline disabled:opacity-50"
+                              >
+                                {revokingId === inv.id ? "..." : "Revocar"}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -246,16 +271,27 @@ export default function InvitarPrestadorPage() {
                         <p>Enviada: {new Date(inv.created_at).toLocaleDateString("es-AR")}</p>
                         <p>Vence: {new Date(inv.expires_at).toLocaleDateString("es-AR")}</p>
                       </div>
-                      {(inv.estado === "pendiente" || inv.estado === "expirada") && (
-                        <button
-                          onClick={() => handleResend(inv)}
-                          disabled={resendingId === inv.id}
-                          className="btn-secondary text-xs px-3 py-1 flex items-center gap-1.5 flex-shrink-0"
-                        >
-                          {resendingId === inv.id && <span className="spinner" />}
-                          Reenviar
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {(inv.estado === "pendiente" || inv.estado === "expirada") && (
+                          <button
+                            onClick={() => handleResend(inv)}
+                            disabled={resendingId === inv.id || revokingId === inv.id}
+                            className="btn-secondary text-xs px-3 py-1 flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {resendingId === inv.id && <span className="spinner" />}
+                            Reenviar
+                          </button>
+                        )}
+                        {inv.estado === "pendiente" && (
+                          <button
+                            onClick={() => handleRevoke(inv.id)}
+                            disabled={revokingId === inv.id || resendingId === inv.id}
+                            className="text-danger text-xs hover:underline disabled:opacity-50"
+                          >
+                            {revokingId === inv.id ? "..." : "Revocar"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

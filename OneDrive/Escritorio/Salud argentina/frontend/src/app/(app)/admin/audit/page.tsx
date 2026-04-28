@@ -27,6 +27,7 @@ export default function AuditLogPage() {
   const [action, setAction] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [userId, setUserId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,6 +37,7 @@ export default function AuditLogPage() {
         action: action || undefined,
         from_date: fromDate || undefined,
         to_date: toDate || undefined,
+        user_id: userId || undefined,
       });
       setItems(data);
     } catch {
@@ -43,7 +45,7 @@ export default function AuditLogPage() {
     } finally {
       setLoading(false);
     }
-  }, [action, fromDate, toDate]);
+  }, [action, fromDate, toDate, userId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -102,12 +104,23 @@ export default function AuditLogPage() {
               className="input-base w-40 text-sm"
             />
           </div>
-          {(action || fromDate || toDate) && (
+          <div className="flex flex-col gap-1">
+            <label className="text-text-3 text-[10px] uppercase tracking-widest">Usuario (ID)</label>
+            <input
+              type="text"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="input-base w-52 text-xs font-mono"
+              placeholder="UUID del usuario..."
+            />
+          </div>
+          {(action || fromDate || toDate || userId) && (
             <button
               onClick={() => {
                 setAction("");
                 setFromDate("");
                 setToDate("");
+                setUserId("");
               }}
               className="btn-secondary text-xs px-3 py-1.5"
             >
@@ -131,6 +144,7 @@ export default function AuditLogPage() {
                   <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium">Fecha</th>
                   <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Acción</th>
                   <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Recurso</th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">Usuario</th>
                   <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">IP</th>
                 </tr>
               </thead>
@@ -145,6 +159,9 @@ export default function AuditLogPage() {
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-text text-sm truncate max-w-xs">{e.resource ?? "—"}</p>
+                    </td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      <span className="text-xs font-mono text-text-3 truncate block max-w-[120px]">{e.user_id ?? "—"}</span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <span className="text-xs font-mono text-text-3">{e.ip_address ?? "—"}</span>

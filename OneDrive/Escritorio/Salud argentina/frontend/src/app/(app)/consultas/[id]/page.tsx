@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import type { Consultation, Prescription } from "@/lib/types";
 import { MEDICAMENTOS } from "@/data/medicamentos";
+import { DIAGNOSTICOS } from "@/data/diagnosticos";
 
 export default function ConsultaRoomPage() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,8 @@ export default function ConsultaRoomPage() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+
+  // Prescription modal state
   const [rxMedCode, setRxMedCode] = useState("");
   const [rxMedNombre, setRxMedNombre] = useState("");
   const [rxSearch, setRxSearch] = useState("");
@@ -28,26 +31,59 @@ export default function ConsultaRoomPage() {
   const [rxError, setRxError] = useState("");
   const autocompleteRef = useRef<HTMLDivElement>(null);
   const [lastCuir, setLastCuir] = useState<string | null>(null);
+
+  // Cancel prescription state
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // Diagnosis + notes state
   const [diagCode, setDiagCode] = useState("");
   const [diagTexto, setDiagTexto] = useState("");
   const [notas, setNotas] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  // Close suggestion dropdown when clicking outside
+  // Diagnosis autocomplete state
+  const [diagSearch, setDiagSearch] = useState("");
+  const [diagSuggestions, setDiagSuggestions] = useState<typeof DIAGNOSTICOS>([]);
+  const [diagSuggestionOpen, setDiagSuggestionOpen] = useState(false);
+  const diagRef = useRef<HTMLDivElement>(null);
+
+  // Dirty flag — unsaved changes
+  const isDirty =
+    consultation !== null &&
+    !["cancelada", "completada"].includes(consultation.estado) &&
+    (diagCode !== (consultation?.diagnostico_snomed_code ?? "") ||
+      diagTexto !== (consultation?.diagnostico_texto ?? "") ||
+      notas !== (consultation?.notas_clinicas ?? ""));
+
+  // Browser beforeunload warning when there are unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  // Close medication suggestion dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (autocompleteRef.current && !autocompleteRef.current.contains(e.target as Node)) {
         setRxSuggestionOpen(false);
+      }
+      if (diagRef.current && !diagRef.current.contains(e.target as Node)) {
+        setDiagSuggestionOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Medication autocomplete handlers
   const handleRxSearchChange = (value: string) => {
     setRxSearch(value);
-    // Clear previously selected medication when user types again
     if (rxMedNombre || rxMedCode) {
       setRxMedNombre("");
       setRxMedCode("");
@@ -81,6 +117,42 @@ export default function ConsultaRoomPage() {
     setRxSuggestionOpen(false);
   };
 
+  // Diagnosis autocomplete handlers
+  const handleDiagSearchChange = (value: string) => {
+    setDiagSearch(value);
+    if (diagCode) {
+      setDiagCode("");
+      setDiagTexto("");
+    }
+    if (value.trim().length === 0) {
+      setDiagSuggestions([]);
+      setDiagSuggestionOpen(false);
+      return;
+    }
+    const q = value.toLowerCase();
+    const filtered = DIAGNOSTICOS.filter(
+      (d) => d.nombre.toLowerCase().includes(q) || d.snomed_code.includes(q)
+    ).slice(0, 6);
+    setDiagSuggestions(filtered);
+    setDiagSuggestionOpen(filtered.length > 0);
+  };
+
+  const handleSelectDiag = (item: (typeof DIAGNOSTICOS)[number]) => {
+    setDiagCode(item.snomed_code);
+    setDiagTexto(item.nombre);
+    setDiagSearch(item.nombre);
+    setDiagSuggestions([]);
+    setDiagSuggestionOpen(false);
+  };
+
+  const handleClearDiag = () => {
+    setDiagCode("");
+    setDiagTexto("");
+    setDiagSearch("");
+    setDiagSuggestions([]);
+    setDiagSuggestionOpen(false);
+  };
+
   const load = useCallback(async () => {
     try {
       const [c, rxs] = await Promise.all([
@@ -91,6 +163,12 @@ export default function ConsultaRoomPage() {
       setDiagCode(c.diagnostico_snomed_code || "");
       setDiagTexto(c.diagnostico_texto || "");
       setNotas(c.notas_clinicas || "");
+      // Pre-fill diag search input if a code was already saved
+      if (c.diagnostico_texto) {
+        setDiagSearch(c.diagnostico_texto);
+      } else if (c.diagnostico_snomed_code) {
+        setDiagSearch(c.diagnostico_snomed_code);
+      }
       setPrescriptions(rxs);
     } catch {
       // handled by empty state
@@ -151,6 +229,20 @@ export default function ConsultaRoomPage() {
       setRxError(e instanceof Error ? e.message : "Error al emitir receta");
     } finally {
       setRxLoading(false);
+    }
+  };
+
+  const handleCancelPrescription = async (prescriptionId: string) => {
+    setCancellingId(prescriptionId);
+    try {
+      const updated = await api.cancelPrescription(prescriptionId);
+      setPrescriptions((prev) =>
+        prev.map((rx) => (rx.id === prescriptionId ? updated : rx))
+      );
+    } catch {
+      addToast("Error al anular receta", "error");
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -220,14 +312,64 @@ export default function ConsultaRoomPage() {
 
           {/* Diagnosis + notes */}
           <div className="card p-4 space-y-3">
-            <p className="text-text-3 text-[10px] uppercase tracking-widest">Diagnóstico y notas</p>
-            <input
-              value={diagCode}
-              onChange={(e) => setDiagCode(e.target.value)}
-              className="input-base font-mono text-sm"
-              placeholder="SNOMED CT code (ej: 840539006)"
-              disabled={!canEdit}
-            />
+            {/* Card header with dirty flag */}
+            <div className="flex items-center gap-2">
+              <p className="text-text-3 text-[10px] uppercase tracking-widest">Diagnóstico y notas</p>
+              {isDirty && (
+                <span className="text-[10px] bg-warning-bg border border-warning/20 text-warning rounded px-2 py-0.5">
+                  Cambios sin guardar
+                </span>
+              )}
+            </div>
+
+            {/* Diagnosis autocomplete */}
+            <div ref={diagRef} className="relative">
+              <input
+                value={diagSearch}
+                onChange={(e) => handleDiagSearchChange(e.target.value)}
+                onFocus={() => diagSuggestions.length > 0 && setDiagSuggestionOpen(true)}
+                className="input-base text-sm w-full"
+                placeholder="Buscar diagnóstico (ej: hipertensión)"
+                disabled={!canEdit}
+                autoComplete="off"
+              />
+              {diagSuggestionOpen && diagSuggestions.length > 0 && (
+                <ul className="absolute left-0 right-0 top-full mt-1 bg-surface-2 border border-border rounded-md shadow-lg z-50 max-h-56 overflow-y-auto">
+                  {diagSuggestions.map((item, idx) => (
+                    <li
+                      key={`${item.snomed_code}-${idx}`}
+                      onMouseDown={() => handleSelectDiag(item)}
+                      className="hover:bg-accent/10 cursor-pointer px-3 py-2 flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-text text-sm font-medium block truncate">{item.nombre}</span>
+                        <span className="text-text-3 text-[10px]">{item.categoria}</span>
+                      </div>
+                      <span className="text-text-3 text-xs font-mono shrink-0">{item.snomed_code}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* Selection confirmation */}
+              {diagCode && diagTexto && (
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <p className="text-xs text-success truncate">
+                    ✓ {diagTexto} — SNOMED: <span className="font-mono">{diagCode}</span>
+                  </p>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={handleClearDiag}
+                      className="text-text-3 hover:text-text text-xs shrink-0"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Free-text diagnosis override */}
             <input
               value={diagTexto}
               onChange={(e) => setDiagTexto(e.target.value)}
@@ -235,6 +377,7 @@ export default function ConsultaRoomPage() {
               placeholder="Diagnóstico en texto libre"
               disabled={!canEdit}
             />
+
             <textarea
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
@@ -290,7 +433,18 @@ export default function ConsultaRoomPage() {
                       <p className="text-text text-sm">{rx.medicamento_nombre}</p>
                       <p className="text-text-3 text-xs font-mono">{rx.cuir}</p>
                     </div>
-                    <StatusBadge status={rx.estado} />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={rx.estado} />
+                      {rx.estado === "activa" && (
+                        <button
+                          onClick={() => handleCancelPrescription(rx.id)}
+                          disabled={cancellingId === rx.id}
+                          className="text-danger text-xs hover:underline disabled:opacity-50"
+                        >
+                          {cancellingId === rx.id ? "Anulando..." : "Anular"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
