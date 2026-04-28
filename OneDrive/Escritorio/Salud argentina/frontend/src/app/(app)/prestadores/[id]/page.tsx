@@ -159,6 +159,7 @@ export default function PractitionerDetailPage() {
   };
 
   const handleErase = async () => {
+    if (erasing) return;
     setErasing(true);
     try {
       await api.erasePractitioner(id);
@@ -166,6 +167,7 @@ export default function PractitionerDetailPage() {
       router.push("/prestadores");
     } catch (e) {
       addToast(e instanceof Error ? e.message : "Error al procesar la supresión.", "error");
+      setShowEraseConfirm(false);
       setErasing(false);
     }
   };

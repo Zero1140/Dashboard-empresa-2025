@@ -50,15 +50,16 @@ export default function PrestadoresPendientesPage() {
       try {
         await api.erasePractitioner(id);
         setPractitioners((prev) => prev.filter((p) => p.id !== id));
-        addToast("Prestador rechazado.", "success");
+        addToast("Médico rechazado.", "success");
       } catch {
-        addToast("No se pudo rechazar el prestador. Intentá de nuevo.", "error");
+        addToast("No se pudo rechazar. Intentá de nuevo.", "error");
       } finally {
         setRejecting((prev) => {
           const next = new Set(prev);
           next.delete(id);
           return next;
         });
+        setRejectModalId(null);
       }
     },
     [addToast]
@@ -205,7 +206,7 @@ export default function PrestadoresPendientesPage() {
         confirmLabel="Rechazar y suprimir datos"
         danger
         loading={rejectModalId !== null && rejecting.has(rejectModalId)}
-        onConfirm={() => { if (rejectModalId) { confirmReject(rejectModalId); setRejectModalId(null); } }}
+        onConfirm={() => { if (rejectModalId) confirmReject(rejectModalId); }}
         onCancel={() => setRejectModalId(null)}
       />
     </div>

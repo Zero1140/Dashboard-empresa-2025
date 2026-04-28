@@ -249,6 +249,7 @@ export default function ConsultaRoomPage() {
       addToast("Error al anular receta", "error");
     } finally {
       setCancellingId(null);
+      setCancelConfirmId(null);
     }
   };
 
@@ -488,7 +489,7 @@ export default function ConsultaRoomPage() {
         confirmLabel="Anular receta"
         danger
         loading={cancellingId === cancelConfirmId}
-        onConfirm={() => { if (cancelConfirmId) { handleCancelPrescription(cancelConfirmId); setCancelConfirmId(null); } }}
+        onConfirm={() => { if (cancelConfirmId) handleCancelPrescription(cancelConfirmId); }}
         onCancel={() => setCancelConfirmId(null)}
       />
 
