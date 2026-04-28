@@ -6,6 +6,21 @@ import MonoId from "@/components/ui/MonoId";
 import { api } from "@/lib/api";
 import type { CredentialResult } from "@/lib/types";
 
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("422") || msg.includes("Unprocessable"))
+    return "Revisá los datos ingresados. Verificá que el DNI o número de afiliado sean correctos.";
+  if (msg.includes("404") || msg.includes("not found") || msg.includes("no encontrado"))
+    return "No encontramos resultados para los datos ingresados. Verificá y volvé a intentar.";
+  if (msg.includes("401") || msg.includes("403") || msg.includes("Unauthorized") || msg.includes("Forbidden"))
+    return "Tu sesión expiró. Iniciá sesión nuevamente.";
+  if (msg.includes("500") || msg.includes("Internal"))
+    return "Hubo un error en el servidor. Intentá nuevamente en unos minutos.";
+  if (msg.includes("network") || msg.includes("fetch") || msg.includes("Failed to fetch"))
+    return "No se pudo conectar al servidor. Verificá tu conexión a internet.";
+  return "Ocurrió un error inesperado. Intentá nuevamente.";
+}
+
 type SearchMode = "dni" | "matricula" | "cufp";
 
 // Datos de prueba para el modo mock
@@ -36,7 +51,7 @@ export default function CredencialesPage() {
       });
       setResult(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al verificar");
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -143,8 +158,8 @@ export default function CredencialesPage() {
 
         {/* Error */}
         {error && (
-          <div className="bg-danger-bg border border-danger/20 rounded-lg px-4 py-3">
-            <p className="text-danger text-sm">{error}</p>
+          <div className="rounded-lg border border-danger bg-danger-bg p-4 text-sm text-danger">
+            {error}
           </div>
         )}
 
