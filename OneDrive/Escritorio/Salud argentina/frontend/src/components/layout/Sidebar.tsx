@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearToken, getRole } from "@/lib/auth";
 import { useSidebar } from "@/context/SidebarContext";
+import { usePendingCount } from "@/context/PendingCountContext";
 
 const NAV = [
   {
@@ -106,6 +107,7 @@ export default function Sidebar() {
   const { open, setOpen } = useSidebar();
 
   const role = getRole();
+  const pendingCount = usePendingCount();
 
   const handleLogout = () => {
     clearToken();
@@ -171,6 +173,11 @@ export default function Sidebar() {
                   </div>
                 )}
               </div>
+              {item.href === "/prestadores" && pendingCount > 0 && (
+                <span className="ml-auto flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-danger text-white text-[9px] font-bold flex items-center justify-center px-1">
+                  {pendingCount > 99 ? "99+" : pendingCount}
+                </span>
+              )}
               {active && (
                 <div className="ml-auto w-1 h-1 rounded-full bg-accent flex-shrink-0" />
               )}

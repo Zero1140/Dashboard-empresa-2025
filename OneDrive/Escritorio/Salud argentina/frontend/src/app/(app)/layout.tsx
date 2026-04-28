@@ -5,6 +5,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import BottomNav from "@/components/layout/BottomNav";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { ToastProvider } from "@/context/ToastContext";
+import { PendingCountProvider } from "@/context/PendingCountContext";
 import { isAuthenticated, useSessionExpiry } from "@/lib/auth";
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
@@ -39,7 +40,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <ToastProvider>
-        <AppLayoutInner>{children}</AppLayoutInner>
+        <PendingCountProvider>
+          <AppLayoutInner>{children}</AppLayoutInner>
+        </PendingCountProvider>
       </ToastProvider>
     </SidebarProvider>
   );

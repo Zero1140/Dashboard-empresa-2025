@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { getRole } from "@/lib/auth";
+import { usePendingCount } from "@/context/PendingCountContext";
 
 const NAV_PRESTADOR = [
   {
@@ -111,6 +112,7 @@ const NAV_ADMIN_MORE = [
 export default function BottomNav() {
   const pathname = usePathname();
   const role = getRole();
+  const pendingCount = usePendingCount();
   const [showMore, setShowMore] = useState(false);
 
   if (role === "prestador") {
@@ -148,7 +150,14 @@ export default function BottomNav() {
               active ? "text-accent" : "text-text-3"
             }`}
           >
-            <span>{item.icon}</span>
+            <div className="relative">
+              <span>{item.icon}</span>
+              {item.href === "/prestadores" && pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full bg-danger text-white text-[8px] font-bold flex items-center justify-center px-0.5">
+                  {pendingCount > 9 ? "9+" : pendingCount}
+                </span>
+              )}
+            </div>
             <span className="text-[9px] font-medium tracking-wide">{item.label}</span>
           </Link>
         );
