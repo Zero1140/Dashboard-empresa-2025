@@ -17,6 +17,20 @@ export default function ConsultasPage() {
   const [filterTipo, setFilterTipo] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<{ field: string; dir: "asc" | "desc" }>({ field: "fecha_consulta", dir: "desc" });
+
+  const handleSort = (field: string) => {
+    setSort((prev) =>
+      prev.field === field
+        ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" }
+    );
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
+    return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
+  };
 
   useEffect(() => {
     api.listConsultations({ tipo: filterTipo || undefined, estado: filterEstado || undefined })
@@ -35,6 +49,18 @@ export default function ConsultasPage() {
       c.paciente_nombre.toLowerCase().includes(q) ||
       c.paciente_dni.includes(q)
     );
+  });
+
+  const sortedConsultations = [...filtered].sort((a, b) => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const field = sort.field as keyof Consultation;
+    const av = a[field];
+    const bv = b[field];
+    if (typeof av === "string" && typeof bv === "string") {
+      if (field === "fecha_consulta") return dir * (av < bv ? -1 : av > bv ? 1 : 0);
+      return dir * av.localeCompare(bv, "es-AR");
+    }
+    return 0;
   });
 
   return (
@@ -146,16 +172,24 @@ export default function ConsultasPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-2">
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium">Fecha</th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Paciente</th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden md:table-cell">Tipo</th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Estado</th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("fecha_consulta")}>
+                    Fecha<SortIcon field="fecha_consulta" />
+                  </th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("paciente_nombre")}>
+                    Paciente<SortIcon field="paciente_nombre" />
+                  </th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden md:table-cell cursor-pointer select-none hover:text-accent" onClick={() => handleSort("tipo")}>
+                    Tipo<SortIcon field="tipo" />
+                  </th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("estado")}>
+                    Estado<SortIcon field="estado" />
+                  </th>
                   <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">Cobertura</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((c) => (
+                {sortedConsultations.map((c) => (
                   <tr key={c.id} className="hover:bg-surface-2/50 transition-colors">
                     <td className="px-5 py-4 text-text-2 text-sm">{formatDate(c.fecha_consulta)}</td>
                     <td className="px-4 py-4">

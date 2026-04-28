@@ -19,6 +19,20 @@ export default function PrestadoresPage() {
   const [especialidad, setEspecialidad] = useState("Todas");
   const [soloAprobados, setSoloAprobados] = useState(true);
   const [selected, setSelected] = useState<Practitioner | null>(null);
+  const [sort, setSort] = useState<{ field: string; dir: "asc" | "desc" }>({ field: "created_at", dir: "desc" });
+
+  const handleSort = (field: string) => {
+    setSort((prev) =>
+      prev.field === field
+        ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" }
+    );
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
+    return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
+  };
 
   const load = async (aprobados: boolean) => {
     setLoading(true);
@@ -46,6 +60,31 @@ export default function PrestadoresPage() {
 
   const vigentes = practitioners.filter((p) => p.estado_matricula === "vigente").length;
   const suspendidos = practitioners.filter((p) => p.estado_matricula === "suspendida").length;
+
+  const sortedPractitioners = [...filtered].sort((a, b) => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ra = a as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rb = b as any;
+    if (sort.field === "nombre") {
+      const an = `${a.nombre} ${a.apellido}`;
+      const bn = `${b.nombre} ${b.apellido}`;
+      return dir * an.localeCompare(bn, "es-AR");
+    }
+    if (sort.field === "especialidad") {
+      return dir * (a.especialidad ?? "").localeCompare(b.especialidad ?? "", "es-AR");
+    }
+    if (sort.field === "estado_matricula") {
+      return dir * (a.estado_matricula ?? "").localeCompare(b.estado_matricula ?? "", "es-AR");
+    }
+    if (sort.field === "created_at") {
+      const av: string = ra.created_at ?? "";
+      const bv: string = rb.created_at ?? "";
+      return dir * (av < bv ? -1 : av > bv ? 1 : 0);
+    }
+    return 0;
+  });
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -175,15 +214,23 @@ export default function PrestadoresPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-surface-2">
-                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium">Profesional</th>
-                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Código</th>
-                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Estado</th>
-                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Provincias</th>
+                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("nombre")}>
+                      Profesional<SortIcon field="nombre" />
+                    </th>
+                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("especialidad")}>
+                      Especialidad<SortIcon field="especialidad" />
+                    </th>
+                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("estado_matricula")}>
+                      Estado<SortIcon field="estado_matricula" />
+                    </th>
+                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("created_at")}>
+                      Fecha de alta<SortIcon field="created_at" />
+                    </th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filtered.map((p) => (
+                  {sortedPractitioners.map((p) => (
                     <tr
                       key={p.id}
                       className="hover:bg-surface-2/50 transition-colors cursor-pointer"
@@ -191,29 +238,16 @@ export default function PrestadoresPage() {
                     >
                       <td className="px-5 py-4">
                         <p className="text-text text-sm font-medium">{p.nombre} {p.apellido}</p>
-                        <p className="text-text-3 text-xs">{p.especialidad ?? "Sin especialidad"}</p>
+                        <p className="text-text-3 text-xs font-mono">{p.cufp ?? "—"}</p>
                       </td>
                       <td className="px-4 py-4">
-                        <MonoId value={p.cufp ?? "—"} />
+                        <p className="text-text-2 text-sm">{p.especialidad ?? "Sin especialidad"}</p>
                       </td>
                       <td className="px-4 py-4">
                         <StatusBadge status={p.estado_matricula} />
                       </td>
                       <td className="px-4 py-4">
-                        {(p.provincias_habilitadas ?? []).length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {p.provincias_habilitadas.slice(0, 2).map((prov) => (
-                              <span key={prov} className="text-[10px] px-2 py-0.5 bg-surface-2 border border-border rounded-full text-text-3">
-                                {prov}
-                              </span>
-                            ))}
-                            {p.provincias_habilitadas.length > 2 && (
-                              <span className="text-[10px] text-text-3">+{p.provincias_habilitadas.length - 2}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-text-3 text-xs">—</span>
-                        )}
+                        <p className="text-text-3 text-xs font-mono">{(p as any).created_at ? new Date((p as any).created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</p>
                       </td>
                       <td className="px-4 py-4">
                         <Link

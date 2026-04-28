@@ -28,6 +28,20 @@ export default function AuditLogPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [userId, setUserId] = useState("");
+  const [sort, setSort] = useState<{ field: string; dir: "asc" | "desc" }>({ field: "created_at", dir: "desc" });
+
+  const handleSort = (field: string) => {
+    setSort((prev) =>
+      prev.field === field
+        ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" }
+    );
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
+    return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,6 +68,23 @@ export default function AuditLogPage() {
       day: "2-digit", month: "2-digit", year: "numeric",
       hour: "2-digit", minute: "2-digit", second: "2-digit",
     });
+
+  const sortedItems = [...items].sort((a, b) => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    if (sort.field === "created_at") {
+      return dir * (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0);
+    }
+    if (sort.field === "action") {
+      return dir * a.action.localeCompare(b.action, "es-AR");
+    }
+    if (sort.field === "resource") {
+      return dir * (a.resource ?? "").localeCompare(b.resource ?? "", "es-AR");
+    }
+    if (sort.field === "user_id") {
+      return dir * (a.user_id ?? "").localeCompare(b.user_id ?? "", "es-AR");
+    }
+    return 0;
+  });
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -146,15 +177,23 @@ export default function AuditLogPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-2">
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium">Fecha</th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Acción</th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium">Recurso</th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">Usuario</th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("created_at")}>
+                    Fecha<SortIcon field="created_at" />
+                  </th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("action")}>
+                    Acción<SortIcon field="action" />
+                  </th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("resource")}>
+                    Recurso<SortIcon field="resource" />
+                  </th>
+                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell cursor-pointer select-none hover:text-accent" onClick={() => handleSort("user_id")}>
+                    Usuario<SortIcon field="user_id" />
+                  </th>
                   <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">IP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {items.map((e) => (
+                {sortedItems.map((e) => (
                   <tr key={e.id} className="hover:bg-surface-2/50 transition-colors">
                     <td className="px-5 py-3 text-text-2 text-xs font-mono">{formatDate(e.created_at)}</td>
                     <td className="px-4 py-3">
