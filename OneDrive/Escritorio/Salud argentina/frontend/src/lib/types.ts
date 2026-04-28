@@ -112,6 +112,7 @@ export interface Practitioner {
   fuente_verificacion: string;
   aprobado: boolean;
   provinces: PractitionerProvince[];
+  created_at: string;
 }
 
 export interface PractitionerInvitation {

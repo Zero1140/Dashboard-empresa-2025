@@ -11,25 +11,27 @@ const TIPO_LABEL: Record<string, string> = {
   externa: "Externa",
 };
 
+type ConsultasSortField = "fecha_consulta" | "paciente_nombre" | "tipo" | "estado";
+
+function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: "asc" | "desc" } }) {
+  if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
+  return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
+}
+
 export default function ConsultasPage() {
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTipo, setFilterTipo] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<{ field: string; dir: "asc" | "desc" }>({ field: "fecha_consulta", dir: "desc" });
+  const [sort, setSort] = useState<{ field: ConsultasSortField; dir: "asc" | "desc" }>({ field: "fecha_consulta", dir: "desc" });
 
-  const handleSort = (field: string) => {
+  const handleSort = (field: ConsultasSortField) => {
     setSort((prev) =>
       prev.field === field
         ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
         : { field, dir: "asc" }
     );
-  };
-
-  const SortIcon = ({ field }: { field: string }) => {
-    if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
-    return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
   };
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function ConsultasPage() {
 
   const sortedConsultations = [...filtered].sort((a, b) => {
     const dir = sort.dir === "asc" ? 1 : -1;
-    const field = sort.field as keyof Consultation;
+    const field: ConsultasSortField = sort.field;
     const av = a[field];
     const bv = b[field];
     if (typeof av === "string" && typeof bv === "string") {
@@ -172,20 +174,52 @@ export default function ConsultasPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-2">
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("fecha_consulta")}>
-                    Fecha<SortIcon field="fecha_consulta" />
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabIndex={0}
+                    aria-sort={sort.field === "fecha_consulta" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                    onClick={() => handleSort("fecha_consulta")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("fecha_consulta"); } }}
+                  >
+                    Fecha<SortIcon field="fecha_consulta" sort={sort} />
                   </th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("paciente_nombre")}>
-                    Paciente<SortIcon field="paciente_nombre" />
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabIndex={0}
+                    aria-sort={sort.field === "paciente_nombre" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                    onClick={() => handleSort("paciente_nombre")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("paciente_nombre"); } }}
+                  >
+                    Paciente<SortIcon field="paciente_nombre" sort={sort} />
                   </th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden md:table-cell cursor-pointer select-none hover:text-accent" onClick={() => handleSort("tipo")}>
-                    Tipo<SortIcon field="tipo" />
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabIndex={0}
+                    aria-sort={sort.field === "tipo" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden md:table-cell cursor-pointer select-none hover:text-accent"
+                    onClick={() => handleSort("tipo")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("tipo"); } }}
+                  >
+                    Tipo<SortIcon field="tipo" sort={sort} />
                   </th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("estado")}>
-                    Estado<SortIcon field="estado" />
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabIndex={0}
+                    aria-sort={sort.field === "estado" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                    onClick={() => handleSort("estado")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("estado"); } }}
+                  >
+                    Estado<SortIcon field="estado" sort={sort} />
                   </th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">Cobertura</th>
-                  <th className="px-4 py-3" />
+                  <th scope="col" className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">Cobertura</th>
+                  <th scope="col" className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

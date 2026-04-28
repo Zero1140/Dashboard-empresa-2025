@@ -6,6 +6,13 @@ import type { AuditLogEntry } from "@/lib/types";
 
 const ACTIONS = ["", "create", "read", "update", "delete", "login", "logout", "verify", "approve"];
 
+type AuditSortField = "created_at" | "action" | "resource" | "user_id";
+
+function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: "asc" | "desc" } }) {
+  if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
+  return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
+}
+
 function downloadCsv(items: AuditLogEntry[]) {
   const header = "fecha,accion,recurso,usuario_id,ip\n";
   const rows = items.map((e) =>
@@ -28,19 +35,14 @@ export default function AuditLogPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [userId, setUserId] = useState("");
-  const [sort, setSort] = useState<{ field: string; dir: "asc" | "desc" }>({ field: "created_at", dir: "desc" });
+  const [sort, setSort] = useState<{ field: AuditSortField; dir: "asc" | "desc" }>({ field: "created_at", dir: "desc" });
 
-  const handleSort = (field: string) => {
+  const handleSort = (field: AuditSortField) => {
     setSort((prev) =>
       prev.field === field
         ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
         : { field, dir: "asc" }
     );
-  };
-
-  const SortIcon = ({ field }: { field: string }) => {
-    if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
-    return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
   };
 
   const load = useCallback(async () => {
@@ -177,19 +179,51 @@ export default function AuditLogPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-2">
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("created_at")}>
-                    Fecha<SortIcon field="created_at" />
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabIndex={0}
+                    aria-sort={sort.field === "created_at" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                    onClick={() => handleSort("created_at")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("created_at"); } }}
+                  >
+                    Fecha<SortIcon field="created_at" sort={sort} />
                   </th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("action")}>
-                    Acción<SortIcon field="action" />
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabIndex={0}
+                    aria-sort={sort.field === "action" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                    onClick={() => handleSort("action")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("action"); } }}
+                  >
+                    Acción<SortIcon field="action" sort={sort} />
                   </th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("resource")}>
-                    Recurso<SortIcon field="resource" />
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabIndex={0}
+                    aria-sort={sort.field === "resource" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                    onClick={() => handleSort("resource")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("resource"); } }}
+                  >
+                    Recurso<SortIcon field="resource" sort={sort} />
                   </th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell cursor-pointer select-none hover:text-accent" onClick={() => handleSort("user_id")}>
-                    Usuario<SortIcon field="user_id" />
+                  <th
+                    scope="col"
+                    role="columnheader"
+                    tabIndex={0}
+                    aria-sort={sort.field === "user_id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell cursor-pointer select-none hover:text-accent"
+                    onClick={() => handleSort("user_id")}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("user_id"); } }}
+                  >
+                    Usuario<SortIcon field="user_id" sort={sort} />
                   </th>
-                  <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">IP</th>
+                  <th scope="col" className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium hidden lg:table-cell">IP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

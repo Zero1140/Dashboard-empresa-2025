@@ -12,6 +12,13 @@ const ESPECIALIDADES = [
   "Psiquiatría", "Traumatología", "Dermatología", "Neurología", "Endocrinología",
 ];
 
+type PrestadoresSortField = "nombre" | "especialidad" | "estado_matricula" | "created_at";
+
+function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: "asc" | "desc" } }) {
+  if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
+  return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
+}
+
 export default function PrestadoresPage() {
   const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,19 +26,14 @@ export default function PrestadoresPage() {
   const [especialidad, setEspecialidad] = useState("Todas");
   const [soloAprobados, setSoloAprobados] = useState(true);
   const [selected, setSelected] = useState<Practitioner | null>(null);
-  const [sort, setSort] = useState<{ field: string; dir: "asc" | "desc" }>({ field: "created_at", dir: "desc" });
+  const [sort, setSort] = useState<{ field: PrestadoresSortField; dir: "asc" | "desc" }>({ field: "created_at", dir: "desc" });
 
-  const handleSort = (field: string) => {
+  const handleSort = (field: PrestadoresSortField) => {
     setSort((prev) =>
       prev.field === field
         ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
         : { field, dir: "asc" }
     );
-  };
-
-  const SortIcon = ({ field }: { field: string }) => {
-    if (sort.field !== field) return <span className="text-text-3 text-xs ml-1">⇅</span>;
-    return <span className="text-accent text-xs ml-1">{sort.dir === "asc" ? "▲" : "▼"}</span>;
   };
 
   const load = async (aprobados: boolean) => {
@@ -63,10 +65,6 @@ export default function PrestadoresPage() {
 
   const sortedPractitioners = [...filtered].sort((a, b) => {
     const dir = sort.dir === "asc" ? 1 : -1;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ra = a as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rb = b as any;
     if (sort.field === "nombre") {
       const an = `${a.nombre} ${a.apellido}`;
       const bn = `${b.nombre} ${b.apellido}`;
@@ -79,8 +77,8 @@ export default function PrestadoresPage() {
       return dir * (a.estado_matricula ?? "").localeCompare(b.estado_matricula ?? "", "es-AR");
     }
     if (sort.field === "created_at") {
-      const av: string = ra.created_at ?? "";
-      const bv: string = rb.created_at ?? "";
+      const av = a.created_at ?? "";
+      const bv = b.created_at ?? "";
       return dir * (av < bv ? -1 : av > bv ? 1 : 0);
     }
     return 0;
@@ -214,19 +212,51 @@ export default function PrestadoresPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-surface-2">
-                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("nombre")}>
-                      Profesional<SortIcon field="nombre" />
+                    <th
+                      scope="col"
+                      role="columnheader"
+                      tabIndex={0}
+                      aria-sort={sort.field === "nombre" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                      className="text-left text-text-3 text-[10px] uppercase tracking-widest px-5 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                      onClick={() => handleSort("nombre")}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("nombre"); } }}
+                    >
+                      Profesional<SortIcon field="nombre" sort={sort} />
                     </th>
-                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("especialidad")}>
-                      Especialidad<SortIcon field="especialidad" />
+                    <th
+                      scope="col"
+                      role="columnheader"
+                      tabIndex={0}
+                      aria-sort={sort.field === "especialidad" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                      className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                      onClick={() => handleSort("especialidad")}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("especialidad"); } }}
+                    >
+                      Especialidad<SortIcon field="especialidad" sort={sort} />
                     </th>
-                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("estado_matricula")}>
-                      Estado<SortIcon field="estado_matricula" />
+                    <th
+                      scope="col"
+                      role="columnheader"
+                      tabIndex={0}
+                      aria-sort={sort.field === "estado_matricula" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                      className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                      onClick={() => handleSort("estado_matricula")}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("estado_matricula"); } }}
+                    >
+                      Estado<SortIcon field="estado_matricula" sort={sort} />
                     </th>
-                    <th className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent" onClick={() => handleSort("created_at")}>
-                      Fecha de alta<SortIcon field="created_at" />
+                    <th
+                      scope="col"
+                      role="columnheader"
+                      tabIndex={0}
+                      aria-sort={sort.field === "created_at" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                      className="text-left text-text-3 text-[10px] uppercase tracking-widest px-4 py-3 font-medium cursor-pointer select-none hover:text-accent"
+                      onClick={() => handleSort("created_at")}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort("created_at"); } }}
+                    >
+                      Fecha de alta<SortIcon field="created_at" sort={sort} />
                     </th>
-                    <th className="px-4 py-3" />
+                    <th scope="col" className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -247,7 +277,7 @@ export default function PrestadoresPage() {
                         <StatusBadge status={p.estado_matricula} />
                       </td>
                       <td className="px-4 py-4">
-                        <p className="text-text-3 text-xs font-mono">{(p as any).created_at ? new Date((p as any).created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</p>
+                        <p className="text-text-3 text-xs font-mono">{p.created_at ? new Date(p.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</p>
                       </td>
                       <td className="px-4 py-4">
                         <Link
