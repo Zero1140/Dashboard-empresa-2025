@@ -151,7 +151,7 @@ export default function RegistroPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-base flex flex-col">
-        <PageHeader />
+        <PageHeader onBack={() => router.push("/login")} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-3">
             <span className="spinner" />
@@ -167,7 +167,7 @@ export default function RegistroPage() {
   if (invError) {
     return (
       <div className="min-h-screen bg-base flex flex-col">
-        <PageHeader />
+        <PageHeader onBack={() => router.push("/login")} />
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="card p-8 max-w-sm w-full text-center space-y-4 animate-fadeIn">
             <div className="w-12 h-12 rounded-full bg-danger-bg border border-danger/20 flex items-center justify-center mx-auto">
@@ -208,7 +208,7 @@ export default function RegistroPage() {
   if (done) {
     return (
       <div className="min-h-screen bg-base flex flex-col">
-        <PageHeader />
+        <PageHeader onBack={() => router.push("/login")} />
         <div className="flex-1 flex items-center justify-center px-4 py-12">
           <div className="card p-8 max-w-md w-full space-y-5 animate-fadeIn">
             {/* Check icon */}
@@ -300,7 +300,7 @@ export default function RegistroPage() {
 
   return (
     <div className="min-h-screen bg-base flex flex-col">
-      <PageHeader />
+      <PageHeader onBack={() => router.push("/login")} />
 
       <main className="flex-1 flex items-start justify-center px-4 py-10">
         <div className="max-w-md w-full space-y-5">
@@ -486,9 +486,23 @@ export default function RegistroPage() {
 
 // ── Shared header ────────────────────────────────────────────────────────────
 
-function PageHeader() {
+function PageHeader({ onBack }: { onBack?: () => void }) {
   return (
     <header className="border-b border-border px-6 py-4 flex items-center gap-3">
+      {onBack && (
+        <>
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-text-3 hover:text-text text-sm transition-colors flex-shrink-0"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            ← Volver al inicio
+          </button>
+          <div className="w-px h-6 bg-border flex-shrink-0" />
+        </>
+      )}
       <div className="w-7 h-7 rounded bg-accent flex items-center justify-center flex-shrink-0">
         <svg
           width="14"

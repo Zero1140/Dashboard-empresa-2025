@@ -1,7 +1,7 @@
 // frontend/src/app/recetas/[cuir]/page.tsx
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
 import StatusBadge from "@/components/ui/StatusBadge";
 import MonoId from "@/components/ui/MonoId";
@@ -17,6 +17,7 @@ const ESTADO_LABELS: Record<string, string> = {
 
 export default function PublicPrescriptionPage() {
   const { cuir } = useParams<{ cuir: string }>();
+  const router = useRouter();
   const [rx, setRx] = useState<PublicPrescription | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -52,6 +53,16 @@ export default function PublicPrescriptionPage() {
     <div className="min-h-screen bg-base flex flex-col">
       {/* Header */}
       <header className="border-b border-border px-6 py-4 flex items-center gap-3">
+        <button
+          onClick={() => document.referrer !== "" ? router.back() : router.push("/")}
+          className="flex items-center gap-1.5 text-text-3 hover:text-text text-sm transition-colors mr-1 flex-shrink-0"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          ← Inicio
+        </button>
+        <div className="w-px h-6 bg-border flex-shrink-0" />
         <div className="w-7 h-7 rounded bg-accent flex items-center justify-center flex-shrink-0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#080C18" strokeWidth="2.5">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>

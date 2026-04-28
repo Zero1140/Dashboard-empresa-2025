@@ -188,10 +188,26 @@ export default function PractitionerDetailPage() {
     return (found?.estado as ProvinceStatus) ?? "pendiente";
   };
 
+  // ── Back button (shared) ───────────────────────────────────────────────
+  const BackButton = () => (
+    <div className="px-4 pt-3 pb-0">
+      <button
+        onClick={() => router.back()}
+        className="flex items-center gap-1.5 text-text-3 hover:text-text text-sm transition-colors mb-1"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        ← Médicos
+      </button>
+    </div>
+  );
+
   // ── Render: loading ────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
+        <BackButton />
         <TopBar title="Prestador" subtitle="Cargando..." />
         <div className="p-6 flex items-center justify-center py-24">
           <span className="spinner" />
@@ -204,6 +220,7 @@ export default function PractitionerDetailPage() {
   if (error || !practitioner) {
     return (
       <div className="flex flex-col min-h-screen">
+        <BackButton />
         <TopBar title="Prestador no encontrado" />
         <div className="p-6 flex items-center justify-center py-24">
           <div className="card p-8 max-w-md w-full text-center space-y-4">
@@ -275,6 +292,7 @@ export default function PractitionerDetailPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <BackButton />
       <TopBar
         title={`${practitioner.apellido}, ${practitioner.nombre}`}
         subtitle={practitioner.especialidad ?? "Sin especialidad registrada"}
