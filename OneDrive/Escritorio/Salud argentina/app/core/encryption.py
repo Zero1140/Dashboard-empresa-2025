@@ -5,7 +5,7 @@ Diseñado con KeyProvider pluggable para facilitar migración futura:
 """
 import hashlib
 import hmac as _hmac
-import os
+import logging
 from abc import ABC, abstractmethod
 
 from cryptography.fernet import Fernet
@@ -34,7 +34,6 @@ class FernetKeyProvider(KeyProvider):
             if settings.is_production:
                 raise RuntimeError("ENCRYPTION_KEY es obligatoria en producción")
             if self._dev_key is None:
-                import logging
                 logging.getLogger(__name__).warning(
                     "ENCRYPTION_KEY no definida — usando clave temporal de desarrollo. "
                     "Los datos NO serán persistibles entre reinicios."
@@ -73,7 +72,7 @@ class EncryptedString(TypeDecorator):
     """
 
     impl = String
-    cache_ok = True
+    cache_ok = True  # Safe: no per-instance key state; key is fetched dynamically via get_fernet()
 
     def process_bind_param(self, value, dialect):
         if value is None:
@@ -83,4 +82,6 @@ class EncryptedString(TypeDecorator):
     def process_result_value(self, value, dialect):
         if value is None:
             return None
+        # Raises InvalidToken if value is not Fernet ciphertext.
+        # Migration 006 must complete before this decorator is active on live columns.
         return get_fernet().decrypt(value.encode()).decode()
