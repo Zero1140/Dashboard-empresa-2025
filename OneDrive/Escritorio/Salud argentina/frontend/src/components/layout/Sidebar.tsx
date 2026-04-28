@@ -72,6 +72,33 @@ const NAV = [
   },
 ];
 
+const NAV_ADMIN = [
+  {
+    href: "/admin/audit",
+    label: "Audit Log",
+    sublabel: "Ley 25.326",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M9 12h6M9 16h6M9 8h6" strokeLinecap="round"/>
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>
+    ),
+  },
+  {
+    href: "/admin/tenants",
+    label: "Tenants",
+    sublabel: "Obras sociales",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="2" y="7" width="20" height="14" rx="2"/>
+        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+        <line x1="12" y1="12" x2="12" y2="16" strokeLinecap="round"/>
+        <line x1="10" y1="14" x2="14" y2="14" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -130,6 +157,37 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        <div className="pt-3 mt-2 border-t border-border/50">
+          <p className="text-text-3 text-[10px] font-medium tracking-widest uppercase px-2 pb-2">Admin</p>
+          {NAV_ADMIN.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-2.5 py-2.5 rounded-md text-sm transition-all duration-150 group ${
+                  active
+                    ? "bg-accent-glow text-accent border border-border-bright"
+                    : "text-text-2 hover:text-text hover:bg-surface-2"
+                }`}
+              >
+                <span className={active ? "text-accent" : "text-text-3 group-hover:text-text-2"}>
+                  {item.icon}
+                </span>
+                <div className="min-w-0">
+                  <div className="leading-tight truncate">{item.label}</div>
+                  {item.sublabel && (
+                    <div className={`text-[10px] tracking-wide ${active ? "text-accent-dim" : "text-text-3"}`}>
+                      {item.sublabel}
+                    </div>
+                  )}
+                </div>
+                {active && <div className="ml-auto w-1 h-1 rounded-full bg-accent flex-shrink-0" />}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Footer */}

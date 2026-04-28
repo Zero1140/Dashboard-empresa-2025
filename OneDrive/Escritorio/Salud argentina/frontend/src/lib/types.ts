@@ -61,6 +61,7 @@ export interface Consultation {
   diagnostico_snomed_code: string | null;
   diagnostico_texto: string | null;
   notas_clinicas: string | null;
+  paciente_consentimiento_informado: boolean;
   created_at: string;
   prescriptions: ConsultationPrescriptionSummary[];
 }
@@ -127,10 +128,28 @@ export interface InvitationInfo {
 }
 
 export interface DashboardStats {
+  tenants_total: number;
   practitioners_total: number;
   practitioners_aprobados: number;
-  consultations_today: number;
-  prescriptions_active: number;
+  consultations_total: number;
+  prescriptions_activas: number;
+  verificaciones_hoy: number;
+  cobertura_mercado_pct: number;
+}
+
+export interface Tenant {
+  id: string;
+  nombre: string;
+  tipo: string;
+  activo: boolean;
+  created_at: string;
+}
+
+export interface TenantCreate {
+  nombre: string;
+  tipo?: string;
+  admin_email: string;
+  admin_password: string;
 }
 
 export interface ConsentEvent {

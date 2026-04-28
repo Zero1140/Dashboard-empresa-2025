@@ -2,6 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import QRCode from "react-qr-code";
 import StatusBadge from "@/components/ui/StatusBadge";
 import MonoId from "@/components/ui/MonoId";
 import { api } from "@/lib/api";
@@ -135,6 +136,21 @@ export default function PublicPrescriptionPage() {
 
               <hr className="divider-accent" />
               <MonoId value={rx.cuir} label="CUIR" />
+
+              {/* QR para farmacia */}
+              <div className="border border-border rounded-lg p-4 flex flex-col items-center gap-3">
+                <p className="text-text-3 text-[10px] uppercase tracking-widest">Código QR — Farmacia</p>
+                <div className="bg-white p-3 rounded-md">
+                  <QRCode
+                    value={typeof window !== "undefined"
+                      ? `${window.location.origin}/recetas/${rx.cuir}`
+                      : `/recetas/${rx.cuir}`}
+                    size={140}
+                    level="M"
+                  />
+                </div>
+                <p className="text-text-3 text-[10px] text-center">Escaneá para verificar en la farmacia</p>
+              </div>
             </div>
 
             <p className="text-text-3 text-[10px] text-center">

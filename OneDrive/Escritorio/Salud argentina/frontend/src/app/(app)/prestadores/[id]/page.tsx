@@ -19,11 +19,33 @@ const PROVINCIAS = [
 const PROVINCE_STATUS_OPTIONS = ["pendiente", "tramitando", "habilitado"] as const;
 type ProvinceStatus = typeof PROVINCE_STATUS_OPTIONS[number];
 
-const PROVINCE_BADGE: Record<ProvinceStatus, string> = {
-  pendiente: "text-text-3 bg-surface-2 border-border",
-  tramitando: "text-warning bg-warning-bg border-warning/30",
-  habilitado: "text-success bg-success-bg border-success/30",
-};
+// Geographic schematic map: col (1-8), row (1-9) — shape of Argentina, N top, S bottom
+const PROVINCE_MAP: { name: string; abbr: string; col: number; row: number }[] = [
+  { name: "Jujuy",               abbr: "JJY", col: 4, row: 1 },
+  { name: "Salta",               abbr: "SAL", col: 5, row: 1 },
+  { name: "Formosa",             abbr: "FOR", col: 6, row: 1 },
+  { name: "Chaco",               abbr: "CHA", col: 7, row: 1 },
+  { name: "Misiones",            abbr: "MIS", col: 8, row: 1 },
+  { name: "Tucumán",             abbr: "TUC", col: 4, row: 2 },
+  { name: "Santiago del Estero", abbr: "SGO", col: 5, row: 2 },
+  { name: "Corrientes",          abbr: "COR", col: 7, row: 2 },
+  { name: "Entre Ríos",          abbr: "ERÍ", col: 8, row: 2 },
+  { name: "Catamarca",           abbr: "CAT", col: 3, row: 3 },
+  { name: "La Rioja",            abbr: "LRJ", col: 4, row: 3 },
+  { name: "Córdoba",             abbr: "CBA", col: 5, row: 3 },
+  { name: "Santa Fe",            abbr: "SFE", col: 6, row: 3 },
+  { name: "CABA",                abbr: "CAB", col: 7, row: 3 },
+  { name: "Buenos Aires",        abbr: "BAS", col: 8, row: 3 },
+  { name: "San Juan",            abbr: "SJN", col: 2, row: 4 },
+  { name: "San Luis",            abbr: "SLU", col: 3, row: 4 },
+  { name: "La Pampa",            abbr: "LPA", col: 5, row: 4 },
+  { name: "Mendoza",             abbr: "MDZ", col: 2, row: 5 },
+  { name: "Neuquén",             abbr: "NQN", col: 3, row: 5 },
+  { name: "Río Negro",           abbr: "RNG", col: 4, row: 5 },
+  { name: "Chubut",              abbr: "CHU", col: 3, row: 6 },
+  { name: "Santa Cruz",          abbr: "SCZ", col: 3, row: 7 },
+  { name: "Tierra del Fuego",    abbr: "TDF", col: 2, row: 8 },
+];
 
 export default function PractitionerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -195,27 +217,74 @@ export default function PractitionerDetailPage() {
           </div>
         )}
 
+        {/* Province schematic map */}
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-text font-semibold text-sm">Tracking de habilitación por provincia</p>
-            <p className="text-text-3 text-xs">Gestión manual del proceso de tramitación</p>
+            <p className="text-text font-semibold text-sm">Habilitación por provincia</p>
+            <p className="text-text-3 text-xs">
+              {PROVINCE_MAP.filter((p) => getProvinceStatus(p.name) === "habilitado").length}/24 habilitadas
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {PROVINCIAS.map((provincia) => {
-              const estado = getProvinceStatus(provincia);
+
+          {/* Legend */}
+          <div className="flex gap-4 text-xs">
+            {(["pendiente", "tramitando", "habilitado"] as ProvinceStatus[]).map((s) => (
+              <div key={s} className="flex items-center gap-1.5">
+                <div className={`w-2.5 h-2.5 rounded-sm ${
+                  s === "habilitado" ? "bg-success/60" :
+                  s === "tramitando" ? "bg-warning/60" :
+                  "bg-surface-2 border border-border"
+                }`} />
+                <span className="text-text-3 capitalize">{s}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Geographic grid */}
+          <div
+            className="grid gap-1"
+            style={{ gridTemplateColumns: "repeat(8, 1fr)", gridTemplateRows: "repeat(9, auto)" }}
+          >
+            {PROVINCE_MAP.map(({ name, abbr, col, row }) => {
+              const estado = getProvinceStatus(name);
               return (
-                <div key={provincia} className={`flex items-center justify-between px-3 py-2.5 rounded-md border ${PROVINCE_BADGE[estado]}`}>
-                  <span className="text-sm font-medium">{provincia}</span>
-                  <select
-                    value={estado}
-                    onChange={(e) => handleProvinceChange(provincia, e.target.value as ProvinceStatus)}
-                    disabled={patchingProvince === provincia}
-                    className="bg-transparent text-xs border-none outline-none cursor-pointer"
-                  >
-                    {PROVINCE_STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
+                <div
+                  key={name}
+                  title={name}
+                  style={{ gridColumn: col, gridRow: row }}
+                  className={`relative group rounded p-1 transition-all cursor-pointer border ${
+                    estado === "habilitado"
+                      ? "bg-success/15 border-success/30 hover:bg-success/25"
+                      : estado === "tramitando"
+                      ? "bg-warning/15 border-warning/30 hover:bg-warning/25"
+                      : "bg-surface-2 border-border hover:bg-surface"
+                  }`}
+                >
+                  <p className={`text-[9px] font-mono font-medium text-center leading-none ${
+                    estado === "habilitado" ? "text-success" :
+                    estado === "tramitando" ? "text-warning" :
+                    "text-text-3"
+                  }`}>
+                    {abbr}
+                  </p>
+
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 hidden group-hover:block">
+                    <div className="bg-surface border border-border rounded px-2 py-1.5 shadow-lg min-w-max space-y-1">
+                      <p className="text-text text-xs font-medium">{name}</p>
+                      <select
+                        value={estado}
+                        onChange={(e) => handleProvinceChange(name, e.target.value as ProvinceStatus)}
+                        disabled={patchingProvince === name}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-surface-2 text-text-2 text-xs border border-border rounded px-1.5 py-0.5 w-full"
+                      >
+                        {PROVINCE_STATUS_OPTIONS.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               );
             })}

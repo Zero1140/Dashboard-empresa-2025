@@ -143,11 +143,18 @@ export default function ConsultaRoomPage() {
           {/* Patient + coverage */}
           <div className="card p-4 space-y-2">
             <p className="text-text-3 text-[10px] uppercase tracking-widest">Paciente</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <MonoId value={consultation.paciente_dni} label="DNI" dimmed />
               <div>
                 <p className="text-text-3 text-[10px] uppercase tracking-widest">Cobertura</p>
                 <StatusBadge status={consultation.cobertura_verificada ? "activa" : "mock"} label={consultation.cobertura_verificada ? "Verificada" : "Sin verificar"} />
+              </div>
+              <div>
+                <p className="text-text-3 text-[10px] uppercase tracking-widest">Consentimiento</p>
+                <StatusBadge
+                  status={consultation.paciente_consentimiento_informado ? "activa" : "mock"}
+                  label={consultation.paciente_consentimiento_informado ? "Informado (Ley 26.529)" : "Pendiente"}
+                />
               </div>
             </div>
           </div>

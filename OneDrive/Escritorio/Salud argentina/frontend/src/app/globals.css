@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-space-grotesk: 'Space Grotesk', system-ui, sans-serif;
+  --font-ibm-plex-mono: 'IBM Plex Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #080C18;
+  color: #E8ECF4;
+  font-family: var(--font-space-grotesk);
+  min-height: 100vh;
+}
+
+/* Scrollbar oscuro */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #080C18; }
+::-webkit-scrollbar-thumb { background: #1E2A45; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2A3A5C; }
+
+/* Selección */
+::selection { background: rgba(0,212,180,0.25); color: #E8ECF4; }
+
+/* IDs médicos — el anchor visual del sistema */
+.medical-id {
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.85em;
+  color: #00D4B4;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 12px rgba(0,212,180,0.4);
+}
+
+/* Línea separadora con glow */
+.divider-accent {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #00D4B4, transparent);
+  opacity: 0.3;
+}
+
+/* Card base */
+.card {
+  background: #0F1629;
+  border: 1px solid #1E2A45;
+  border-radius: 8px;
+}
+
+.card-hover {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.card-hover:hover {
+  border-color: #2A3A5C;
+  box-shadow: 0 0 20px rgba(0,212,180,0.08);
+}
+
+/* Input base */
+.input-base {
+  background: #080C18;
+  border: 1px solid #1E2A45;
+  border-radius: 6px;
+  color: #E8ECF4;
+  font-family: var(--font-space-grotesk);
+  font-size: 0.9rem;
+  padding: 10px 14px;
+  width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+.input-base::placeholder { color: #4A5A72; }
+.input-base:focus {
+  border-color: #00D4B4;
+  box-shadow: 0 0 0 3px rgba(0,212,180,0.1);
+}
+
+/* Botón primario */
+.btn-primary {
+  background: #00D4B4;
+  color: #080C18;
+  font-family: var(--font-space-grotesk);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  letter-spacing: 0.01em;
+}
+.btn-primary:hover {
+  background: #00BEAA;
+  box-shadow: 0 0 16px rgba(0,212,180,0.3);
+}
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled {
+  background: #1E2A45;
+  color: #4A5A72;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Botón secundario */
+.btn-secondary {
+  background: transparent;
+  color: #7A8BA6;
+  font-family: var(--font-space-grotesk);
+  font-weight: 500;
+  font-size: 0.9rem;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: 1px solid #1E2A45;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover {
+  border-color: #2A3A5C;
+  color: #E8ECF4;
+  background: #0F1629;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn { animation: fadeIn 0.25s ease forwards; }
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(0,212,180,0.3); }
+  50%       { box-shadow: 0 0 12px rgba(0,212,180,0.6); }
+}
+.animate-pulse-glow { animation: pulse-glow 2s ease infinite; }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid #1E2A45;
+  border-top-color: #00D4B4;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+/* Landing page ticker */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-33.33%); }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}

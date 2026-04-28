@@ -134,6 +134,7 @@ export const api = {
     paciente_nombre: string;
     paciente_afiliado_id?: string;
     financiador_id?: string;
+    paciente_consentimiento_informado?: boolean;
   }) =>
     request<import("./types").Consultation>("/v1/consultations", {
       method: "POST",
@@ -277,6 +278,21 @@ export const api = {
     return request("/v1/auth/password-reset/confirm", {
       method: "POST",
       body: JSON.stringify({ token, new_password: newPassword }),
+    });
+  },
+
+  async getDashboardStats(): Promise<import("./types").DashboardStats> {
+    return request("/v1/admin/stats");
+  },
+
+  async listTenants(): Promise<import("./types").Tenant[]> {
+    return request("/v1/admin/tenants");
+  },
+
+  async createTenant(body: import("./types").TenantCreate): Promise<import("./types").Tenant> {
+    return request("/v1/admin/tenants", {
+      method: "POST",
+      body: JSON.stringify(body),
     });
   },
 };

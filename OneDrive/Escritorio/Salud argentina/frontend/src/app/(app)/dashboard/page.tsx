@@ -1,35 +1,26 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import StatCard from "@/components/ui/StatCard";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { api } from "@/lib/api";
-import type { HealthResponse } from "@/lib/types";
-import Link from "next/link";
+import type { DashboardStats, HealthResponse } from "@/lib/types";
 
 export default function DashboardPage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [stats, setStats] = useState({
-    practitioners: 0,
-    consultations: 0,
-    prescriptions: 0,
-  });
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadAll = async () => {
       try {
-        const [h, practitioners, consultations] = await Promise.all([
+        const [h, s] = await Promise.all([
           api.health(),
-          api.listPractitioners(false).catch(() => [] as never[]),
-          api.listConsultations().catch(() => [] as never[]),
+          api.getDashboardStats().catch(() => null),
         ]);
         setHealth(h);
-        setStats({
-          practitioners: practitioners.length,
-          consultations: consultations.length,
-          prescriptions: 0,
-        });
+        setStats(s);
       } finally {
         setLoading(false);
       }
@@ -43,10 +34,10 @@ export default function DashboardPage() {
   };
 
   const QUICK_ACTIONS = [
-    { href: "/prestadores/invitar", label: "Invitar prestador", icon: "👤" },
-    { href: "/consultas/nueva", label: "Nueva consulta", icon: "🩺" },
-    { href: "/credenciales", label: "Verificar matrícula", icon: "✅" },
-    { href: "/elegibilidad", label: "Verificar cobertura", icon: "🏥" },
+    { href: "/prestadores/invitar", label: "Invitar prestador",    icon: "👤" },
+    { href: "/consultas/nueva",     label: "Nueva consulta",       icon: "🩺" },
+    { href: "/credenciales",        label: "Verificar matrícula",  icon: "✅" },
+    { href: "/elegibilidad",        label: "Verificar cobertura",  icon: "🏥" },
   ];
 
   return (
@@ -73,26 +64,62 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-4">
+        {/* KPI row — operaciones */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
-            label="Prestadores"
-            value={loading ? "—" : String(stats.practitioners)}
-            sub="en la red del tenant"
-            accent={stats.practitioners > 0}
+            label="Prestadores en red"
+            value={loading || !stats ? "—" : String(stats.practitioners_total)}
+            sub={stats ? `${stats.practitioners_aprobados} aprobados` : "cargando..."}
+            accent={!!stats && stats.practitioners_aprobados > 0}
           />
           <StatCard
-            label="Consultas"
-            value={loading ? "—" : String(stats.consultations)}
+            label="Consultas totales"
+            value={loading || !stats ? "—" : String(stats.consultations_total)}
             sub="en el historial"
           />
           <StatCard
-            label="Cobertura"
-            value="70%"
-            sub="del mercado argentino"
-            accent
+            label="Recetas activas"
+            value={loading || !stats ? "—" : String(stats.prescriptions_activas)}
+            sub="pendientes dispensación"
+            accent={!!stats && stats.prescriptions_activas > 0}
+          />
+          <StatCard
+            label="Verificaciones hoy"
+            value={loading || !stats ? "—" : String(stats.verificaciones_hoy)}
+            sub="REFEPS consultado"
           />
         </div>
 
+        {/* Market coverage + provinces */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="card p-4 col-span-2">
+            <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Cobertura del mercado</p>
+            <div className="flex items-end gap-3">
+              <p className="text-4xl font-bold text-accent tabular-nums">
+                {stats ? `${stats.cobertura_mercado_pct}%` : "—"}
+              </p>
+              <p className="text-text-2 text-sm mb-1">
+                del mercado argentino
+                <br />
+                <span className="text-text-3 text-xs">via Farmalink Hub + OSDE FHIR</span>
+              </p>
+            </div>
+            <div className="mt-3 h-1.5 bg-surface-2 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent rounded-full transition-all duration-1000"
+                style={{ width: stats ? `${stats.cobertura_mercado_pct}%` : "0%" }}
+              />
+            </div>
+          </div>
+
+          <div className="card p-4 flex flex-col justify-between">
+            <p className="text-text-3 text-[10px] uppercase tracking-widest">Provincias cubiertas</p>
+            <p className="text-4xl font-bold text-text">24</p>
+            <p className="text-text-3 text-xs">habilitación multi-jurisdicción</p>
+          </div>
+        </div>
+
+        {/* Quick actions */}
         <div>
           <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Acciones rápidas</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -109,14 +136,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Connectors */}
         {!loading && (
           <div>
             <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Estado de conectores</p>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { id: "refeps", name: "REFEPS/SISA", sub: "Credencialización" },
-                { id: "farmalink", name: "Farmalink Hub", sub: "Elegibilidad" },
-                { id: "osde", name: "OSDE FHIR", sub: "Cobertura OSDE" },
+                { id: "refeps",    name: "REFEPS/SISA",   sub: "Credencialización" },
+                { id: "farmalink", name: "Farmalink Hub",  sub: "Elegibilidad" },
+                { id: "osde",      name: "OSDE FHIR",      sub: "Cobertura OSDE" },
               ].map((c) => {
                 const st = connectorStatus(c.id);
                 return (
@@ -135,7 +163,7 @@ export default function DashboardPage() {
         )}
 
         <div className="card p-4 flex items-center gap-4">
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {["Ley 27.553", "CUIR", "FHIR R4", "Ley 25.326"].map((n) => (
               <span key={n} className="text-[10px] px-2 py-0.5 bg-success-bg border border-success/30 rounded text-success font-mono">{n}</span>
             ))}

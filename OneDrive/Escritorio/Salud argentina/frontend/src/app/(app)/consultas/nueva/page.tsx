@@ -19,6 +19,7 @@ export default function NuevaConsultaPage() {
   const [financiadorId, setFinanciadorId] = useState("");
   const [financiadores, setFinanciadores] = useState<{ id: string; nombre: string }[]>([]);
   const [coberturaStatus, setCoberturaStatus] = useState<"idle" | "checking" | "activa" | "inactiva">("idle");
+  const [consentimiento, setConsentimiento] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -49,6 +50,7 @@ export default function NuevaConsultaPage() {
         paciente_nombre: pacienteNombre.trim(),
         paciente_afiliado_id: afiliadoId.trim() || undefined,
         financiador_id: financiadorId || undefined,
+        paciente_consentimiento_informado: consentimiento,
       });
       router.push(`/consultas/${consultation.id}`);
     } catch (e) {
@@ -187,6 +189,23 @@ export default function NuevaConsultaPage() {
                   <div><p className="text-text-3 text-[10px] uppercase tracking-widest">Cobertura</p><StatusBadge status="activa" label="Activa" /></div>
                 )}
               </div>
+            </div>
+            {/* Consentimiento informado */}
+            <div className="border border-border rounded-lg p-4 space-y-2">
+              <p className="text-text-3 text-[10px] uppercase tracking-widest">Consentimiento informado (Ley 26.529)</p>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={consentimiento}
+                  onChange={(e) => setConsentimiento(e.target.checked)}
+                  className="mt-0.5 accent-accent w-4 h-4 flex-shrink-0"
+                />
+                <p className="text-text-2 text-xs leading-relaxed">
+                  El paciente ha sido informado sobre la consulta, sus derechos según la Ley 26.529
+                  (derechos del paciente), y consiente el uso de sus datos de salud conforme a la
+                  Ley 25.326.
+                </p>
+              </label>
             </div>
             {error && <div className="bg-danger-bg border border-danger/20 rounded-lg px-4 py-3"><p className="text-danger text-sm">{error}</p></div>}
             <div className="flex gap-3">
