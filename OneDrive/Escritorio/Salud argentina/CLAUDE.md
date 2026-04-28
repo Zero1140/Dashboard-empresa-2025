@@ -332,6 +332,9 @@ Open-RSD (ref):    https://github.com/SALUD-AR/Open-RSD
 - [x] Fundación técnica (FastAPI + PostgreSQL + FHIR R4) — branch `feat/conectores-reales`
 - [x] Credencialización Fase 2: invitaciones, cartilla, provincias, Celery re-verificación
 - [x] Compliance legal: audit log a DB, derecho de supresión, consent_events (Ley 25.326)
+- [x] Demo investor: dashboard con KPIs reales, landing page, QR en recetas, consentimiento informado, tenants admin
+- [x] UX overhaul mobile/WebView: bottom nav, sidebar drawer, responsive grids, jargon cleanup, toast system
+- [x] UX multi-stakeholder (EN PROGRESO — ver sección abajo)
 - [ ] Constitución legal (SRL + AFIP)
 - [ ] Solicitud acceso WS REFEPS (Formulario A1 → soporte@sisa.msal.gov.ar)
 - [ ] Registro ReNaPDiS vía TAD
@@ -342,6 +345,75 @@ Open-RSD (ref):    https://github.com/SALUD-AR/Open-RSD
 
 - `docs/flujo-maestro.md` — Diagramas de flujo completos (Track A + Track B + Gantt + Checklists)
 - `docs/superpowers/plans/2026-04-26-infrastructure-complete.md` — Plan ejecutado (14 tareas)
+
+---
+
+## 🚧 Trabajo en Progreso — Sesión 2026-04-28
+
+### Contexto
+Se inició una mejora UX multi-stakeholder para que la plataforma sea usable por todos los involucrados: médicos, admins de obra social, abogados/compliance, farmacéuticos y pacientes.
+
+### ✅ Completado en esta sesión
+
+**UX Mobile/WebView (100% hecho):**
+- `frontend/src/context/SidebarContext.tsx` — contexto global para toggle del sidebar
+- `frontend/src/context/ToastContext.tsx` — sistema de toasts (`useToast()` hook disponible en cualquier página)
+- `frontend/src/components/layout/BottomNav.tsx` — barra de navegación inferior para mobile (5 ítems)
+- `frontend/src/app/(app)/layout.tsx` — responsive: `md:ml-60`, overlay backdrop, providers wrapping
+- `frontend/src/components/layout/Sidebar.tsx` — drawer en mobile (`-translate-x-full md:translate-x-0`), botón X, touch targets 44px
+- `frontend/src/components/layout/TopBar.tsx` — hamburger button en mobile, subtitle oculto en xs
+- Grids responsive en dashboard, consultas, prestadores, elegibilidad
+- Jargon cleanup: "Motor OpenLoop/CareValidate" → plain Spanish en todos lados
+- `frontend/src/app/(app)/prestadores/page.tsx` — cards en mobile, tabla en desktop
+
+**Backend stats:**
+- `app/api/v1/endpoints/admin.py` — `practitioners_pendientes` en BusinessStats, filtros `from_date`/`to_date` en audit log
+
+**Backend practitioners:**
+- `app/api/v1/endpoints/practitioners.py` — `InvitationListItem` model, `GET /invitations`, `POST /invitations/{id}/resend`
+
+**Backend prescriptions:**
+- `app/api/v1/endpoints/prescriptions.py` — `POST /prescriptions/{cuir}/dispense` (endpoint público para farmacéuticos)
+
+### ❌ Pendiente para mañana (interrumpido a mitad)
+
+**Prioridad 1 — Buscador de medicamentos (MÉDICO):**
+- Crear `frontend/src/data/medicamentos.ts` — dataset de ~80 medicamentos argentinos con SNOMED CT codes
+- Actualizar `frontend/src/app/(app)/consultas/[id]/page.tsx` — reemplazar input manual de SNOMED por autocomplete que llena nombre + código al seleccionar
+- El médico tipea "amox" y ve "Amoxicilina 500mg" → selecciona → se llenan ambos campos
+
+**Prioridad 2 — Cola de aprobaciones pendientes (ADMIN):**
+- Actualizar `frontend/src/app/(app)/dashboard/page.tsx` — banner de alerta si `stats.practitioners_pendientes > 0` con link a `/prestadores/pendientes`
+- Crear `frontend/src/app/(app)/prestadores/pendientes/page.tsx` — lista de médicos no aprobados con botón "Aprobar" por cada uno (llama `api.approvePractitioner(id)`)
+- Agregar `practitioners_pendientes: number` a `DashboardStats` en `frontend/src/lib/types.ts`
+
+**Prioridad 3 — Historial de invitaciones (ADMIN):**
+- Agregar `listInvitations()` y `resendInvitation(id)` a `frontend/src/lib/api.ts`
+- Agregar tipo `Invitation` a `frontend/src/lib/types.ts`
+- Actualizar `frontend/src/app/(app)/prestadores/invitar/page.tsx` — agregar sección "Invitaciones enviadas" debajo del formulario, con columnas: email, estado (badge), fecha envío, vencimiento, botón "Reenviar" si pendiente/expirada
+
+**Prioridad 4 — Filtros de fecha en audit log (ABOGADO):**
+- Agregar `from_date?: string` y `to_date?: string` a `api.getAuditLog()` en `frontend/src/lib/api.ts`
+- Actualizar `frontend/src/app/(app)/admin/audit/page.tsx` — agregar dos inputs type="date" (Desde / Hasta), limpiar filtros button
+
+**Prioridad 5 — Dispensar receta (FARMACÉUTICO):**
+- Agregar `dispensePrescription(cuir, body)` a `frontend/src/lib/api.ts`
+- Actualizar `frontend/src/app/recetas/[cuir]/page.tsx` — si `rx.estado === "activa"`, mostrar botón "Dispensar en farmacia" → abre mini-form (nombre farmacia + farmacista) → llama endpoint → actualiza estado en UI con toast
+
+**Prioridad 6 — Portal de paciente (PACIENTE):**
+- Crear `app/api/v1/endpoints/patient.py` — `GET /patient/prescriptions?dni=...` sin auth, solo campos seguros (cuir, medicamento_nombre, posología, estado, fecha_vencimiento)
+- Agregar al `app/api/v1/router.py`: `from app.api.v1.endpoints.patient import router as patient_router` + `router.include_router(patient_router)`
+- Agregar `getPatientPrescriptions(dni)` a `frontend/src/lib/api.ts`
+- Agregar tipo `PatientPrescription` a `frontend/src/lib/types.ts`
+- Crear `frontend/src/app/paciente/page.tsx` — página pública (fuera del grupo `(app)`): input DNI → lista de recetas del paciente con estado visual claro
+
+### Notas técnicas importantes
+- El `patient_dni` en la tabla `prescriptions` es un String(20) **NO encriptado** — query directa por DNI es posible
+- El endpoint `/prescriptions/{cuir}/dispense` ya está implementado en el backend, falta solo el frontend
+- Los endpoints `/invitations` y `/invitations/{id}/resend` ya están implementados, faltan api.ts + UI
+- El campo `practitioners_pendientes` ya está en el backend BusinessStats — falta solo en types.ts + dashboard UI
+- El filtro `from_date`/`to_date` en audit log ya está en el backend — falta solo en api.ts + audit UI
+- Para continuar mañana: arrancar desde Prioridad 1 (medicamentos) que es la más bloqueante para el flujo médico
 
 ---
 

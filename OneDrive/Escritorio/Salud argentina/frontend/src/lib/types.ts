@@ -121,6 +121,14 @@ export interface PractitionerInvitation {
   expires_at: string;
 }
 
+export interface Invitation {
+  id: string;
+  email: string;
+  estado: "pendiente" | "aceptada" | "expirada";
+  created_at: string;
+  expires_at: string;
+}
+
 export interface InvitationInfo {
   email: string;
   expires_at: string;
@@ -131,6 +139,7 @@ export interface DashboardStats {
   tenants_total: number;
   practitioners_total: number;
   practitioners_aprobados: number;
+  practitioners_pendientes: number;
   consultations_total: number;
   prescriptions_activas: number;
   verificaciones_hoy: number;
@@ -175,4 +184,12 @@ export interface PractitionerProfileUpdate {
   apellido?: string;
   especialidad?: string;
   matricula_nacional?: string;
+}
+
+export interface PatientPrescription {
+  cuir: string;
+  medicamento_nombre: string | null;
+  posologia: string | null;
+  estado: string;
+  fecha_vencimiento: string | null;
 }

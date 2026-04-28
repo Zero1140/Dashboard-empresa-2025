@@ -1,31 +1,85 @@
 // frontend/src/app/(app)/consultas/[id]/page.tsx
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
 import MonoId from "@/components/ui/MonoId";
 import { api } from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
 import type { Consultation, Prescription } from "@/lib/types";
+import { MEDICAMENTOS } from "@/data/medicamentos";
 
 export default function ConsultaRoomPage() {
   const { id } = useParams<{ id: string }>();
+  const { addToast } = useToast();
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [rxMedCode, setRxMedCode] = useState("");
   const [rxMedNombre, setRxMedNombre] = useState("");
+  const [rxSearch, setRxSearch] = useState("");
+  const [rxSuggestions, setRxSuggestions] = useState<typeof MEDICAMENTOS>([]);
+  const [rxSuggestionOpen, setRxSuggestionOpen] = useState(false);
   const [rxCantidad, setRxCantidad] = useState(1);
   const [rxPosologia, setRxPosologia] = useState("");
   const [rxLoading, setRxLoading] = useState(false);
   const [rxError, setRxError] = useState("");
+  const autocompleteRef = useRef<HTMLDivElement>(null);
   const [lastCuir, setLastCuir] = useState<string | null>(null);
   const [diagCode, setDiagCode] = useState("");
   const [diagTexto, setDiagTexto] = useState("");
   const [notas, setNotas] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  // Close suggestion dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(e.target as Node)) {
+        setRxSuggestionOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleRxSearchChange = (value: string) => {
+    setRxSearch(value);
+    // Clear previously selected medication when user types again
+    if (rxMedNombre || rxMedCode) {
+      setRxMedNombre("");
+      setRxMedCode("");
+    }
+    if (value.trim().length === 0) {
+      setRxSuggestions([]);
+      setRxSuggestionOpen(false);
+      return;
+    }
+    const q = value.toLowerCase();
+    const filtered = MEDICAMENTOS.filter(
+      (m) => m.nombre.toLowerCase().includes(q) || m.snomed_code.includes(q)
+    ).slice(0, 8);
+    setRxSuggestions(filtered);
+    setRxSuggestionOpen(filtered.length > 0);
+  };
+
+  const handleSelectSuggestion = (item: (typeof MEDICAMENTOS)[number]) => {
+    setRxMedNombre(item.nombre);
+    setRxMedCode(item.snomed_code);
+    setRxSearch(item.nombre);
+    setRxSuggestions([]);
+    setRxSuggestionOpen(false);
+  };
+
+  const handleClearSelection = () => {
+    setRxMedNombre("");
+    setRxMedCode("");
+    setRxSearch("");
+    setRxSuggestions([]);
+    setRxSuggestionOpen(false);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -53,7 +107,7 @@ export default function ConsultaRoomPage() {
       const updated = await api.patchConsultationStatus(id, estado);
       setConsultation(updated);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Error");
+      addToast(e instanceof Error ? e.message : "Error al cambiar estado", "error");
     }
   };
 
@@ -77,6 +131,11 @@ export default function ConsultaRoomPage() {
     e.preventDefault();
     setRxError("");
     setRxLoading(true);
+    if (!rxMedCode || !rxMedNombre) {
+      setRxError("Seleccioná un medicamento del listado");
+      setRxLoading(false);
+      return;
+    }
     try {
       const rx = await api.createPrescription(id, {
         medicamento_snomed_code: rxMedCode,
@@ -86,7 +145,7 @@ export default function ConsultaRoomPage() {
       });
       setPrescriptions((prev) => [...prev, rx]);
       setLastCuir(rx.cuir);
-      setRxMedCode(""); setRxMedNombre(""); setRxCantidad(1); setRxPosologia("");
+      setRxMedCode(""); setRxMedNombre(""); setRxSearch(""); setRxCantidad(1); setRxPosologia("");
       setShowModal(false);
     } catch (e) {
       setRxError(e instanceof Error ? e.message : "Error al emitir receta");
@@ -253,22 +312,59 @@ export default function ConsultaRoomPage() {
               </button>
             </div>
             <form onSubmit={handleCreatePrescription} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="rx-med-code" className="text-text-2 text-xs uppercase tracking-widest block mb-1">SNOMED CT</label>
-                  <input id="rx-med-code" value={rxMedCode} onChange={(e) => setRxMedCode(e.target.value)}
-                    className="input-base font-mono text-sm" placeholder="Ej: 372687004" required />
+              {/* Medication autocomplete */}
+              <div>
+                <label htmlFor="rx-search" className="text-text-2 text-xs uppercase tracking-widest block mb-1">Medicamento</label>
+                <div ref={autocompleteRef} className="relative">
+                  <input
+                    id="rx-search"
+                    value={rxSearch}
+                    onChange={(e) => handleRxSearchChange(e.target.value)}
+                    onFocus={() => rxSuggestions.length > 0 && setRxSuggestionOpen(true)}
+                    className="input-base text-sm w-full"
+                    placeholder="Buscar medicamento (ej: amox)"
+                    autoComplete="off"
+                  />
+                  {rxSuggestionOpen && rxSuggestions.length > 0 && (
+                    <ul className="absolute left-0 right-0 top-full mt-1 bg-surface-2 border border-border rounded-md shadow-lg z-50 max-h-56 overflow-y-auto">
+                      {rxSuggestions.map((item, idx) => (
+                        <li
+                          key={`${item.snomed_code}-${idx}`}
+                          onMouseDown={() => handleSelectSuggestion(item)}
+                          className="hover:bg-accent/10 cursor-pointer px-3 py-2 flex items-center justify-between gap-2"
+                        >
+                          <span className="text-text text-sm font-medium">{item.nombre}</span>
+                          <span className="text-text-3 text-xs font-mono shrink-0">{item.snomed_code}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-                <div>
+                {/* Selection confirmation */}
+                {rxMedNombre && rxMedCode && (
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <p className="text-xs text-success">
+                      ✓ {rxMedNombre} — SNOMED: <span className="font-mono">{rxMedCode}</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleClearSelection}
+                      className="text-text-3 hover:text-text text-xs shrink-0"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Hidden validation — require a selection */}
+              <input type="hidden" value={rxMedCode} required />
+              <input type="hidden" value={rxMedNombre} required />
+
+              <div>
                   <label htmlFor="rx-cantidad" className="text-text-2 text-xs uppercase tracking-widest block mb-1">Cantidad</label>
                   <input id="rx-cantidad" type="number" min={1} value={rxCantidad} onChange={(e) => setRxCantidad(Number(e.target.value))}
                     className="input-base text-sm" required />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="rx-med-nombre" className="text-text-2 text-xs uppercase tracking-widest block mb-1">Medicamento</label>
-                <input id="rx-med-nombre" value={rxMedNombre} onChange={(e) => setRxMedNombre(e.target.value)}
-                  className="input-base text-sm" placeholder="Ej: Amoxicilina 500mg" required />
               </div>
               <div>
                 <label htmlFor="rx-posologia" className="text-text-2 text-xs uppercase tracking-widest block mb-1">Posología</label>

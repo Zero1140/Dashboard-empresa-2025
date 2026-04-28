@@ -64,8 +64,26 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {stats && stats.practitioners_pendientes > 0 && (
+          <div className="card p-4 border-warning/20 bg-warning-bg flex items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <svg className="text-warning mt-0.5 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <div className="text-xs">
+                <p className="text-warning font-medium">{stats.practitioners_pendientes} médico{stats.practitioners_pendientes !== 1 ? "s" : ""} pendiente{stats.practitioners_pendientes !== 1 ? "s" : ""} de aprobación</p>
+                <p className="text-warning/80 mt-0.5">Revisá y aprobá los nuevos prestadores antes de que puedan operar en la plataforma.</p>
+              </div>
+            </div>
+            <Link href="/prestadores/pendientes" className="btn-primary text-xs px-3 py-1.5 flex-shrink-0 whitespace-nowrap">
+              Revisar →
+            </Link>
+          </div>
+        )}
+
         {/* KPI row — operaciones */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard
             label="Prestadores en red"
             value={loading || !stats ? "—" : String(stats.practitioners_total)}
@@ -91,8 +109,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Market coverage + provinces */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="card p-4 col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="card p-4 sm:col-span-2">
             <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Cobertura del mercado</p>
             <div className="flex items-end gap-3">
               <p className="text-4xl font-bold text-accent tabular-nums">
@@ -122,7 +140,7 @@ export default function DashboardPage() {
         {/* Quick actions */}
         <div>
           <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Acciones rápidas</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {QUICK_ACTIONS.map((action) => (
               <Link
                 key={action.href}
@@ -140,7 +158,7 @@ export default function DashboardPage() {
         {!loading && (
           <div>
             <p className="text-text-3 text-[10px] uppercase tracking-widest mb-3">Estado de conectores</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { id: "refeps",    name: "REFEPS/SISA",   sub: "Credencialización" },
                 { id: "farmalink", name: "Farmalink Hub",  sub: "Elegibilidad" },

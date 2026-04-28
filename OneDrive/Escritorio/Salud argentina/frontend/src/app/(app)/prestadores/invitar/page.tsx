@@ -1,15 +1,39 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { api } from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
+import type { Invitation } from "@/lib/types";
 
 export default function InvitarPrestadorPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invLoading, setInvLoading] = useState(true);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
   const router = useRouter();
+  const { addToast } = useToast();
+
+  const fetchInvitations = useCallback(async () => {
+    try {
+      const data = await api.listInvitations();
+      setInvitations(data);
+    } catch {
+      // silently ignore — list is non-critical
+    } finally {
+      setInvLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInvitations();
+  }, [fetchInvitations]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,11 +43,32 @@ export default function InvitarPrestadorPage() {
       const inv = await api.invitePractitioner(email);
       setSuccess(inv.email);
       setEmail("");
+      // Refresh invitations list after successful send
+      fetchInvitations();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al enviar invitación");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResend = async (inv: Invitation) => {
+    setResendingId(inv.id);
+    try {
+      await api.resendInvitation(inv.id);
+      addToast(`Invitación reenviada a ${inv.email}`, "success");
+      fetchInvitations();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Error al reenviar invitación", "error");
+    } finally {
+      setResendingId(null);
+    }
+  };
+
+  const estadoToStatus = (estado: Invitation["estado"]) => {
+    if (estado === "pendiente") return "mock";
+    if (estado === "aceptada") return "activa";
+    return "suspendida"; // expirada
   };
 
   return (
@@ -128,6 +173,95 @@ export default function InvitarPrestadorPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Invitations history section */}
+        <div className="card p-4 space-y-3">
+          <p className="text-text-3 text-[10px] uppercase tracking-widest">Invitaciones enviadas</p>
+
+          {invLoading ? (
+            <div className="flex items-center gap-2 py-4 justify-center">
+              <span className="spinner" />
+              <span className="text-text-3 text-sm">Cargando...</span>
+            </div>
+          ) : invitations.length === 0 ? (
+            <p className="text-text-3 text-sm py-2">Todavía no enviaste ninguna invitación.</p>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left text-text-3 text-[10px] uppercase tracking-widest pb-2 pr-4 font-normal">Email</th>
+                      <th className="text-left text-text-3 text-[10px] uppercase tracking-widest pb-2 pr-4 font-normal">Estado</th>
+                      <th className="text-left text-text-3 text-[10px] uppercase tracking-widest pb-2 pr-4 font-normal">Enviada</th>
+                      <th className="text-left text-text-3 text-[10px] uppercase tracking-widest pb-2 pr-4 font-normal">Vence</th>
+                      <th className="pb-2" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {invitations.map((inv) => (
+                      <tr key={inv.id} className="group">
+                        <td className="py-2.5 pr-4">
+                          <span className="font-mono text-text text-xs">{inv.email}</span>
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <StatusBadge status={estadoToStatus(inv.estado)} />
+                        </td>
+                        <td className="py-2.5 pr-4 text-text-2 text-xs">
+                          {new Date(inv.created_at).toLocaleDateString("es-AR")}
+                        </td>
+                        <td className="py-2.5 pr-4 text-text-2 text-xs">
+                          {new Date(inv.expires_at).toLocaleDateString("es-AR")}
+                        </td>
+                        <td className="py-2.5">
+                          {(inv.estado === "pendiente" || inv.estado === "expirada") && (
+                            <button
+                              onClick={() => handleResend(inv)}
+                              disabled={resendingId === inv.id}
+                              className="btn-secondary text-xs px-3 py-1 flex items-center gap-1.5"
+                            >
+                              {resendingId === inv.id && <span className="spinner" />}
+                              Reenviar
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile card list */}
+              <div className="md:hidden space-y-2">
+                {invitations.map((inv) => (
+                  <div key={inv.id} className="bg-surface-2 rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-mono text-text text-xs break-all">{inv.email}</span>
+                      <StatusBadge status={estadoToStatus(inv.estado)} />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-text-3 text-[11px] space-y-0.5">
+                        <p>Enviada: {new Date(inv.created_at).toLocaleDateString("es-AR")}</p>
+                        <p>Vence: {new Date(inv.expires_at).toLocaleDateString("es-AR")}</p>
+                      </div>
+                      {(inv.estado === "pendiente" || inv.estado === "expirada") && (
+                        <button
+                          onClick={() => handleResend(inv)}
+                          disabled={resendingId === inv.id}
+                          className="btn-secondary text-xs px-3 py-1 flex items-center gap-1.5 flex-shrink-0"
+                        >
+                          {resendingId === inv.id && <span className="spinner" />}
+                          Reenviar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

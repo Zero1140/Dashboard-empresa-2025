@@ -238,6 +238,14 @@ export const api = {
     return request(`/v1/practitioners/${id}`, { method: "DELETE" });
   },
 
+  async listInvitations(): Promise<import("./types").Invitation[]> {
+    return request("/v1/practitioners/invitations");
+  },
+
+  async resendInvitation(id: string): Promise<{ message: string; new_expires_at: string }> {
+    return request(`/v1/practitioners/invitations/${id}/resend`, { method: "POST" });
+  },
+
   async getConsentHistory(practitionerId: string): Promise<import("./types").ConsentEvent[]> {
     return request(`/v1/practitioners/${practitionerId}/consent-history`);
   },
@@ -246,11 +254,15 @@ export const api = {
     limit?: number;
     offset?: number;
     action?: string;
+    from_date?: string;
+    to_date?: string;
   }): Promise<import("./types").AuditLogEntry[]> {
     const q = new URLSearchParams();
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.offset) q.set("offset", String(params.offset));
     if (params?.action) q.set("action", params.action);
+    if (params?.from_date) q.set("from_date", params.from_date);
+    if (params?.to_date) q.set("to_date", params.to_date);
     return request(`/v1/admin/audit-log${q.toString() ? `?${q}` : ""}`);
   },
 
@@ -294,5 +306,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     });
+  },
+
+  async dispensePrescription(cuir: string, body: { nombre_farmacia: string; nombre_farmacista: string }): Promise<{ message: string; estado: string; dispensed_at: string }> {
+    return fetch(`${BASE}/v1/prescriptions/${cuir}/dispense`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(async (res) => {
+      if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
+      return res.json();
+    });
+  },
+
+  async getPatientPrescriptions(dni: string): Promise<import("./types").PatientPrescription[]> {
+    const res = await fetch(`${BASE}/v1/patient/prescriptions?dni=${encodeURIComponent(dni)}`);
+    if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
+    return res.json();
   },
 };

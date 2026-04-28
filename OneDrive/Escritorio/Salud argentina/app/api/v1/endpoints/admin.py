@@ -77,6 +77,7 @@ class BusinessStats(BaseModel):
     tenants_total: int
     practitioners_total: int
     practitioners_aprobados: int
+    practitioners_pendientes: int
     consultations_total: int
     prescriptions_activas: int
     verificaciones_hoy: int
@@ -115,6 +116,15 @@ async def get_business_stats(
             )
         ).scalar_one()
 
+        practitioners_pendientes = (
+            await db.execute(
+                select(func.count())
+                .select_from(Practitioner)
+                .where(Practitioner.tenant_id == target_tid)
+                .where(Practitioner.aprobado.is_(False))
+            )
+        ).scalar_one()
+
         consultations_total = (
             await db.execute(
                 select(func.count())
@@ -149,6 +159,7 @@ async def get_business_stats(
         tenants_total=tenants_total,
         practitioners_total=practitioners_total,
         practitioners_aprobados=practitioners_aprobados,
+        practitioners_pendientes=practitioners_pendientes,
         consultations_total=consultations_total,
         prescriptions_activas=prescriptions_activas,
         verificaciones_hoy=verificaciones_hoy,
@@ -210,6 +221,8 @@ async def export_audit_log(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     action: str | None = Query(default=None, description="Filtrar por acción exacta"),
+    from_date: str | None = Query(default=None, description="Fecha inicio ISO 8601 (ej: 2026-01-01)"),
+    to_date: str | None = Query(default=None, description="Fecha fin ISO 8601 (ej: 2026-12-31)"),
     tenant_id: str | None = Query(
         default=None,
         description="Solo platform_admin: filtrar por tenant_id UUID",
@@ -221,12 +234,7 @@ async def export_audit_log(
 
     - **financiador_admin**: solo ve registros de su propio tenant.
     - **platform_admin**: puede ver registros de cualquier tenant pasando ?tenant_id=<uuid>.
-      Sin ese parámetro verá los de su propio tenant.
-
-    El audit_log NO tiene RLS (el middleware corre fuera del contexto de tenant),
-    por eso la query aplica WHERE tenant_id explícito.
     """
-    # Determine which tenant to query
     if current_user.role == "platform_admin" and tenant_id is not None:
         target_tenant_id = uuid.UUID(tenant_id)
     else:
@@ -242,6 +250,20 @@ async def export_audit_log(
 
     if action is not None:
         stmt = stmt.where(AuditLog.action == action)
+
+    if from_date is not None:
+        try:
+            dt_from = datetime.fromisoformat(from_date).replace(tzinfo=timezone.utc)
+            stmt = stmt.where(AuditLog.created_at >= dt_from)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="from_date inválida — usar formato YYYY-MM-DD")
+
+    if to_date is not None:
+        try:
+            dt_to = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+            stmt = stmt.where(AuditLog.created_at <= dt_to)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="to_date inválida — usar formato YYYY-MM-DD")
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(stmt)

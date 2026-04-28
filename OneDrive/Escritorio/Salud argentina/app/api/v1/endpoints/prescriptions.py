@@ -211,6 +211,31 @@ async def cancel_prescription(
         return _to_prescription_response(rx)
 
 
+class DispenseRequest(BaseModel):
+    farmacia_nombre: str
+    farmacista_nombre: str
+
+
+@router.post("/prescriptions/{cuir}/dispense")
+async def dispense_prescription(cuir: str, body: DispenseRequest):
+    """Marca una receta como dispensada. Endpoint público para uso en farmacia."""
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Prescription).where(Prescription.cuir == cuir)
+        )
+        rx = result.scalar_one_or_none()
+        if rx is None:
+            raise HTTPException(status_code=404, detail="Receta no encontrada.")
+        if rx.estado != "activa":
+            raise HTTPException(
+                status_code=422,
+                detail=f"La receta no puede dispensarse — estado actual: {rx.estado}",
+            )
+        rx.estado = "dispensada"
+        await session.flush()
+    return {"estado": "dispensada", "cuir": cuir, "farmacia": body.farmacia_nombre}
+
+
 @router.get("/prescriptions/{cuir}", response_model=PublicPrescriptionResponse)
 async def get_prescription_public(cuir: str):
     """Lookup público para farmacias — no requiere autenticación."""

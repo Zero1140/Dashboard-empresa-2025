@@ -25,18 +25,25 @@ export default function AuditLogPage() {
   const [items, setItems] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getAuditLog({ limit: 500, action: action || undefined });
+      const data = await api.getAuditLog({
+        limit: 500,
+        action: action || undefined,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+      });
       setItems(data);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [action]);
+  }, [action, fromDate, toDate]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -77,6 +84,36 @@ export default function AuditLogPage() {
               <option key={a} value={a}>{a || "Todas las acciones"}</option>
             ))}
           </select>
+          <div className="flex flex-col gap-1">
+            <label className="text-text-3 text-[10px] uppercase tracking-widest">Desde</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="input-base w-40 text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-text-3 text-[10px] uppercase tracking-widest">Hasta</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="input-base w-40 text-sm"
+            />
+          </div>
+          {(action || fromDate || toDate) && (
+            <button
+              onClick={() => {
+                setAction("");
+                setFromDate("");
+                setToDate("");
+              }}
+              className="btn-secondary text-xs px-3 py-1.5"
+            >
+              Limpiar filtros
+            </button>
+          )}
           <p className="text-text-3 text-xs ml-auto">{items.length} entradas</p>
         </div>
 

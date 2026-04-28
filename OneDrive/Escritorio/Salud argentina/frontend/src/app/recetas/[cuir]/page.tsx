@@ -20,6 +20,11 @@ export default function PublicPrescriptionPage() {
   const [rx, setRx] = useState<PublicPrescription | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [showDispenseForm, setShowDispenseForm] = useState(false);
+  const [farmacia, setFarmacia] = useState("");
+  const [farmacista, setFarmacista] = useState("");
+  const [dispensing, setDispensing] = useState(false);
+  const [dispenseError, setDispenseError] = useState("");
 
   useEffect(() => {
     api.getPublicPrescription(cuir)
@@ -27,6 +32,21 @@ export default function PublicPrescriptionPage() {
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [cuir]);
+
+  const handleDispense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDispensing(true);
+    setDispenseError("");
+    try {
+      const result = await api.dispensePrescription(cuir, { nombre_farmacia: farmacia, nombre_farmacista: farmacista });
+      setRx((prev) => prev ? { ...prev, estado: result.estado } : prev);
+      setShowDispenseForm(false);
+    } catch (err) {
+      setDispenseError(err instanceof Error ? err.message : "Error al dispensar");
+    } finally {
+      setDispensing(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-base flex flex-col">
@@ -114,6 +134,39 @@ export default function PublicPrescriptionPage() {
                   <p className="text-text-3 text-[10px] uppercase tracking-widest mb-1">Posología</p>
                   <p className="text-text-2 text-sm">{rx.posologia}</p>
                 </div>
+              )}
+
+              {rx.estado === "activa" && !showDispenseForm && (
+                <button
+                  onClick={() => setShowDispenseForm(true)}
+                  className="btn-primary w-full text-sm"
+                >
+                  Dispensar en farmacia
+                </button>
+              )}
+
+              {showDispenseForm && (
+                <form onSubmit={handleDispense} className="space-y-3 border border-border rounded-lg p-4">
+                  <p className="text-text-2 text-xs font-medium uppercase tracking-widest">Registrar dispensación</p>
+                  <div>
+                    <label className="text-text-3 text-[10px] uppercase tracking-widest block mb-1">Nombre de la farmacia</label>
+                    <input value={farmacia} onChange={(e) => setFarmacia(e.target.value)} className="input-base text-sm" placeholder="Farmacia Central" required />
+                  </div>
+                  <div>
+                    <label className="text-text-3 text-[10px] uppercase tracking-widest block mb-1">Farmacista responsable</label>
+                    <input value={farmacista} onChange={(e) => setFarmacista(e.target.value)} className="input-base text-sm" placeholder="Lic. García" required />
+                  </div>
+                  {dispenseError && <p className="text-danger text-xs">{dispenseError}</p>}
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={dispensing} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2">
+                      {dispensing && <span className="spinner" />}
+                      {dispensing ? "Procesando..." : "Confirmar dispensación"}
+                    </button>
+                    <button type="button" onClick={() => setShowDispenseForm(false)} className="btn-secondary text-sm">
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
               )}
 
               <div className="grid grid-cols-2 gap-4">

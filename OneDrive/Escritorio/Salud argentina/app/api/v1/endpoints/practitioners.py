@@ -117,6 +117,15 @@ class InvitationOut(BaseModel):
     expires_at: datetime
 
 
+class InvitationListItem(BaseModel):
+    id: str
+    email: str
+    estado: str
+    expires_at: datetime
+    created_at: datetime
+    practitioner_id: str | None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 async def _get_practitioner_with_provinces(
@@ -199,6 +208,72 @@ async def invite_practitioner(
         estado=invitation_estado,
         expires_at=invitation_expires_at,
     )
+
+
+@router.get("/invitations", response_model=list[InvitationListItem])
+async def list_invitations(
+    current_user: TokenPayload = Depends(require_role("financiador_admin", "platform_admin")),
+):
+    """Lista todas las invitaciones enviadas por este tenant."""
+    async with get_tenant_db(current_user.tenant_id) as db:
+        result = await db.execute(
+            select(PractitionerInvitation)
+            .where(PractitionerInvitation.tenant_id == uuid.UUID(current_user.tenant_id))
+            .order_by(PractitionerInvitation.created_at.desc())
+        )
+        invs = list(result.scalars().all())
+    now = datetime.now(tz=timezone.utc)
+    return [
+        InvitationListItem(
+            id=str(inv.id),
+            email=inv.email,
+            estado="expirada" if inv.estado == "pendiente" and inv.expires_at < now else inv.estado,
+            expires_at=inv.expires_at,
+            created_at=inv.created_at,
+            practitioner_id=str(inv.practitioner_id) if inv.practitioner_id else None,
+        )
+        for inv in invs
+    ]
+
+
+@router.post("/invitations/{invitation_id}/resend", response_model=InvitationOut)
+async def resend_invitation(
+    invitation_id: str,
+    current_user: TokenPayload = Depends(require_role("financiador_admin", "platform_admin")),
+):
+    """Regenera el token y reenvía la invitación. Solo si está pendiente o expirada."""
+    async with get_tenant_db(current_user.tenant_id) as db:
+        result = await db.execute(
+            select(PractitionerInvitation).where(
+                PractitionerInvitation.id == uuid.UUID(invitation_id),
+                PractitionerInvitation.tenant_id == uuid.UUID(current_user.tenant_id),
+            )
+        )
+        inv = result.scalar_one_or_none()
+        if not inv:
+            raise HTTPException(status_code=404, detail="Invitación no encontrada")
+        if inv.estado == "aceptada":
+            raise HTTPException(status_code=409, detail="La invitación ya fue aceptada — el médico ya se registró")
+
+        new_token = secrets.token_hex(32)
+        inv.token = new_token
+        inv.expires_at = datetime.now(tz=timezone.utc) + timedelta(days=7)
+        inv.estado = "pendiente"
+        db.add(inv)
+        await db.flush()
+
+        inv_id = str(inv.id)
+        inv_email = inv.email
+        inv_estado = inv.estado
+        inv_expires = inv.expires_at
+
+    reg_url = f"{settings.frontend_base_url}/registro/{new_token}"
+    await send_practitioner_invitation(
+        to_email=inv_email,
+        tenant_name=current_user.tenant_id,
+        registration_url=reg_url,
+    )
+    return InvitationOut(id=inv_id, email=inv_email, estado=inv_estado, expires_at=inv_expires)
 
 
 @router.get("/register/{token}")
