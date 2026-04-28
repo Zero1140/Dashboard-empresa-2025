@@ -1,8 +1,9 @@
 import sys
-import pytest
+from pathlib import Path
 
-# Add parent directory to path so tests can import from gameloader
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import pytest
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -134,7 +134,7 @@ class FTPWorker(QThread):
         try:
             items = sorted(local_path.iterdir())
         except OSError:
-            return
+            raise
 
         for item in items:
             if self._stop:
@@ -183,6 +183,7 @@ class FTPWorker(QThread):
                 if self._stop:
                     break
                 ftp = None
+                job.attempts = attempt
                 try:
                     ftp = self._connect()
                     remote_dest = f"{job.remote_base_path}{job.game.name}"
