@@ -54,7 +54,7 @@ export default function PublicPrescriptionPage() {
       {/* Header */}
       <header className="border-b border-border px-6 py-4 flex items-center gap-3">
         <button
-          onClick={() => document.referrer !== "" ? router.back() : router.push("/")}
+          onClick={() => router.back()}
           className="flex items-center gap-1.5 text-text-3 hover:text-text text-sm transition-colors mr-1 flex-shrink-0"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
