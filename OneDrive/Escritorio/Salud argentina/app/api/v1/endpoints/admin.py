@@ -34,7 +34,7 @@ class AuditLogEntry(BaseModel):
             user_id=str(row.user_id) if row.user_id is not None else None,
             action=row.action,
             resource=row.resource,
-            ip_address=row.ip_address,
+            ip_address=str(row.ip_address) if row.ip_address is not None else None,
             created_at=row.created_at,
         )
 
