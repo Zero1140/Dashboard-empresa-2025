@@ -16,7 +16,7 @@ class ConsoleInfo:
 
     @property
     def console_id(self) -> str:
-        return self.label
+        return self.ip
 
 
 @dataclass

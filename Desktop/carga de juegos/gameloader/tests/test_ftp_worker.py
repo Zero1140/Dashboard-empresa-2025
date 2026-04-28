@@ -20,7 +20,7 @@ def _make_worker(tmp_path: Path):
     job = TransferJob(game=game, remote_base_path="/dev_hdd0/GAMES/")
 
     queue = QueueManager()
-    queue.add_jobs("PS3-Test", [job])
+    queue.add_jobs(console.console_id, [job])
     return FTPWorker(console=console, queue=queue)
 
 

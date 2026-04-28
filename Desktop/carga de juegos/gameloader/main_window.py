@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot
 from PyQt6.QtGui import QAction
@@ -324,23 +324,18 @@ class MainWindow(QMainWindow):
         if not (ok and new_name.strip()):
             return
 
-        old_id = self.selected_console.console_id
+        old_label = self.selected_console.label
         new_label = new_name.strip()
         self.selected_console.label = new_label
 
-        self.consoles[new_label] = self.consoles.pop(old_id)
-        if old_id in self.workers:
-            self.workers[new_label] = self.workers.pop(old_id)
-
         for i in range(self.console_list.count()):
             item = self.console_list.item(i)
-            if item.data(Qt.ItemDataRole.UserRole) == old_id:
+            if item.data(Qt.ItemDataRole.UserRole) == self.selected_console.console_id:
                 item.setText(f"🟢 {new_label}")
-                item.setData(Qt.ItemDataRole.UserRole, new_label)
 
         for row in range(self.progress_table.rowCount()):
             cell = self.progress_table.item(row, 0)
-            if cell and cell.text() == old_id:
+            if cell and cell.text() == old_label:
                 cell.setText(new_label)
                 break
 
@@ -469,6 +464,8 @@ class MainWindow(QMainWindow):
             worker.stop()
         self.queue_manager.clear(console_id)
         row = self._find_row(console_id)
+        if row < 0:
+            return
         item_st = self._safe_item(row, 4)
         if item_st:
             item_st.setText("⛔ Cancelado")
@@ -478,6 +475,9 @@ class MainWindow(QMainWindow):
         console = self.consoles.get(console_id)
         if not console:
             return
+        self._job_done_count[console_id] = max(
+            0, self._job_done_count.get(console_id, 0) - 1
+        )
         self.queue_manager.add_jobs(console_id, [job])
         self._ensure_worker_running(console)
 
@@ -485,6 +485,9 @@ class MainWindow(QMainWindow):
         item_name = self._safe_item(row, 1)
         if item_name:
             item_name.setText("Reintentando...")
+        bar = self._safe_widget(row, 2)
+        if bar:
+            bar.setValue(0)
 
         btn_cancel = QPushButton("⏹")
         btn_cancel.setFixedWidth(36)
@@ -622,6 +625,8 @@ class MainWindow(QMainWindow):
     @pyqtSlot(str, int, int)
     def _on_queue_done(self, console_id: str, success_count: int, fail_count: int):
         row = self._find_row(console_id)
+        if row < 0:
+            return
         bar = self._safe_widget(row, 2)
         item_name = self._safe_item(row, 1)
         item_vel = self._safe_item(row, 3)
