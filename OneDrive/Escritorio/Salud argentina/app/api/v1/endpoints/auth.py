@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, get_db
 from app.core.limiter import limiter
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, hash_password, verify_password
+from app.models.password_reset_token import PasswordResetToken
 from app.models.user import User
+from app.services.email import send_password_reset_email
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
@@ -124,3 +126,75 @@ async def logout(body: RefreshRequest):
         )
         await db.commit()
     return {"message": "Sesión cerrada"}
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/password-reset/request", summary="Solicitar reset de contraseña")
+async def request_password_reset(
+    body: PasswordResetRequest,
+) -> dict:
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.email == body.email))
+        user = result.scalar_one_or_none()
+
+        # Generic response to avoid user enumeration
+        if not user:
+            return {"message": "Si el email existe, recibirás un link en los próximos minutos"}
+
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_expire_minutes)
+
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(reset_token)
+        await db.commit()
+
+        reset_link = f"{settings.frontend_base_url}/reset-password/{raw_token}"
+        await send_password_reset_email(email=user.email, reset_link=reset_link)
+
+    return {"message": "Si el email existe, recibirás un link en los próximos minutos"}
+
+
+@router.post("/password-reset/confirm", summary="Confirmar reset de contraseña")
+async def confirm_password_reset(
+    body: PasswordResetConfirm,
+) -> dict:
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="La contraseña debe tener al menos 8 caracteres")
+
+    token_hash = hashlib.sha256(body.token.encode()).hexdigest()
+    now = datetime.now(timezone.utc)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(PasswordResetToken)
+            .where(PasswordResetToken.token_hash == token_hash)
+            .where(PasswordResetToken.expires_at > now)
+            .where(PasswordResetToken.used_at.is_(None))
+        )
+        reset_token = result.scalar_one_or_none()
+
+        if not reset_token:
+            raise HTTPException(status_code=400, detail="Token inválido o expirado")
+
+        user_result = await db.execute(select(User).where(User.id == reset_token.user_id))
+        user = user_result.scalar_one()
+        user.hashed_password = hash_password(body.new_password)
+
+        reset_token.used_at = now
+        await db.commit()
+
+    return {"message": "Contraseña actualizada correctamente"}

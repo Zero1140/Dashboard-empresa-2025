@@ -58,3 +58,37 @@ async def send_practitioner_invitation(
             logger.info("Email enviado a %s via Resend", to_email)
         except Exception as exc:
             logger.error("Resend falló para %s: %s — link: %s", to_email, exc, registration_url)
+
+
+async def send_password_reset_email(email: str, reset_link: str) -> None:
+    """Envía email de reset de contraseña via Resend."""
+    if not settings.resend_api_key:
+        logger.warning(
+            "RESEND_API_KEY no configurada — link de reset: %s", reset_link
+        )
+        return
+
+    body = {
+        "from": "SaludOS Argentina <noreply@saludos.ar>",
+        "to": [email],
+        "subject": "Restablecer tu contraseña — SaludOS Argentina",
+        "html": (
+            f"<p>Recibiste este email porque solicitaste restablecer tu contraseña en SaludOS Argentina.</p>"
+            f"<p><a href='{reset_link}'>Hacer clic aquí para restablecer la contraseña</a></p>"
+            f"<p>Este link expira en {settings.password_reset_expire_minutes} minutos.</p>"
+            f"<p>Si no solicitaste este cambio, ignorá este email.</p>"
+        ),
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                _RESEND_SEND_URL,
+                headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+                json=body,
+                timeout=10.0,
+            )
+            resp.raise_for_status()
+            logger.info("Email de reset enviado a %s via Resend", email)
+        except Exception as exc:
+            logger.error("Resend falló para reset de %s: %s — link: %s", email, exc, reset_link)

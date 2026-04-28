@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     invitation_secret: str = "change-me-invitation"
     frontend_base_url: str = "http://localhost:3000"
+    password_reset_expire_minutes: int = 60
 
     # Encriptación en reposo (Ley 25.326)
     encryption_key: str = ""   # Fernet key — 32 bytes base64. Obligatoria en producción.
