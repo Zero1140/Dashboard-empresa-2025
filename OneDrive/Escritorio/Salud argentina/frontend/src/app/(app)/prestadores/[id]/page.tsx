@@ -8,6 +8,7 @@ import MonoId from "@/components/ui/MonoId";
 import { api } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import type { Practitioner, ConsentEvent } from "@/lib/types";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 const PROVINCIAS = [
   "Buenos Aires", "CABA", "Catamarca", "Chaco", "Chubut",
@@ -613,54 +614,16 @@ export default function PractitionerDetailPage() {
         </div>
       </div>
 
-      {/* ── Erase confirm dialog ───────────────────────────────────── */}
-      {showEraseConfirm && (
-        <div className="fixed inset-0 bg-base/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="card p-6 w-full max-w-md space-y-4 animate-fadeIn border-danger/20">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-danger-bg flex items-center justify-center flex-shrink-0">
-                <svg className="text-danger" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-              </div>
-              <h3 className="text-text font-semibold">Confirmar supresión de datos</h3>
-            </div>
-
-            <p className="text-text-2 text-sm leading-relaxed">
-              ¿Confirmar supresión de datos de{" "}
-              <span className="font-semibold text-text">
-                {practitioner.nombre} {practitioner.apellido}
-              </span>
-              ? Esta acción no se puede deshacer — Art. 16 Ley 25.326.
-            </p>
-            <p className="text-text-2 text-sm leading-relaxed">
-              El nombre, DNI y matrícula quedarán como{" "}
-              <span className="font-mono text-danger">[ELIMINADO]</span>.
-              El audit trail se conserva por obligación legal.
-            </p>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleErase}
-                disabled={erasing}
-                className="flex-1 text-sm py-2.5 border border-danger/30 text-danger rounded hover:bg-danger-bg transition-colors flex items-center justify-center gap-2"
-              >
-                {erasing && <span className="spinner" />}
-                {erasing ? "Procesando..." : "Confirmar supresión"}
-              </button>
-              <button
-                onClick={() => setShowEraseConfirm(false)}
-                disabled={erasing}
-                className="flex-1 btn-secondary text-sm"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={showEraseConfirm}
+        title="Suprimir datos del médico"
+        description="Todos los datos personales de este médico serán eliminados conforme al Art. 16 de la Ley 25.326 (derecho de supresión). Los registros del audit log se conservan. Esta acción es irreversible."
+        confirmLabel="Suprimir datos"
+        danger
+        loading={erasing}
+        onConfirm={handleErase}
+        onCancel={() => setShowEraseConfirm(false)}
+      />
     </div>
   );
 }

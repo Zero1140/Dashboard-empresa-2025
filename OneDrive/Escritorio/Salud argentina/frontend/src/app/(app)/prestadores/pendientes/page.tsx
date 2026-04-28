@@ -6,13 +6,14 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import { useToast } from "@/context/ToastContext";
 import { api } from "@/lib/api";
 import type { Practitioner } from "@/lib/types";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 export default function PrestadoresPendientesPage() {
   const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState<Set<string>>(new Set());
   const [rejecting, setRejecting] = useState<Set<string>>(new Set());
-  const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
+  const [rejectModalId, setRejectModalId] = useState<string | null>(null);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -46,7 +47,6 @@ export default function PrestadoresPendientesPage() {
   const confirmReject = useCallback(
     async (id: string) => {
       setRejecting((prev) => new Set(prev).add(id));
-      setRejectConfirmId(null);
       try {
         await api.erasePractitioner(id);
         setPractitioners((prev) => prev.filter((p) => p.id !== id));
@@ -115,47 +115,29 @@ export default function PrestadoresPendientesPage() {
                         <StatusBadge status={p.estado_matricula} />
                       </td>
                       <td className="px-4 py-3">
-                        {rejectConfirmId === p.id ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-danger text-xs">¿Confirmar rechazo?</span>
-                            <button
-                              onClick={() => confirmReject(p.id)}
-                              className="btn-primary text-xs px-2 py-1 bg-danger border-danger"
-                            >
-                              Sí
-                            </button>
-                            <button
-                              onClick={() => setRejectConfirmId(null)}
-                              className="btn-secondary text-xs px-2 py-1"
-                            >
-                              No
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleApprove(p.id)}
-                              disabled={approving.has(p.id) || rejecting.has(p.id)}
-                              className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {approving.has(p.id) ? (
-                                <span className="flex items-center gap-1.5">
-                                  <span className="spinner w-3 h-3" />
-                                  Aprobando…
-                                </span>
-                              ) : (
-                                "Aprobar"
-                              )}
-                            </button>
-                            <button
-                              onClick={() => setRejectConfirmId(p.id)}
-                              disabled={approving.has(p.id) || rejecting.has(p.id)}
-                              className="btn-secondary text-xs px-3 py-1.5 text-danger border-danger/20 hover:bg-danger-bg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {rejecting.has(p.id) ? "..." : "Rechazar"}
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleApprove(p.id)}
+                            disabled={approving.has(p.id) || rejecting.has(p.id)}
+                            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {approving.has(p.id) ? (
+                              <span className="flex items-center gap-1.5">
+                                <span className="spinner w-3 h-3" />
+                                Aprobando…
+                              </span>
+                            ) : (
+                              "Aprobar"
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setRejectModalId(p.id)}
+                            disabled={approving.has(p.id) || rejecting.has(p.id)}
+                            className="btn-secondary text-xs px-3 py-1.5 text-danger border-danger/20 hover:bg-danger-bg disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {rejecting.has(p.id) ? "..." : "Rechazar"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -186,53 +168,46 @@ export default function PrestadoresPendientesPage() {
                       <p className="text-text-2 font-mono mt-0.5">{p.matricula_nacional ?? "—"}</p>
                     </div>
                   </div>
-                  {rejectConfirmId === p.id ? (
-                    <div className="flex items-center gap-2 w-full">
-                      <span className="text-danger text-xs flex-1">¿Confirmar rechazo?</span>
-                      <button
-                        onClick={() => confirmReject(p.id)}
-                        className="btn-primary text-xs px-2 py-1 bg-danger border-danger"
-                      >
-                        Sí
-                      </button>
-                      <button
-                        onClick={() => setRejectConfirmId(null)}
-                        className="btn-secondary text-xs px-2 py-1"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleApprove(p.id)}
-                        disabled={approving.has(p.id) || rejecting.has(p.id)}
-                        className="btn-primary text-xs px-3 py-1.5 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {approving.has(p.id) ? (
-                          <span className="flex items-center justify-center gap-1.5">
-                            <span className="spinner w-3 h-3" />
-                            Aprobando…
-                          </span>
-                        ) : (
-                          "Aprobar"
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setRejectConfirmId(p.id)}
-                        disabled={approving.has(p.id) || rejecting.has(p.id)}
-                        className="btn-secondary text-xs px-3 py-1.5 flex-1 text-danger border-danger/20 hover:bg-danger-bg disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {rejecting.has(p.id) ? "..." : "Rechazar"}
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleApprove(p.id)}
+                      disabled={approving.has(p.id) || rejecting.has(p.id)}
+                      className="btn-primary text-xs px-3 py-1.5 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {approving.has(p.id) ? (
+                        <span className="flex items-center justify-center gap-1.5">
+                          <span className="spinner w-3 h-3" />
+                          Aprobando…
+                        </span>
+                      ) : (
+                        "Aprobar"
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setRejectModalId(p.id)}
+                      disabled={approving.has(p.id) || rejecting.has(p.id)}
+                      className="btn-secondary text-xs px-3 py-1.5 flex-1 text-danger border-danger/20 hover:bg-danger-bg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {rejecting.has(p.id) ? "..." : "Rechazar"}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </>
         )}
       </div>
+
+      <ConfirmModal
+        open={rejectModalId !== null}
+        title="Rechazar médico"
+        description="El médico será rechazado y sus datos serán suprimidos del sistema conforme al Art. 16 de la Ley 25.326. Esta acción es irreversible."
+        confirmLabel="Rechazar y suprimir datos"
+        danger
+        loading={rejectModalId !== null && rejecting.has(rejectModalId)}
+        onConfirm={() => { if (rejectModalId) { confirmReject(rejectModalId); setRejectModalId(null); } }}
+        onCancel={() => setRejectModalId(null)}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { useToast } from "@/context/ToastContext";
 import type { Consultation, Prescription } from "@/lib/types";
 import { MEDICAMENTOS } from "@/data/medicamentos";
 import { DIAGNOSTICOS } from "@/data/diagnosticos";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 export default function ConsultaRoomPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +36,10 @@ export default function ConsultaRoomPage() {
 
   // Cancel prescription state
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // Confirm modal state
+  const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
 
   // Diagnosis + notes state
   const [diagCode, setDiagCode] = useState("");
@@ -276,7 +281,7 @@ export default function ConsultaRoomPage() {
               <button onClick={() => handleUpdateStatus("en_curso")} className="btn-primary text-sm px-3 py-1.5">Iniciar</button>
             )}
             {consultation.estado === "en_curso" && (
-              <button onClick={() => handleUpdateStatus("completada")} className="btn-secondary text-sm px-3 py-1.5">Finalizar</button>
+              <button onClick={() => setShowFinalizarConfirm(true)} className="btn-secondary text-sm px-3 py-1.5">Finalizar</button>
             )}
           </div>
         }
@@ -449,7 +454,7 @@ export default function ConsultaRoomPage() {
                       <StatusBadge status={rx.estado} />
                       {rx.estado === "activa" && (
                         <button
-                          onClick={() => handleCancelPrescription(rx.id)}
+                          onClick={() => setCancelConfirmId(rx.id)}
                           disabled={cancellingId === rx.id}
                           className="text-danger text-xs hover:underline disabled:opacity-50"
                         >
@@ -464,6 +469,28 @@ export default function ConsultaRoomPage() {
           </div>
         </div>
       </div>
+
+      {/* Finalizar consulta confirm */}
+      <ConfirmModal
+        open={showFinalizarConfirm}
+        title="Finalizar consulta"
+        description="La consulta quedará marcada como completada. Aún podés emitir recetas después de finalizar."
+        confirmLabel="Finalizar"
+        onConfirm={() => { setShowFinalizarConfirm(false); handleUpdateStatus("completada"); }}
+        onCancel={() => setShowFinalizarConfirm(false)}
+      />
+
+      {/* Anular receta confirm */}
+      <ConfirmModal
+        open={cancelConfirmId !== null}
+        title="Anular receta"
+        description="Esta receta quedará anulada y no podrá dispensarse en farmacia. Esta acción no se puede deshacer."
+        confirmLabel="Anular receta"
+        danger
+        loading={cancellingId === cancelConfirmId}
+        onConfirm={() => { if (cancelConfirmId) { handleCancelPrescription(cancelConfirmId); setCancelConfirmId(null); } }}
+        onCancel={() => setCancelConfirmId(null)}
+      />
 
       {/* New prescription modal */}
       {showModal && (
