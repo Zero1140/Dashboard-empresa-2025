@@ -3,6 +3,8 @@ import { useState } from "react";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
 import MonoId from "@/components/ui/MonoId";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { GLOSARIO } from "@/data/glosario";
 import { api } from "@/lib/api";
 import type { CredentialResult } from "@/lib/types";
 
@@ -78,7 +80,12 @@ export default function CredencialesPage() {
           <div className="text-xs space-y-1">
             <p className="text-accent font-medium">Motor OpenLoop — Credencialización multi-jurisdicción</p>
             <p className="text-text-2">
-              Verifica matrículas en las 24 provincias vía REFEPS/SISA. Devuelve CUFP, estado, provincias habilitadas y recurso FHIR R4.
+              Verifica matrículas en las 24 provincias vía{" "}
+              <Tooltip content={GLOSARIO.REFEPS}><span className="underline decoration-dotted cursor-help">REFEPS</span></Tooltip>/{" "}
+              <Tooltip content={GLOSARIO.SISA}><span className="underline decoration-dotted cursor-help">SISA</span></Tooltip>.
+              {" "}Devuelve{" "}
+              <Tooltip content={GLOSARIO.CUFP}><span className="underline decoration-dotted cursor-help">CUFP</span></Tooltip>,
+              {" "}estado, provincias habilitadas y recurso FHIR R4.
               El sistema está en <span className="font-mono">MOCK MODE</span> — las búsquedas usan datos de prueba.
             </p>
           </div>
@@ -100,7 +107,9 @@ export default function CredencialesPage() {
                     : "text-text-3 hover:text-text-2"
                 }`}
               >
-                {m === "dni" ? "DNI" : m === "matricula" ? "Matrícula" : "CUFP"}
+                {m === "dni" ? "DNI" : m === "matricula" ? "Matrícula" : (
+                  <Tooltip content={GLOSARIO.CUFP}><span className="underline decoration-dotted cursor-help">CUFP</span></Tooltip>
+                )}
               </button>
             ))}
           </div>
@@ -108,7 +117,9 @@ export default function CredencialesPage() {
           <form onSubmit={handleSearch} className="space-y-3">
             <div>
               <label className="text-text-2 text-xs uppercase tracking-widest block mb-1.5">
-                {mode === "dni" ? "Número de DNI" : mode === "matricula" ? "Matrícula Nacional" : "CUFP"}
+                {mode === "dni" ? "Número de DNI" : mode === "matricula" ? "Matrícula Nacional" : (
+                  <Tooltip content={GLOSARIO.CUFP}><span className="underline decoration-dotted cursor-help">CUFP</span></Tooltip>
+                )}
               </label>
               <input
                 value={value}
@@ -135,7 +146,7 @@ export default function CredencialesPage() {
 
             <button type="submit" disabled={loading || !value.trim()} className="btn-primary flex items-center gap-2">
               {loading && <span className="spinner" />}
-              {loading ? "Verificando contra REFEPS..." : "Verificar matrícula"}
+              {loading ? <>Verificando contra <Tooltip content={GLOSARIO.REFEPS}><span className="underline decoration-dotted cursor-help">REFEPS</span></Tooltip>...</> : "Verificar matrícula"}
             </button>
           </form>
 
@@ -176,7 +187,7 @@ export default function CredencialesPage() {
                       <p className="text-text-2 text-sm">{result.especialidad ?? "Especialidad no registrada"}</p>
                     </>
                   ) : (
-                    <p className="text-text-2 text-sm">Profesional no encontrado en REFEPS</p>
+                    <p className="text-text-2 text-sm">Profesional no encontrado en <Tooltip content={GLOSARIO.REFEPS}><span className="underline decoration-dotted cursor-help">REFEPS</span></Tooltip></p>
                   )}
                 </div>
                 {result.found && result.estado_matricula && (
@@ -197,7 +208,9 @@ export default function CredencialesPage() {
                       <StatusBadge status={result.fuente === "mock" ? "mock" : "ok"} label={result.fuente} />
                     </div>
                     <div className="space-y-0.5">
-                      <p className="text-text-3 text-[10px] uppercase tracking-widest">PMO</p>
+                      <p className="text-text-3 text-[10px] uppercase tracking-widest">
+                        <Tooltip content={GLOSARIO.PMO}><span className="underline decoration-dotted cursor-help">PMO</span></Tooltip>
+                      </p>
                       <StatusBadge status={result.estado_matricula === "vigente" ? "activa" : "suspendida"} label="Prescripción" />
                     </div>
                   </div>

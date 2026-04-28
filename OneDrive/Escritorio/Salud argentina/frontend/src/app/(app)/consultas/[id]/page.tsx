@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
 import MonoId from "@/components/ui/MonoId";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { GLOSARIO } from "@/data/glosario";
 import { api } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import type { Consultation, Prescription } from "@/lib/types";
@@ -372,7 +374,7 @@ export default function ConsultaRoomPage() {
               {diagCode && diagTexto && (
                 <div className="mt-1.5 flex items-center justify-between gap-2">
                   <p className="text-xs text-success truncate">
-                    ✓ {diagTexto} — SNOMED: <span className="font-mono">{diagCode}</span>
+                    ✓ {diagTexto} — <Tooltip content={GLOSARIO.SNOMED}><span className="underline decoration-dotted cursor-help">SNOMED</span></Tooltip>: <span className="font-mono">{diagCode}</span>
                   </p>
                   {canEdit && (
                     <button
@@ -538,7 +540,7 @@ export default function ConsultaRoomPage() {
                 {rxMedNombre && rxMedCode && (
                   <div className="mt-1.5 flex items-center justify-between gap-2">
                     <p className="text-xs text-success">
-                      ✓ {rxMedNombre} — SNOMED: <span className="font-mono">{rxMedCode}</span>
+                      ✓ {rxMedNombre} — <Tooltip content={GLOSARIO.SNOMED}><span className="underline decoration-dotted cursor-help">SNOMED</span></Tooltip>: <span className="font-mono">{rxMedCode}</span>
                     </p>
                     <button
                       type="button"

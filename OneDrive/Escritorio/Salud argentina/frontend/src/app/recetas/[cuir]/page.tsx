@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
 import StatusBadge from "@/components/ui/StatusBadge";
 import MonoId from "@/components/ui/MonoId";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { GLOSARIO } from "@/data/glosario";
 import { api } from "@/lib/api";
 import type { PublicPrescription } from "@/lib/types";
 
@@ -97,7 +99,7 @@ export default function PublicPrescriptionPage() {
           <div className="card p-8 max-w-sm w-full text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-danger-bg border border-danger/20 flex items-center justify-center mx-auto text-xl">✗</div>
             <p className="text-text font-semibold">Receta no encontrada</p>
-            <p className="text-text-3 text-sm">El código CUIR no corresponde a ninguna receta registrada.</p>
+            <p className="text-text-3 text-sm">El código <Tooltip content={GLOSARIO.CUIR}><span className="underline decoration-dotted cursor-help">CUIR</span></Tooltip> no corresponde a ninguna receta registrada.</p>
             <MonoId value={cuir} label="CUIR consultado" dimmed />
           </div>
         )}
@@ -136,7 +138,7 @@ export default function PublicPrescriptionPage() {
                 <p className="text-text-3 text-[10px] uppercase tracking-widest mb-1">Medicamento</p>
                 <p className="text-text font-semibold">{rx.medicamento_nombre || "No especificado"}</p>
                 {rx.medicamento_snomed_code && (
-                  <p className="text-text-3 text-xs font-mono mt-0.5">SNOMED: {rx.medicamento_snomed_code}</p>
+                  <p className="text-text-3 text-xs font-mono mt-0.5"><Tooltip content={GLOSARIO.SNOMED}><span className="underline decoration-dotted cursor-help">SNOMED</span></Tooltip>: {rx.medicamento_snomed_code}</p>
                 )}
               </div>
 

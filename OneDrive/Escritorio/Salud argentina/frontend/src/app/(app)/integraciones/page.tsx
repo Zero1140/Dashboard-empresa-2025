@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { GLOSARIO } from "@/data/glosario";
 import { api } from "@/lib/api";
 import type { HealthResponse } from "@/lib/types";
 
@@ -130,7 +132,15 @@ export default function IntegracionesPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-3 mb-1">
-                      <p className="text-text font-semibold">{connector.name}</p>
+                      <p className="text-text font-semibold">
+                        {connector.id === "refeps" ? (
+                          <>
+                            <Tooltip content={GLOSARIO.REFEPS}><span className="underline decoration-dotted cursor-help">REFEPS</span></Tooltip>
+                            {" / "}
+                            <Tooltip content={GLOSARIO.SISA}><span className="underline decoration-dotted cursor-help">SISA</span></Tooltip>
+                          </>
+                        ) : connector.name}
+                      </p>
                       <span className="text-[10px] text-accent bg-accent-glow px-2 py-0.5 rounded border border-accent/20">
                         {connector.subtitle}
                       </span>
@@ -195,10 +205,11 @@ export default function IntegracionesPage() {
                 <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
               <div className="text-xs space-y-2">
-                <p className="text-danger font-semibold">Registro ReNaPDiS pendiente — riesgo legal</p>
+                <p className="text-danger font-semibold">Registro <Tooltip content={GLOSARIO.ReNaPDiS}><span className="underline decoration-dotted cursor-help">ReNaPDiS</span></Tooltip> pendiente — riesgo legal</p>
                 <p className="text-danger/80">
-                  La Resolución 1959/2024 exige que toda plataforma digital de salud esté registrada en el ReNaPDiS
-                  antes de operar. Operar sin registro expone a la plataforma a sanciones y puede invalidar los
+                  La Resolución 1959/2024 exige que toda plataforma digital de salud esté registrada en el{" "}
+                  <Tooltip content={GLOSARIO.ReNaPDiS}><span className="underline decoration-dotted cursor-help">ReNaPDiS</span></Tooltip>
+                  {" "}antes de operar. Operar sin registro expone a la plataforma a sanciones y puede invalidar los
                   consentimientos informados obtenidos.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">

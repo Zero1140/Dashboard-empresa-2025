@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import TopBar from "@/components/layout/TopBar";
 import StatusBadge from "@/components/ui/StatusBadge";
 import MonoId from "@/components/ui/MonoId";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { GLOSARIO } from "@/data/glosario";
 import { api } from "@/lib/api";
 import type { EligibilityResult } from "@/lib/types";
 
@@ -82,9 +84,11 @@ export default function ElegibilidadPage() {
           <div className="text-xs space-y-1">
             <p className="text-accent font-medium">Verificación de cobertura — 800+ financiadores disponibles</p>
             <p className="text-text-2">
-              Equivalente al <span className="font-medium">Carrie AI Engine</span> adaptado al PMO argentino. Verifica cobertura activa contra{" "}
+              Equivalente al <span className="font-medium">Carrie AI Engine</span> adaptado al{" "}
+              <Tooltip content={GLOSARIO.PMO}><span className="underline decoration-dotted cursor-help">PMO</span></Tooltip>
+              {" "}argentino. Verifica cobertura activa contra{" "}
               {financiadores.length > 0 ? `${financiadores.length} financiadores` : "múltiples financiadores"} vía Farmalink Hub.
-              La cobertura activa garantiza el piso PMO obligatorio por ley.
+              La cobertura activa garantiza el piso <Tooltip content={GLOSARIO.PMO}><span className="underline decoration-dotted cursor-help">PMO</span></Tooltip> obligatorio por ley.
             </p>
           </div>
         </div>
@@ -138,7 +142,9 @@ export default function ElegibilidadPage() {
                 placeholder="Ej: 11429006 (consulta médica)"
               />
               <p className="text-text-3 text-xs mt-1">
-                Si se omite, verifica cobertura general. El PMO garantiza cobertura mínima obligatoria.
+                Si se omite, verifica cobertura general. El{" "}
+                <Tooltip content={GLOSARIO.PMO}><span className="underline decoration-dotted cursor-help">PMO</span></Tooltip>
+                {" "}garantiza cobertura mínima obligatoria.
               </p>
             </div>
 
@@ -197,7 +203,10 @@ export default function ElegibilidadPage() {
                     <MonoId value={result.financiador_id} label="Financiador" dimmed />
 
                     <div className="space-y-0.5">
-                      <p className="text-text-3 text-[10px] uppercase tracking-widest">PMO cubierto</p>
+                      <p className="text-text-3 text-[10px] uppercase tracking-widest">
+                        <Tooltip content={GLOSARIO.PMO}><span className="underline decoration-dotted cursor-help">PMO</span></Tooltip>
+                        {" "}cubierto
+                      </p>
                       <StatusBadge
                         status={result.pmo_cubierto ? "activa" : "suspendida"}
                         label={result.pmo_cubierto ? "Sí — obligatorio" : "No verificado"}
@@ -214,7 +223,9 @@ export default function ElegibilidadPage() {
                     <div className="bg-success-bg border border-success/20 rounded-md px-4 py-3">
                       <p className="text-success text-sm font-medium">✓ Cobertura activa verificada</p>
                       <p className="text-success/70 text-xs mt-0.5">
-                        Afiliado habilitado para prestaciones cubiertas por el PMO. Res. 5744/2024 — interoperabilidad verificada.
+                        Afiliado habilitado para prestaciones cubiertas por el{" "}
+                        <Tooltip content={GLOSARIO.PMO}><span className="underline decoration-dotted cursor-help">PMO</span></Tooltip>.
+                        {" "}Res. 5744/2024 — interoperabilidad verificada.
                       </p>
                     </div>
                   )}
