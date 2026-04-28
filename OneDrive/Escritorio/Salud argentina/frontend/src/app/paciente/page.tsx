@@ -153,8 +153,16 @@ export default function PatientPortalPage() {
         {/* Empty state */}
         {searched && !error && results && results.length === 0 && (
           <div className="card p-8 w-full max-w-md text-center space-y-2">
-            <p className="text-text font-medium">Sin resultados</p>
-            <p className="text-text-3 text-sm">No encontramos recetas para este DNI.</p>
+            <div className="w-10 h-10 rounded-full bg-surface-2 border border-border flex items-center justify-center mx-auto">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-text-3">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </div>
+            <p className="text-text-2 text-sm font-medium">No encontramos recetas</p>
+            <p className="text-text-3 text-xs leading-relaxed">
+              Verificá que el DNI y nombre estén escritos correctamente.<br/>
+              Si creés que hay un error, consultá con tu médico o la farmacia.
+            </p>
           </div>
         )}
 

@@ -145,11 +145,28 @@ export default function PrestadoresPage() {
             </div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="card py-12 text-center space-y-3">
-            <p className="text-text-3 text-sm">No se encontraron médicos.</p>
-            <Link href="/prestadores/invitar" className="btn-primary text-sm px-4 py-2 inline-block">
-              Invitar el primero →
-            </Link>
+          <div className="card p-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-surface-2 border border-border flex items-center justify-center mx-auto">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-text-3">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            {(especialidad !== "Todas" || !soloAprobados) ? (
+              <>
+                <p className="text-text-2 text-sm font-medium">Sin médicos con estos filtros</p>
+                <p className="text-text-3 text-xs">Intentá cambiar los filtros o mostrando todos los estados.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-text-2 text-sm font-medium">La cartilla está vacía</p>
+                <p className="text-text-3 text-xs">Invitá médicos para que formen parte de la red de tu organización.</p>
+                <Link href="/prestadores/invitar" className="text-accent text-sm hover:underline inline-block">
+                  Invitar médico →
+                </Link>
+              </>
+            )}
           </div>
         ) : (
           <>

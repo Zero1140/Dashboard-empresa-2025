@@ -134,8 +134,13 @@ export default function AuditLogPage() {
           {loading ? (
             <div className="py-12 text-center"><span className="spinner" /></div>
           ) : items.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-text-3 text-sm">Sin entradas de audit log.</p>
+            <div className="py-12 text-center space-y-2">
+              <p className="text-text-2 text-sm font-medium">Sin entradas en el audit log</p>
+              <p className="text-text-3 text-xs">
+                {(action || fromDate || toDate || userId)
+                  ? "No hay registros que coincidan con los filtros aplicados. Intentá ampliar el rango de fechas."
+                  : "Los accesos y modificaciones de datos quedarán registrados acá (Ley 25.326)."}
+              </p>
             </div>
           ) : (
             <table className="w-full">

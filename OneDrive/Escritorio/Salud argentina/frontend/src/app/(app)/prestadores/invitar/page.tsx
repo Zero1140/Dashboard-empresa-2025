@@ -210,7 +210,10 @@ export default function InvitarPrestadorPage() {
               <span className="text-text-3 text-sm">Cargando...</span>
             </div>
           ) : invitations.length === 0 ? (
-            <p className="text-text-3 text-sm py-2">Todavía no enviaste ninguna invitación.</p>
+            <div className="py-8 text-center space-y-2">
+              <p className="text-text-3 text-sm">No enviaste invitaciones aún.</p>
+              <p className="text-text-3 text-xs">Las invitaciones que enviés aparecerán acá con su estado.</p>
+            </div>
           ) : (
             <>
               {/* Desktop table */}

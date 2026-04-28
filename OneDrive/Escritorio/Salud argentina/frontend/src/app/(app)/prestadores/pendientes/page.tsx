@@ -83,8 +83,17 @@ export default function PrestadoresPendientesPage() {
             <span className="spinner" />
           </div>
         ) : practitioners.length === 0 ? (
-          <div className="card p-10 text-center">
-            <p className="text-text-2 text-sm">No hay médicos pendientes de aprobación.</p>
+          <div className="card p-12 text-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-success-bg border border-success/20 flex items-center justify-center mx-auto">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-success" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <p className="text-text-2 text-sm font-medium">Todo al día</p>
+            <p className="text-text-3 text-xs">No hay médicos pendientes de aprobación.</p>
+            <Link href="/prestadores/invitar" className="text-accent text-sm hover:underline inline-block">
+              Invitar más médicos →
+            </Link>
           </div>
         ) : (
           <>

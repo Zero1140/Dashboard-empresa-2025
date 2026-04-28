@@ -117,14 +117,29 @@ export default function ConsultasPage() {
         ) : (
         <div className="card overflow-hidden">
           {filtered.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-text-3 text-sm">
-                {search ? "No hay consultas que coincidan con la búsqueda." : "No hay consultas aún."}
-              </p>
-              {!search && (
-                <Link href="/consultas/nueva" className="text-accent text-sm mt-2 inline-block hover:underline">
-                  Crear primera consulta →
-                </Link>
+            <div className="py-16 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-surface-2 border border-border flex items-center justify-center mx-auto">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-text-3">
+                  <path d="M9 12h6M9 16h6M9 8h6" strokeLinecap="round"/>
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                </svg>
+              </div>
+              {search ? (
+                <>
+                  <p className="text-text-2 text-sm font-medium">Sin resultados para &ldquo;{search}&rdquo;</p>
+                  <p className="text-text-3 text-xs">Probá buscar por nombre completo o número de DNI.</p>
+                  <button onClick={() => setSearch("")} className="text-accent text-sm hover:underline">
+                    Limpiar búsqueda
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-text-2 text-sm font-medium">No hay consultas aún</p>
+                  <p className="text-text-3 text-xs">Las consultas médicas y recetas electrónicas aparecerán acá.</p>
+                  <Link href="/consultas/nueva" className="text-accent text-sm hover:underline inline-block">
+                    Crear primera consulta →
+                  </Link>
+                </>
               )}
             </div>
           ) : (
