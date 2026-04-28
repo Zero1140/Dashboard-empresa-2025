@@ -38,7 +38,12 @@ export function getTokenExpiry(): number | null {
 export function isAuthenticated(): boolean {
   const token = getToken();
   if (!token) return false;
-  const exp = getTokenExpiry();
+  const payload = getTokenPayload();
+  if (!payload) {
+    clearToken();
+    return false;
+  }
+  const exp = payload.exp;
   if (exp != null && Date.now() / 1000 > exp) {
     clearToken();
     return false;
@@ -53,6 +58,9 @@ export function getRole(): "financiador_admin" | "prestador" | null {
   if (role === "financiador_admin" || role === "prestador") return role;
   return null;
 }
+
+const POLL_INTERVAL_MS = 30_000;
+const WARN_THRESHOLD_SECONDS = 300;
 
 export function useSessionExpiry() {
   const router = useRouter();
@@ -70,14 +78,14 @@ export function useSessionExpiry() {
         router.replace("/login");
         return;
       }
-      if (remaining <= 300 && !warnedRef.current) {
+      if (remaining <= WARN_THRESHOLD_SECONDS && !warnedRef.current) {
         warnedRef.current = true;
         addToast("Tu sesión vence en menos de 5 minutos. Guardá tu trabajo.", "info");
       }
     };
 
     check();
-    const interval = setInterval(check, 30000);
+    const interval = setInterval(check, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [router, addToast]);
 }
