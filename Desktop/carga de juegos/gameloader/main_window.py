@@ -295,14 +295,6 @@ class MainWindow(QMainWindow):
         self.btn_start_transfer.clicked.connect(self._commit_and_transfer)
         right_layout.addWidget(self.btn_start_transfer)
 
-        self.btn_broadcast = QPushButton("⚡ Enviar a todas las consolas")
-        self.btn_broadcast.setEnabled(False)
-        self.btn_broadcast.setToolTip(
-            "Envía los juegos del carrito a TODAS las consolas conectadas al mismo tiempo"
-        )
-        self.btn_broadcast.clicked.connect(self._broadcast_transfer)
-        right_layout.addWidget(self.btn_broadcast)
-
         splitter.addWidget(left)
         splitter.addWidget(center)
         splitter.addWidget(right)
@@ -795,7 +787,6 @@ class MainWindow(QMainWindow):
         else:
             self._staging_info.setText(f"{n} juego(s)")
         self.btn_start_transfer.setEnabled(n > 0)
-        self.btn_broadcast.setEnabled(n > 0 and len(self.consoles) > 1)
 
     def _update_catalog_buttons(self):
         if not self.selected_console:
@@ -811,27 +802,8 @@ class MainWindow(QMainWindow):
     # Transferencia
     # ------------------------------------------------------------------
 
-    def _broadcast_transfer(self):
-        source = self.selected_console
-        if not source:
-            return
-        source_games = self.staging_manager.get(source.console_id)
-        if not source_games:
-            return
-        targets = [c for c in self.consoles.values() if c.console_id != source.console_id]
-        if not targets:
-            self._status("Solo hay una consola conectada.")
-            return
-        for console in targets:
-            for game in source_games:
-                self.staging_manager.add(console.console_id, game)
-        all_consoles = [source] + targets
-        for console in all_consoles:
-            self._commit_and_transfer(console=console)
-
-    def _commit_and_transfer(self, console: ConsoleInfo | None = None):
-        if console is None:
-            console = self.selected_console
+    def _commit_and_transfer(self):
+        console = self.selected_console
         if not console:
             return
 
