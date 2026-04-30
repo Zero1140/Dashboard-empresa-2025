@@ -16,6 +16,7 @@ class ConsoleInfo:
     console_type: ConsoleType
     label: str
     hen_verified: bool = False
+    webman: bool = False
 
     @property
     def console_id(self) -> str:

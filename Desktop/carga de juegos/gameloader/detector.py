@@ -1,4 +1,5 @@
 import ftplib
+import socket
 from typing import Optional
 
 from models import ConsoleInfo, ConsoleType
@@ -26,10 +27,22 @@ def verify_hen(ip: str) -> bool:
                 pass
 
 
+def _probe_webman(ip: str) -> bool:
+    """Returns True if webMAN MOD's HTTP server responds on port 80."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2.0)
+        result = s.connect_ex((ip, 80))
+        s.close()
+        return result == 0
+    except Exception:
+        return False
+
+
 def detect_console(ip: str) -> Optional[ConsoleInfo]:
     """
-    Intenta identificar si la IP es PS3 (MultiMAN) o Xbox RGH.
-    Para PS3, también verifica si HEN está activo en la misma sesión FTP.
+    Intenta identificar si la IP es PS3 (MultiMAN/webMAN) o Xbox RGH.
+    Para PS3, verifica HEN vía FTP y detecta si webMAN MOD está activo.
     Devuelve ConsoleInfo o None si no es ninguna consola conocida.
     """
     # Intentar PS3: MultiMAN usa FTP anónimo, root contiene 'dev_hdd0'
@@ -39,7 +52,7 @@ def detect_console(ip: str) -> Optional[ConsoleInfo]:
         ftp.login()
         entries = ftp.nlst()
         if any("dev_hdd0" in e for e in entries):
-            # Verificar HEN en la misma sesión: intentar cwd a packages/
+            # Verificar HEN en la misma sesión FTP
             hen_ok = False
             try:
                 ftp.cwd("/dev_hdd0/packages/")
@@ -48,11 +61,13 @@ def detect_console(ip: str) -> Optional[ConsoleInfo]:
                 pass
             ftp.quit()
             last = ip.rsplit(".", 1)[1]
+            webman_active = _probe_webman(ip)
             return ConsoleInfo(
                 ip=ip,
                 console_type=ConsoleType.PS3,
                 label=f"PS3-{last}",
                 hen_verified=hen_ok,
+                webman=webman_active,
             )
         ftp.quit()
     except Exception:

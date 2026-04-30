@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
 )
 
 from catalog import load_catalog, CatalogSizeWorker
+from hen_guide_dialog import HenGuideDialog
 from pkg_guide_dialog import PkgGuideDialog
 from config import save_config
 from format_detector import detect_format, remote_path_for_format
@@ -22,6 +23,7 @@ from scanner import ScannerThread, ConsoleHealthChecker
 from settings_dialog import SettingsDialog
 from staging_manager import StagingManager
 from tray import SystemTray, set_autostart
+from webman import WebManClient, WebManPostWorker
 
 
 _FORMAT_BADGE = {
@@ -68,6 +70,7 @@ class MainWindow(QMainWindow):
         self._free_space_cache: Dict[str, float] = {}
         self._batch_has_pkg: Dict[str, list] = {}
         self._progress_rows: Dict[str, int] = {}  # console_id → row index
+        self._webman_post_workers: Dict[str, QThread] = {}
 
         self._setup_ui()
         self._setup_tray()
@@ -636,9 +639,11 @@ class MainWindow(QMainWindow):
     def _console_label(self, console: ConsoleInfo) -> str:
         if console.console_type == ConsoleType.PS3:
             hen_badge = "  ✓ HEN" if console.hen_verified else "  ✗ HEN"
+            wm_badge = "  [WM]" if console.webman else ""
         else:
             hen_badge = ""
-        return f"{console.label}{hen_badge}"
+            wm_badge = ""
+        return f"{console.label}{hen_badge}{wm_badge}"
 
     def _rename_console(self):
         if not self.selected_console:
@@ -810,6 +815,13 @@ class MainWindow(QMainWindow):
             )
             return
 
+        if not self._hen_ok(console):
+            dlg = HenGuideDialog(console.ip, console.webman, self)
+            dlg.exec()
+            if not self._hen_ok(console):
+                self._status("Transferencia cancelada: HEN no está activo.")
+                return
+
         staged_games = self.staging_manager.get(console.console_id)
         if not staged_games:
             return
@@ -884,6 +896,14 @@ class MainWindow(QMainWindow):
             return result == 0
         except Exception:
             return False
+
+    def _hen_ok(self, console: ConsoleInfo) -> bool:
+        if console.console_type != ConsoleType.PS3:
+            return True
+        if console.webman:
+            return WebManClient(console.ip).is_hen_active()
+        from detector import verify_hen
+        return verify_hen(console.ip)
 
     def _ensure_worker_running(self, console: ConsoleInfo):
         existing = self.workers.get(console.console_id)
@@ -1100,6 +1120,14 @@ class MainWindow(QMainWindow):
         if pkg_names and success_count > 0:
             guide = PkgGuideDialog(pkg_names, self)
             guide.exec()
+
+        if success_count > 0 and console and console.webman:
+            worker = WebManPostWorker(console.ip, success_count)
+            worker.finished.connect(
+                lambda cid=console_id: self._webman_post_workers.pop(cid, None)
+            )
+            self._webman_post_workers[console_id] = worker
+            worker.start()
 
     def _update_eta_status(self):
         active = [
