@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from staging_manager import StagingManager
-from models import ConsoleType, GameEntry, TransferJob
+from models import ConsoleType, GameEntry
 
 
 def _make_game(name: str, tmp_path: Path) -> GameEntry:
@@ -36,18 +36,6 @@ def test_no_duplicates_in_staging(tmp_path):
     mgr.add("PS3-105", game)
     mgr.add("PS3-105", game)
     assert len(mgr.get("PS3-105")) == 1
-
-
-def test_commit_clears_staging_and_returns_jobs(tmp_path):
-    mgr = StagingManager()
-    game = _make_game("Uncharted", tmp_path)
-    mgr.add("PS3-105", game)
-    jobs = mgr.commit("PS3-105", "/dev_hdd0/GAMES/")
-    assert len(jobs) == 1
-    assert isinstance(jobs[0], TransferJob)
-    assert jobs[0].game.name == "Uncharted"
-    assert jobs[0].remote_base_path == "/dev_hdd0/GAMES/"
-    assert mgr.get("PS3-105") == []
 
 
 def test_total_size_empty():

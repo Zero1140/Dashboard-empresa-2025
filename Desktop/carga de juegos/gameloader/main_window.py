@@ -65,8 +65,9 @@ class MainWindow(QMainWindow):
         self._latest_eta_data: Dict[str, Tuple[int, float]] = {}
         self._console_online: Dict[str, bool] = {}
         self._game_size_cache: Dict[str, int] = {}
-        self._free_space_cache: Dict[str, float] = {}  # console_id → GB libres
-        self._batch_has_pkg: Dict[str, list] = {}  # console_id → lista de nombres PKG
+        self._free_space_cache: Dict[str, float] = {}
+        self._batch_has_pkg: Dict[str, list] = {}
+        self._progress_rows: Dict[str, int] = {}  # console_id → row index
 
         self._setup_ui()
         self._setup_tray()
@@ -658,11 +659,11 @@ class MainWindow(QMainWindow):
             if item.data(Qt.ItemDataRole.UserRole) == self.selected_console.console_id:
                 item.setText(f"  {self._console_label(self.selected_console)}")
 
-        for row in range(self.progress_table.rowCount()):
+        row = self._progress_rows.get(self.selected_console.console_id, -1)
+        if row >= 0:
             cell = self.progress_table.item(row, 0)
-            if cell and cell.text() == old_label:
+            if cell:
                 cell.setText(new_label)
-                break
 
         self._staging_title.setText(f"COLA: {new_label}")
 
@@ -945,22 +946,23 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _upsert_progress_row(self, console: ConsoleInfo):
-        for row in range(self.progress_table.rowCount()):
-            cell = self.progress_table.item(row, 0)
-            if cell and cell.text() == console.label:
-                self._safe_item(row, 1) and self._safe_item(row, 1).setText("Iniciando...")
-                bar = self._safe_widget(row, 2)
-                if bar:
-                    bar.setValue(0)
-                self._safe_item(row, 3) and self._safe_item(row, 3).setText("—")
-                self._safe_item(row, 4) and self._safe_item(row, 4).setText("En cola")
-                btn = QPushButton("Detener")
-                btn.setFixedWidth(60)
-                btn.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer(cid))
-                self.progress_table.setCellWidget(row, 5, btn)
-                return
+        existing = self._progress_rows.get(console.console_id, -1)
+        if existing >= 0:
+            row = existing
+            self._safe_item(row, 1) and self._safe_item(row, 1).setText("Iniciando...")
+            bar = self._safe_widget(row, 2)
+            if bar:
+                bar.setValue(0)
+            self._safe_item(row, 3) and self._safe_item(row, 3).setText("—")
+            self._safe_item(row, 4) and self._safe_item(row, 4).setText("En cola")
+            btn = QPushButton("Detener")
+            btn.setFixedWidth(60)
+            btn.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer(cid))
+            self.progress_table.setCellWidget(row, 5, btn)
+            return
 
         row = self.progress_table.rowCount()
+        self._progress_rows[console.console_id] = row
         self.progress_table.insertRow(row)
         self.progress_table.setRowHeight(row, 32)
         self.progress_table.setItem(row, 0, QTableWidgetItem(console.label))
@@ -978,14 +980,7 @@ class MainWindow(QMainWindow):
         self.progress_table.setCellWidget(row, 5, btn)
 
     def _find_row(self, console_id: str) -> int:
-        console = self.consoles.get(console_id)
-        if not console:
-            return -1
-        for row in range(self.progress_table.rowCount()):
-            cell = self.progress_table.item(row, 0)
-            if cell and cell.text() == console.label:
-                return row
-        return -1
+        return self._progress_rows.get(console_id, -1)
 
     def _safe_item(self, row: int, col: int):
         if row < 0 or row >= self.progress_table.rowCount():

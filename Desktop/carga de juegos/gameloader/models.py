@@ -34,6 +34,4 @@ class GameEntry:
 class TransferJob:
     game: GameEntry
     remote_base_path: str
-    status: str = "pending"
-    error_msg: str = ""
     attempts: int = 0

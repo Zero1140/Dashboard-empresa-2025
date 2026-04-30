@@ -159,6 +159,22 @@ class FTPWorker(QThread):
         except (PermissionError, OSError):
             return 0
 
+    def _progress_callback(self, sent: list, total_size: int, velocity_window: deque, game_name: str):
+        def callback(data, _sent=sent, _vw=velocity_window):
+            _sent[0] += len(data)
+            now = time.monotonic()
+            _vw.append((now, _sent[0]))
+            while len(_vw) > 1 and now - _vw[0][0] > 3.0:
+                _vw.popleft()
+            if len(_vw) >= 2:
+                dt = _vw[-1][0] - _vw[0][0]
+                db = _vw[-1][1] - _vw[0][1]
+                mbps = (db / dt / 1_048_576) if dt > 0 else 0.0
+            else:
+                mbps = 0.0
+            self.progress.emit(self.console.console_id, game_name, _sent[0], total_size, mbps)
+        return callback
+
     def _upload_folder(
         self,
         ftp: ftplib.FTP,
@@ -189,23 +205,10 @@ class FTPWorker(QThread):
                 )
             else:
                 with open(item, "rb") as f:
-                    def callback(data, _sent=sent, _vw=velocity_window):
-                        _sent[0] += len(data)
-                        now = time.monotonic()
-                        _vw.append((now, _sent[0]))
-                        while len(_vw) > 1 and now - _vw[0][0] > 3.0:
-                            _vw.popleft()
-                        if len(_vw) >= 2:
-                            dt = _vw[-1][0] - _vw[0][0]
-                            db = _vw[-1][1] - _vw[0][1]
-                            mbps = (db / dt / 1_048_576) if dt > 0 else 0.0
-                        else:
-                            mbps = 0.0
-                        self.progress.emit(
-                            self.console.console_id, game_name,
-                            _sent[0], total_size, mbps,
-                        )
-                    ftp.storbinary(f"STOR {remote_item}", f, 8192, callback)
+                    ftp.storbinary(
+                        f"STOR {remote_item}", f, 8192,
+                        self._progress_callback(sent, total_size, velocity_window, game_name),
+                    )
 
     def _upload_file(
         self,
@@ -215,27 +218,13 @@ class FTPWorker(QThread):
         game_name: str,
         velocity_window: deque,
     ):
-        """Sube un archivo individual (ISO o PKG) vía STOR."""
         total_size = local_file.stat().st_size
         sent = [0]
         with open(local_file, "rb") as f:
-            def callback(data, _sent=sent, _vw=velocity_window):
-                _sent[0] += len(data)
-                now = time.monotonic()
-                _vw.append((now, _sent[0]))
-                while len(_vw) > 1 and now - _vw[0][0] > 3.0:
-                    _vw.popleft()
-                if len(_vw) >= 2:
-                    dt = _vw[-1][0] - _vw[0][0]
-                    db = _vw[-1][1] - _vw[0][1]
-                    mbps = (db / dt / 1_048_576) if dt > 0 else 0.0
-                else:
-                    mbps = 0.0
-                self.progress.emit(
-                    self.console.console_id, game_name,
-                    _sent[0], total_size, mbps,
-                )
-            ftp.storbinary(f"STOR {remote_path}", f, 8192, callback)
+            ftp.storbinary(
+                f"STOR {remote_path}", f, 8192,
+                self._progress_callback(sent, total_size, velocity_window, game_name),
+            )
 
     def run(self):
         success_count = 0

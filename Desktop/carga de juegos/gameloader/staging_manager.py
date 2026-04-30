@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, List
 
-from models import GameEntry, TransferJob
+from models import GameEntry
 
 
 class StagingManager:
@@ -31,12 +31,6 @@ class StagingManager:
             for g in self._staging.get(console_id, [])
         )
         return total / (1024 ** 3)
-
-    def commit(self, console_id: str, remote_base_path: str) -> List[TransferJob]:
-        games = list(self._staging.get(console_id, []))
-        jobs = [TransferJob(game=g, remote_base_path=remote_base_path) for g in games]
-        self._staging[console_id] = []
-        return jobs
 
     def _folder_size(self, path: Path) -> int:
         try:
