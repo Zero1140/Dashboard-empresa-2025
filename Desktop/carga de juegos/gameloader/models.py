@@ -27,7 +27,7 @@ class GameEntry:
     name: str
     local_path: Path
     console_type: ConsoleType
-    format: GameFormat = field(default=GameFormat.FOLDER)
+    format: GameFormat = GameFormat.FOLDER
 
 
 @dataclass
