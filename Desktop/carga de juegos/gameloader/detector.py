@@ -29,7 +29,7 @@ def verify_hen(ip: str) -> bool:
 def detect_console(ip: str) -> Optional[ConsoleInfo]:
     """
     Intenta identificar si la IP es PS3 (MultiMAN) o Xbox RGH.
-    Para PS3, también verifica si HEN está activo.
+    Para PS3, también verifica si HEN está activo en la misma sesión FTP.
     Devuelve ConsoleInfo o None si no es ninguna consola conocida.
     """
     # Intentar PS3: MultiMAN usa FTP anónimo, root contiene 'dev_hdd0'
@@ -38,16 +38,23 @@ def detect_console(ip: str) -> Optional[ConsoleInfo]:
         ftp.connect(ip, 21, timeout=3)
         ftp.login()
         entries = ftp.nlst()
-        ftp.quit()
         if any("dev_hdd0" in e for e in entries):
+            # Verificar HEN en la misma sesión: intentar cwd a packages/
+            hen_ok = False
+            try:
+                ftp.cwd("/dev_hdd0/packages/")
+                hen_ok = True
+            except Exception:
+                pass
+            ftp.quit()
             last = ip.rsplit(".", 1)[1]
-            hen_ok = verify_hen(ip)
             return ConsoleInfo(
                 ip=ip,
                 console_type=ConsoleType.PS3,
                 label=f"PS3-{last}",
                 hen_verified=hen_ok,
             )
+        ftp.quit()
     except Exception:
         pass
 

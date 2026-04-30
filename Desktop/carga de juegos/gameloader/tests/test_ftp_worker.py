@@ -31,8 +31,10 @@ def _make_ftp_mock(remote_exists=False, remote_size=-1):
 
     if remote_exists:
         ftp.cwd.return_value = None  # cwd succeeds → dir exists
+        ftp.size.return_value = 128  # file exists → return a size
     else:
         ftp.cwd.side_effect = ftplib.error_perm("550 No such directory")
+        ftp.size.side_effect = ftplib.error_perm("550 No such file")  # file doesn't exist
 
     ftp.mlsd.return_value = iter([])
     ftp.mkd.return_value = None

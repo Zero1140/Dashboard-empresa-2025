@@ -259,20 +259,52 @@ class FTPWorker(QThread):
 
                         if fmt == GameFormat.ISO:
                             remote_dest = job.remote_base_path.rstrip("/") + "/" + job.game.local_path.name
+                            # Check overwrite
+                            if not self.overwrite:
+                                try:
+                                    ftp.size(remote_dest)
+                                    # If size() didn't raise, file exists → skip
+                                    self.job_done.emit(self.console.console_id, job.game.name, "skipped")
+                                    success_count += 1
+                                    break
+                                except ftplib.error_perm:
+                                    pass  # file doesn't exist, continue
                             self._upload_file(ftp, job.game.local_path, remote_dest, job.game.name, velocity_window)
 
                         elif fmt == GameFormat.PKG:
                             remote_dest = job.remote_base_path.rstrip("/") + "/" + job.game.local_path.name
+                            # Check overwrite
+                            if not self.overwrite:
+                                try:
+                                    ftp.size(remote_dest)
+                                    # If size() didn't raise, file exists → skip
+                                    self.job_done.emit(self.console.console_id, job.game.name, "skipped")
+                                    success_count += 1
+                                    break
+                                except ftplib.error_perm:
+                                    pass  # file doesn't exist, continue
                             self._upload_file(ftp, job.game.local_path, remote_dest, job.game.name, velocity_window)
 
                         elif fmt == GameFormat.ISO_SET:
                             iso_files = get_iso_files(job.game.local_path)
+                            all_skipped = True
                             for iso in iso_files:
                                 if self._stop:
                                     break
                                 remote_dest = job.remote_base_path.rstrip("/") + "/" + iso.name
+                                if not self.overwrite:
+                                    try:
+                                        ftp.size(remote_dest)
+                                        continue  # this ISO already exists, skip
+                                    except ftplib.error_perm:
+                                        pass  # doesn't exist, upload
+                                all_skipped = False
                                 iso_velocity_window: deque = deque()
                                 self._upload_file(ftp, iso, remote_dest, job.game.name, iso_velocity_window)
+                            if all_skipped and not self._stop:
+                                self.job_done.emit(self.console.console_id, job.game.name, "skipped")
+                                success_count += 1
+                                break
 
                         else:  # GameFormat.FOLDER — comportamiento original
                             remote_dest = self._remote_dest(job.remote_base_path, job.game.name)
