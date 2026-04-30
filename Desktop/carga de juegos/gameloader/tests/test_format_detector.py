@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from format_detector import GameFormat, detect_format, get_iso_files
+from format_detector import GameFormat, detect_format, get_iso_files, remote_path_for_format
 
 
 def test_iso_file(tmp_path):
@@ -58,3 +58,49 @@ def test_folder_with_subdir_iso_is_still_folder(tmp_path):
     sub.mkdir()
     (sub / "archivo.iso").write_bytes(b"")
     assert detect_format(game_dir) == GameFormat.FOLDER
+
+
+def test_unknown_file_extension_raises(tmp_path):
+    rar = tmp_path / "juego.rar"
+    rar.write_bytes(b"")
+    import pytest
+    with pytest.raises(ValueError, match="no reconocido"):
+        detect_format(rar)
+
+
+def test_nonexistent_path_raises(tmp_path):
+    import pytest
+    with pytest.raises(FileNotFoundError):
+        detect_format(tmp_path / "no_existe.iso")
+
+
+def test_get_iso_files_empty_folder(tmp_path):
+    game_dir = tmp_path / "BLUS00000"
+    game_dir.mkdir()
+    assert get_iso_files(game_dir) == []
+
+
+def test_remote_path_for_format_iso(tmp_path):
+    config = {"ps3_iso_path": "/dev_hdd0/PS3ISO/"}
+    assert remote_path_for_format(GameFormat.ISO, config) == "/dev_hdd0/PS3ISO/"
+
+
+def test_remote_path_for_format_iso_set(tmp_path):
+    config = {"ps3_iso_path": "/dev_hdd0/PS3ISO/"}
+    assert remote_path_for_format(GameFormat.ISO_SET, config) == "/dev_hdd0/PS3ISO/"
+
+
+def test_remote_path_for_format_pkg(tmp_path):
+    config = {"ps3_pkg_path": "/dev_hdd0/packages/"}
+    assert remote_path_for_format(GameFormat.PKG, config) == "/dev_hdd0/packages/"
+
+
+def test_remote_path_for_format_folder(tmp_path):
+    config = {"ps3_remote_path": "/dev_hdd0/GAMES/"}
+    assert remote_path_for_format(GameFormat.FOLDER, config) == "/dev_hdd0/GAMES/"
+
+
+def test_remote_path_for_format_defaults(tmp_path):
+    assert remote_path_for_format(GameFormat.ISO, {}) == "/dev_hdd0/PS3ISO/"
+    assert remote_path_for_format(GameFormat.PKG, {}) == "/dev_hdd0/packages/"
+    assert remote_path_for_format(GameFormat.FOLDER, {}) == "/dev_hdd0/GAMES/"

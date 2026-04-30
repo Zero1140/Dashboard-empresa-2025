@@ -10,13 +10,16 @@ class GameFormat(Enum):
 
 
 def detect_format(path: Path) -> GameFormat:
+    if not path.exists():
+        raise FileNotFoundError(f"Juego no encontrado: {path}")
+
     if path.is_file():
         suffix = path.suffix.lower()
         if suffix == ".iso":
             return GameFormat.ISO
         if suffix == ".pkg":
             return GameFormat.PKG
-        return GameFormat.FOLDER
+        raise ValueError(f"Formato de archivo no reconocido: {path.suffix!r}")
 
     iso_files = [f for f in path.iterdir() if f.is_file() and f.suffix.lower() == ".iso"]
     if iso_files:
