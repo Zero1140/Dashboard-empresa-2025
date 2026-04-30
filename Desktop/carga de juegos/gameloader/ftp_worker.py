@@ -271,7 +271,8 @@ class FTPWorker(QThread):
                                 if self._stop:
                                     break
                                 remote_dest = job.remote_base_path.rstrip("/") + "/" + iso.name
-                                self._upload_file(ftp, iso, remote_dest, job.game.name, velocity_window)
+                                iso_velocity_window: deque = deque()
+                                self._upload_file(ftp, iso, remote_dest, job.game.name, iso_velocity_window)
 
                         else:  # GameFormat.FOLDER — comportamiento original
                             remote_dest = self._remote_dest(job.remote_base_path, job.game.name)
