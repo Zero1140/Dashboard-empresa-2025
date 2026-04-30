@@ -548,7 +548,9 @@ class MainWindow(QMainWindow):
             self._catalog_table.insertRow(row)
             self._catalog_table.setRowHeight(row, 28)
 
-            name_item = QTableWidgetItem(game.name)
+            badge = _FORMAT_BADGE.get(game.format.value, "")
+            display_name = f"[{badge}]  {game.name}" if badge else game.name
+            name_item = QTableWidgetItem(display_name)
             name_item.setData(Qt.ItemDataRole.UserRole, game)
             self._catalog_table.setItem(row, 0, name_item)
 
