@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
 )
 
 from catalog import load_catalog, CatalogSizeWorker
+from pkg_guide_dialog import PkgGuideDialog
 from config import save_config
 from format_detector import detect_format, remote_path_for_format
 from ftp_worker import FTPWorker, FreeSpaceWorker, MAX_RETRIES
@@ -48,6 +49,7 @@ class MainWindow(QMainWindow):
         self._console_online: Dict[str, bool] = {}
         self._game_size_cache: Dict[str, int] = {}
         self._free_space_cache: Dict[str, float] = {}  # console_id → GB libres
+        self._batch_has_pkg: Dict[str, list] = {}  # console_id → lista de nombres PKG
 
         self._setup_ui()
         self._setup_tray()
@@ -758,6 +760,11 @@ class MainWindow(QMainWindow):
                 return
             jobs.append(TransferJob(game=game, remote_base_path=remote_base))
 
+        from format_detector import GameFormat
+        self._batch_has_pkg[console.console_id] = [
+            job.game.name for job in jobs if job.game.format == GameFormat.PKG
+        ]
+
         total_bytes = sum(
             self._game_size_cache.get(job.game.name, 0)
             for job in jobs
@@ -1018,6 +1025,11 @@ class MainWindow(QMainWindow):
                 msg += f", {fail_count} con error"
             self.tray.notify("GameLoader", msg)
             self._status(msg)
+
+        pkg_names = self._batch_has_pkg.pop(console_id, [])
+        if pkg_names and success_count > 0:
+            guide = PkgGuideDialog(pkg_names, self)
+            guide.exec()
 
     def _update_eta_status(self):
         active = [
