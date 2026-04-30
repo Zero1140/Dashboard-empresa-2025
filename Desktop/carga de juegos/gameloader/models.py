@@ -1,6 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+
+from format_detector import GameFormat
 
 
 class ConsoleType(Enum):
@@ -12,7 +14,8 @@ class ConsoleType(Enum):
 class ConsoleInfo:
     ip: str
     console_type: ConsoleType
-    label: str  # ej: "PS3-105", renombrable con nombre del cliente
+    label: str
+    hen_verified: bool = False
 
     @property
     def console_id(self) -> str:
@@ -24,12 +27,13 @@ class GameEntry:
     name: str
     local_path: Path
     console_type: ConsoleType
+    format: GameFormat = field(default=GameFormat.FOLDER)
 
 
 @dataclass
 class TransferJob:
     game: GameEntry
-    remote_base_path: str  # "/dev_hdd0/GAMES/" o "Hdd1:\\Games\\"
-    status: str = "pending"   # pending | transferring | done | failed | skipped
+    remote_base_path: str
+    status: str = "pending"
     error_msg: str = ""
     attempts: int = 0
