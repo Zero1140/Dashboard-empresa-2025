@@ -47,6 +47,7 @@ class MainWindow(QMainWindow):
         self._latest_eta_data: Dict[str, Tuple[int, float]] = {}
         self._console_online: Dict[str, bool] = {}
         self._game_size_cache: Dict[str, int] = {}
+        self._free_space_cache: Dict[str, float] = {}  # console_id → GB libres
 
         self._setup_ui()
         self._setup_tray()
@@ -493,6 +494,8 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(str, float)
     def _on_free_space_result(self, console_id: str, free_gb: float):
+        if free_gb >= 0:
+            self._free_space_cache[console_id] = free_gb
         if not self.selected_console or self.selected_console.console_id != console_id:
             return
         if free_gb >= 0:
@@ -754,6 +757,26 @@ class MainWindow(QMainWindow):
                 )
                 return
             jobs.append(TransferJob(game=game, remote_base_path=remote_base))
+
+        total_bytes = sum(
+            self._game_size_cache.get(job.game.name, 0)
+            for job in jobs
+        )
+        if total_bytes > 0:
+            free_gb = self._free_space_cache.get(console.console_id, -1.0)
+            total_gb = total_bytes / (1024 ** 3)
+            if free_gb >= 0 and total_gb > free_gb * 0.95:
+                resp = QMessageBox.warning(
+                    self, "Espacio insuficiente",
+                    f"Los juegos seleccionados ocupan ~{total_gb:.1f} GB,\n"
+                    f"pero la consola solo tiene {free_gb:.1f} GB libres.\n\n"
+                    "Si continuás, algunos juegos pueden quedar incompletos.\n\n"
+                    "¿Continuar de todas formas?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if resp != QMessageBox.StandardButton.Yes:
+                    return
 
         self.staging_manager.clear(console.console_id)
         if not jobs:
