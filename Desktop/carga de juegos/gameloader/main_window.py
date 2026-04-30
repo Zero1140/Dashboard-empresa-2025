@@ -23,7 +23,7 @@ from scanner import ScannerThread, ConsoleHealthChecker
 from settings_dialog import SettingsDialog
 from staging_manager import StagingManager
 from tray import SystemTray, set_autostart
-from webman import WebManClient, WebManPostWorker
+from webman import WebManClient, WebManPostWorker, PkgInstallWorker
 
 
 _FORMAT_BADGE = {
@@ -71,6 +71,7 @@ class MainWindow(QMainWindow):
         self._batch_has_pkg: Dict[str, list] = {}
         self._progress_rows: Dict[str, int] = {}  # console_id → row index
         self._webman_post_workers: Dict[str, QThread] = {}
+        self._pkg_install_workers: Dict[str, QThread] = {}
 
         self._setup_ui()
         self._setup_tray()
@@ -293,6 +294,14 @@ class MainWindow(QMainWindow):
         self.btn_start_transfer.setEnabled(False)
         self.btn_start_transfer.clicked.connect(self._commit_and_transfer)
         right_layout.addWidget(self.btn_start_transfer)
+
+        self.btn_broadcast = QPushButton("⚡ Enviar a todas las consolas")
+        self.btn_broadcast.setEnabled(False)
+        self.btn_broadcast.setToolTip(
+            "Envía los juegos del carrito a TODAS las consolas conectadas al mismo tiempo"
+        )
+        self.btn_broadcast.clicked.connect(self._broadcast_transfer)
+        right_layout.addWidget(self.btn_broadcast)
 
         splitter.addWidget(left)
         splitter.addWidget(center)
@@ -786,6 +795,7 @@ class MainWindow(QMainWindow):
         else:
             self._staging_info.setText(f"{n} juego(s)")
         self.btn_start_transfer.setEnabled(n > 0)
+        self.btn_broadcast.setEnabled(n > 0 and len(self.consoles) > 1)
 
     def _update_catalog_buttons(self):
         if not self.selected_console:
@@ -801,8 +811,27 @@ class MainWindow(QMainWindow):
     # Transferencia
     # ------------------------------------------------------------------
 
-    def _commit_and_transfer(self):
-        console = self.selected_console
+    def _broadcast_transfer(self):
+        source = self.selected_console
+        if not source:
+            return
+        source_games = self.staging_manager.get(source.console_id)
+        if not source_games:
+            return
+        targets = [c for c in self.consoles.values() if c.console_id != source.console_id]
+        if not targets:
+            self._status("Solo hay una consola conectada.")
+            return
+        for console in targets:
+            for game in source_games:
+                self.staging_manager.add(console.console_id, game)
+        all_consoles = [source] + targets
+        for console in all_consoles:
+            self._commit_and_transfer(console=console)
+
+    def _commit_and_transfer(self, console: ConsoleInfo | None = None):
+        if console is None:
+            console = self.selected_console
         if not console:
             return
 
@@ -1118,8 +1147,24 @@ class MainWindow(QMainWindow):
 
         pkg_names = self._batch_has_pkg.pop(console_id, [])
         if pkg_names and success_count > 0:
-            guide = PkgGuideDialog(pkg_names, self)
-            guide.exec()
+            if console and console.webman:
+                # Auto-install via webMAN — no physical interaction needed
+                self._status(f"{console.label}: instalando {len(pkg_names)} PKG(s) en PS3...")
+                pkg_worker = PkgInstallWorker(console.ip, pkg_names)
+                pkg_worker.finished_ok.connect(
+                    lambda n, lbl=console.label: self._status(f"{lbl}: {n} PKG(s) instalado(s) correctamente")
+                )
+                pkg_worker.finished_err.connect(
+                    lambda err, lbl=console.label: self._status(f"{lbl}: error al instalar PKGs — {err}")
+                )
+                pkg_worker.finished.connect(
+                    lambda cid=console_id: self._pkg_install_workers.pop(cid, None)
+                )
+                self._pkg_install_workers[console_id] = pkg_worker
+                pkg_worker.start()
+            else:
+                guide = PkgGuideDialog(pkg_names, self)
+                guide.exec()
 
         if success_count > 0 and console and console.webman:
             worker = WebManPostWorker(console.ip, success_count)

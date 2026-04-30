@@ -206,7 +206,7 @@ class FTPWorker(QThread):
             else:
                 with open(item, "rb") as f:
                     ftp.storbinary(
-                        f"STOR {remote_item}", f, 8192,
+                        f"STOR {remote_item}", f, 1_048_576,
                         self._progress_callback(sent, total_size, velocity_window, game_name),
                     )
 
@@ -222,7 +222,7 @@ class FTPWorker(QThread):
         sent = [0]
         with open(local_file, "rb") as f:
             ftp.storbinary(
-                f"STOR {remote_path}", f, 8192,
+                f"STOR {remote_path}", f, 1_048_576,
                 self._progress_callback(sent, total_size, velocity_window, game_name),
             )
 

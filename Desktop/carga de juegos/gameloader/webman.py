@@ -54,6 +54,53 @@ class WebManClient:
         except requests.RequestException:
             return False
 
+    def install_pkgs(self, pkg_names: list[str] | None = None) -> bool:
+        """
+        Triggers PKG installation on the PS3 via webMAN.
+        If pkg_names is given, installs each one individually from /dev_hdd0/packages/.
+        Otherwise installs everything in /dev_hdd0/packages/ at once.
+        Uses a longer timeout since the PS3 may take time to start the install.
+        """
+        try:
+            if pkg_names:
+                ok = True
+                for name in pkg_names:
+                    path = urllib.parse.quote(f"/dev_hdd0/packages/{name}")
+                    r = requests.get(f"{self._base}/install.ps3{path}", timeout=30.0)
+                    if r.status_code >= 400:
+                        ok = False
+                return ok
+            else:
+                r = requests.get(
+                    f"{self._base}/install.ps3/dev_hdd0/packages/",
+                    timeout=30.0,
+                )
+                return r.status_code < 400
+        except requests.RequestException:
+            return False
+
+
+class PkgInstallWorker(QThread):
+    """Calls webMAN install_pkgs in a background thread, then refresh + notify."""
+
+    finished_ok = pyqtSignal(int)   # success count
+    finished_err = pyqtSignal(str)  # error message
+
+    def __init__(self, ip: str, pkg_names: list[str]):
+        super().__init__()
+        self._ip = ip
+        self._pkg_names = pkg_names
+
+    def run(self):
+        client = WebManClient(self._ip)
+        ok = client.install_pkgs(self._pkg_names)
+        if ok:
+            client.refresh_xmb()
+            client.notify(f"{len(self._pkg_names)} PKG(s) instalado(s) en PS3")
+            self.finished_ok.emit(len(self._pkg_names))
+        else:
+            self.finished_err.emit("No se pudo iniciar la instalación de PKGs en la PS3.")
+
 
 class WebManPostWorker(QThread):
     """Calls refresh_xmb + notify on PS3 after a successful transfer queue."""
