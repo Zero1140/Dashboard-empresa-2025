@@ -1,24 +1,34 @@
+import socket
 from typing import Dict, Optional, Tuple
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QColor
 from PyQt6.QtWidgets import (
     QApplication, QFrame, QHeaderView, QInputDialog, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QMessageBox, QProgressBar, QPushButton, QSplitter,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QHBoxLayout, QWidget,
-    QMenuBar,
+    QMenuBar, QToolBar,
 )
 
-from catalog import load_catalog
+from catalog import load_catalog, CatalogSizeWorker
 from config import save_config
-from ftp_worker import FTPWorker, MAX_RETRIES
+from format_detector import detect_format, remote_path_for_format
+from ftp_worker import FTPWorker, FreeSpaceWorker, MAX_RETRIES
 from models import ConsoleInfo, ConsoleType, GameEntry, TransferJob
 from queue_manager import QueueManager
-from scanner import ScannerThread
+from scanner import ScannerThread, ConsoleHealthChecker
 from settings_dialog import SettingsDialog
 from staging_manager import StagingManager
 from tray import SystemTray, set_autostart
+
+
+_FORMAT_BADGE = {
+    "folder": "CARPETA",
+    "iso": "ISO",
+    "iso_set": "MULTI-ISO",
+    "pkg": "PKG",
+}
 
 
 class MainWindow(QMainWindow):
@@ -35,6 +45,8 @@ class MainWindow(QMainWindow):
         self._job_done_count: Dict[str, int] = {}
         self._job_registry: Dict[Tuple[str, str], TransferJob] = {}
         self._latest_eta_data: Dict[str, Tuple[int, float]] = {}
+        self._console_online: Dict[str, bool] = {}
+        self._game_size_cache: Dict[str, int] = {}
 
         self._setup_ui()
         self._setup_tray()
@@ -48,8 +60,12 @@ class MainWindow(QMainWindow):
         self._eta_timer.timeout.connect(self._update_eta_status)
         self._eta_timer.start(1000)
 
+        self._health_timer = QTimer(self)
+        self._health_timer.timeout.connect(self._start_health_check)
+        self._health_timer.start(15_000)
+
     # ------------------------------------------------------------------
-    # Menú
+    # Menu + toolbar
     # ------------------------------------------------------------------
 
     def _setup_menu(self):
@@ -57,7 +73,8 @@ class MainWindow(QMainWindow):
         self.setMenuBar(mb)
         menu = mb.addMenu("&Archivo")
 
-        act_settings = QAction("⚙️  Configuración...", self)
+        act_settings = QAction("Configuracion...", self)
+        act_settings.setShortcut("Ctrl+,")
         act_settings.triggered.connect(self._open_settings)
         menu.addAction(act_settings)
 
@@ -67,6 +84,26 @@ class MainWindow(QMainWindow):
         act_quit.triggered.connect(QApplication.instance().quit)
         menu.addAction(act_quit)
 
+    def _setup_toolbar(self):
+        tb = QToolBar("Principal", self)
+        tb.setMovable(False)
+        tb.setFloatable(False)
+        tb.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+
+        act_cfg = QAction("  Configurar carpetas de juegos", self)
+        act_cfg.setToolTip("Seleccionar donde estan los juegos PS3 y Xbox en tu disco")
+        act_cfg.triggered.connect(self._open_settings)
+        tb.addAction(act_cfg)
+
+        tb.addSeparator()
+
+        self._act_scan = QAction("  Buscar consolas", self)
+        self._act_scan.setToolTip("Escanear la red local para detectar consolas PS3 / Xbox")
+        self._act_scan.triggered.connect(self._start_scan)
+        tb.addAction(self._act_scan)
+
+        self.addToolBar(tb)
+
     def _open_settings(self):
         dlg = SettingsDialog(self.config, self)
         if dlg.exec() != SettingsDialog.DialogCode.Accepted:
@@ -75,104 +112,155 @@ class MainWindow(QMainWindow):
 
         autostart_changed = new_cfg["autostart_windows"] != self.config.get("autostart_windows", False)
         interval_changed = new_cfg["scan_interval_seconds"] != self.config.get("scan_interval_seconds", 30)
-        root_changed = new_cfg["hdd_root"] != self.config.get("hdd_root", "")
+        subnet_changed = new_cfg.get("scan_subnet", "") != self.config.get("scan_subnet", "")
+        root_changed = (
+            new_cfg.get("ps3_root", "") != self.config.get("ps3_root", "") or
+            new_cfg.get("xbox_root", "") != self.config.get("xbox_root", "")
+        )
 
         self.config = new_cfg
         if not save_config(self.config):
-            self._status("⚠️ No se pudo guardar la configuración (disco lleno o sin permisos)")
+            self._status("No se pudo guardar la configuracion (disco lleno o sin permisos)")
 
         if autostart_changed:
             ok = set_autostart(new_cfg["autostart_windows"])
             if not ok and new_cfg["autostart_windows"]:
                 QMessageBox.warning(
-                    self, "Inicio automático",
-                    "No se pudo configurar el inicio automático con Windows.\n"
-                    "Intentá ejecutar GameLoader como administrador."
+                    self, "Inicio automatico",
+                    "No se pudo configurar el inicio automatico con Windows.\n"
+                    "Intenta ejecutar GameLoader como administrador."
                 )
 
         if interval_changed:
             self._scan_timer.setInterval(new_cfg["scan_interval_seconds"] * 1000)
 
-        if root_changed and self.selected_console:
-            self._populate_catalog(self.selected_console)
+        if subnet_changed:
+            self._start_scan()
+
+        if root_changed:
+            if self.selected_console:
+                self._populate_catalog(self.selected_console)
+            else:
+                self._show_welcome()
 
     # ------------------------------------------------------------------
     # UI setup
     # ------------------------------------------------------------------
 
     def _setup_ui(self):
-        self.setWindowTitle("🎮 GameLoader")
-        self.setMinimumSize(1000, 600)
-        self.resize(1100, 700)
+        self.setWindowTitle("GameLoader")
+        self.setMinimumSize(1050, 640)
+        self.resize(1200, 750)
         self._setup_menu()
+        self._setup_toolbar()
 
         central = QWidget()
         self.setCentralWidget(central)
-        layout = QVBoxLayout(central)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        main_layout = QVBoxLayout(central)
+        main_layout.setContentsMargins(10, 8, 10, 8)
+        main_layout.setSpacing(8)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # ── Left: consolas ──────────────────────────────────────────────
         left = QWidget()
+        left.setMinimumWidth(180)
         left_layout = QVBoxLayout(left)
-        left_layout.addWidget(self._bold_label("CONSOLAS"))
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(6)
+        left_layout.addWidget(self._section_label("CONSOLAS"))
 
         self.console_list = QListWidget()
+        self.console_list.setAlternatingRowColors(True)
         self.console_list.itemClicked.connect(self._on_console_clicked)
-        left_layout.addWidget(self.console_list)
+        left_layout.addWidget(self.console_list, stretch=1)
 
-        self.btn_scan = QPushButton("🔍 Buscar")
+        self._lbl_no_consoles = QLabel(
+            "Sin consolas.\nVerifica que esten\nencendidas y en\nla misma red."
+        )
+        self._lbl_no_consoles.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._lbl_no_consoles.setStyleSheet("color: #404070; font-style: italic; padding: 8px;")
+        self._lbl_no_consoles.setWordWrap(True)
+        left_layout.addWidget(self._lbl_no_consoles)
+
+        self._lbl_free_space = QLabel("")
+        self._lbl_free_space.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._lbl_free_space.setStyleSheet("color: #404070; font-size: 11px; padding: 2px 4px;")
+        self._lbl_free_space.hide()
+        left_layout.addWidget(self._lbl_free_space)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(4)
+
+        self.btn_scan = QPushButton("Buscar")
+        self.btn_scan.setToolTip("Escanear la red para detectar consolas")
         self.btn_scan.clicked.connect(self._start_scan)
-        left_layout.addWidget(self.btn_scan)
+        btn_row.addWidget(self.btn_scan)
 
-        self.btn_rename = QPushButton("✏️ Renombrar")
+        self.btn_rename = QPushButton("Renombrar")
         self.btn_rename.setEnabled(False)
+        self.btn_rename.setToolTip("Asignar un nombre al cliente de esta consola")
         self.btn_rename.clicked.connect(self._rename_console)
-        left_layout.addWidget(self.btn_rename)
+        btn_row.addWidget(self.btn_rename)
 
-        # ── Center: catálogo ────────────────────────────────────────────
+        left_layout.addLayout(btn_row)
+
+        # ── Center: catalogo ────────────────────────────────────────────
         center = QWidget()
+        center.setMinimumWidth(320)
         center_layout = QVBoxLayout(center)
-        center_layout.addWidget(self._bold_label("CATÁLOGO"))
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.setSpacing(6)
+
+        catalog_header = QHBoxLayout()
+        catalog_header.addWidget(self._section_label("CATALOGO"))
+        catalog_header.addStretch()
+        self._lbl_catalog_count = QLabel("")
+        self._lbl_catalog_count.setStyleSheet("color: #505090; font-size: 12px;")
+        catalog_header.addWidget(self._lbl_catalog_count)
+        center_layout.addLayout(catalog_header)
 
         self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("🔍 Buscar...")
+        self.search_box.setPlaceholderText("Buscar juego...")
         self.search_box.textChanged.connect(self._filter_catalog)
         center_layout.addWidget(self.search_box)
 
-        self._catalog_table = QTableWidget(0, 2)
+        self._catalog_table = QTableWidget(0, 3)
         self._catalog_table.horizontalHeader().hide()
         self._catalog_table.verticalHeader().hide()
         self._catalog_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._catalog_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self._catalog_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._catalog_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        self._catalog_table.setColumnWidth(1, 46)
+        self._catalog_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self._catalog_table.setColumnWidth(1, 80)
+        self._catalog_table.setColumnWidth(2, 62)
         self._catalog_table.setShowGrid(False)
-        center_layout.addWidget(self._catalog_table)
+        self._catalog_table.setAlternatingRowColors(True)
+        center_layout.addWidget(self._catalog_table, stretch=1)
 
-        self._catalog_hint = QLabel("")
-        self._catalog_hint.setWordWrap(True)
-        self._catalog_hint.setStyleSheet("color: #888; font-style: italic; padding: 4px;")
-        self._catalog_hint.hide()
-        center_layout.addWidget(self._catalog_hint)
+        # Card mostrada cuando no hay carpeta configurada o no hay consola seleccionada
+        self._no_catalog_card = self._make_no_catalog_card()
+        center_layout.addWidget(self._no_catalog_card, stretch=1)
 
         # ── Right: staging ──────────────────────────────────────────────
         right = QWidget()
+        right.setMinimumWidth(220)
         right_layout = QVBoxLayout(right)
-        self._staging_title = self._bold_label("COLA: —")
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(6)
+        self._staging_title = self._section_label("COLA: —")
         right_layout.addWidget(self._staging_title)
 
         self._staging_list = QListWidget()
-        right_layout.addWidget(self._staging_list)
+        right_layout.addWidget(self._staging_list, stretch=1)
 
-        self._staging_info = QLabel("0 juegos · ~0.0 GB")
-        self._staging_info.setStyleSheet("color: #888; font-style: italic; padding: 4px;")
+        self._staging_info = QLabel("0 juegos  ·  ~0.0 GB")
+        self._staging_info.setStyleSheet("color: #505090; font-style: italic; padding: 4px;")
         right_layout.addWidget(self._staging_info)
 
-        self.btn_start_transfer = QPushButton("▶ INICIAR CARGA")
+        self.btn_start_transfer = QPushButton("INICIAR CARGA")
+        self.btn_start_transfer.setObjectName("btn_start")
         self.btn_start_transfer.setEnabled(False)
         self.btn_start_transfer.clicked.connect(self._commit_and_transfer)
         right_layout.addWidget(self.btn_start_transfer)
@@ -180,18 +268,21 @@ class MainWindow(QMainWindow):
         splitter.addWidget(left)
         splitter.addWidget(center)
         splitter.addWidget(right)
-        splitter.setSizes([200, 500, 280])
+        splitter.setSizes([200, 520, 280])
 
         # ── Bottom: progreso ────────────────────────────────────────────
         progress_frame = QFrame()
         progress_frame.setFrameShape(QFrame.Shape.StyledPanel)
         pf_layout = QVBoxLayout(progress_frame)
-        pf_layout.addWidget(self._bold_label("TRANSFERENCIAS ACTIVAS"))
+        pf_layout.setContentsMargins(10, 8, 10, 8)
+        pf_layout.setSpacing(4)
+        pf_layout.addWidget(self._section_label("TRANSFERENCIAS ACTIVAS"))
 
         self.progress_table = QTableWidget(0, 6)
         self.progress_table.setHorizontalHeaderLabels(
             ["Consola", "Juego", "Progreso", "Vel.", "Estado", ""]
         )
+        self.progress_table.setAlternatingRowColors(True)
         hh = self.progress_table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -200,30 +291,102 @@ class MainWindow(QMainWindow):
         hh.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
         self.progress_table.setColumnWidth(2, 160)
-        self.progress_table.setColumnWidth(5, 40)
+        self.progress_table.setColumnWidth(5, 42)
         self.progress_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.progress_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.progress_table.verticalHeader().hide()
         pf_layout.addWidget(self.progress_table)
 
-        layout.addWidget(splitter, stretch=2)
-        layout.addWidget(progress_frame, stretch=1)
+        main_layout.addWidget(splitter, stretch=2)
+        main_layout.addWidget(progress_frame, stretch=1)
 
-        self.statusBar().showMessage("Iniciando...")
+        self.statusBar().showMessage("Listo. Usa la barra superior para configurar las carpetas de juegos.")
+        self._show_welcome()
 
-    def _bold_label(self, text: str) -> QLabel:
+    def _make_no_catalog_card(self) -> QWidget:
+        card = QWidget()
+        layout = QVBoxLayout(card)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(16)
+
+        self._no_catalog_icon = QLabel("?")
+        self._no_catalog_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._no_catalog_icon.setStyleSheet("font-size: 48px; color: #303060;")
+        layout.addWidget(self._no_catalog_icon)
+
+        self._no_catalog_msg = QLabel("Selecciona una consola\nde la lista de la izquierda")
+        self._no_catalog_msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._no_catalog_msg.setWordWrap(True)
+        self._no_catalog_msg.setStyleSheet(
+            "color: #505090; font-size: 13px; font-style: italic; padding: 4px 20px;"
+        )
+        layout.addWidget(self._no_catalog_msg)
+
+        self._btn_cfg_from_card = QPushButton("Configurar carpetas de juegos")
+        self._btn_cfg_from_card.setObjectName("btn_cfg_big")
+        self._btn_cfg_from_card.setToolTip("Abre la ventana para elegir donde estan los juegos PS3 y Xbox")
+        self._btn_cfg_from_card.clicked.connect(self._open_settings)
+        self._btn_cfg_from_card.hide()
+        layout.addWidget(self._btn_cfg_from_card)
+
+        return card
+
+    def _show_welcome(self):
+        ps3_ok = bool(self.config.get("ps3_root", ""))
+        xbox_ok = bool(self.config.get("xbox_root", ""))
+
+        self._catalog_table.hide()
+        self.search_box.hide()
+        self._no_catalog_card.show()
+        self._lbl_catalog_count.setText("")
+
+        if not ps3_ok and not xbox_ok:
+            self._no_catalog_icon.setText("?")
+            self._no_catalog_msg.setText(
+                "No hay carpetas de juegos configuradas.\n\n"
+                "Hace clic en el boton de abajo para indicarle\n"
+                "a GameLoader donde estan tus juegos."
+            )
+            self._btn_cfg_from_card.show()
+        else:
+            self._no_catalog_icon.setText("")
+            self._no_catalog_msg.setText(
+                "Selecciona una consola de la lista\npara ver los juegos disponibles."
+            )
+            self._btn_cfg_from_card.hide()
+
+    def _section_label(self, text: str) -> QLabel:
         lbl = QLabel(text)
-        font = lbl.font()
-        font.setBold(True)
-        lbl.setFont(font)
+        lbl.setStyleSheet(
+            "color: #5858a8; font-size: 11px; font-weight: bold; "
+            "letter-spacing: 1px; padding: 2px 0;"
+        )
         return lbl
-
-    def _status(self, msg: str):
-        self.statusBar().showMessage(msg)
 
     def _setup_tray(self):
         self.tray = SystemTray(QApplication.instance(), self)
         self.tray.show_window.connect(self.show)
-        self.tray.quit_app.connect(QApplication.instance().quit)
+        self.tray.quit_app.connect(self._safe_quit)
+
+    def _safe_quit(self):
+        active = [w for w in self.workers.values() if w.isRunning()]
+        if active:
+            resp = QMessageBox.question(
+                self, "Cerrar GameLoader",
+                f"Hay {len(active)} transferencia(s) activa(s).\n\n"
+                "Si cerras ahora los juegos en proceso quedan incompletos "
+                "y tendran que cargarse de nuevo.\n\n"
+                "Cerrar de todas formas?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if resp != QMessageBox.StandardButton.Yes:
+                return
+        for worker in self.workers.values():
+            worker.stop()
+        for worker in self.workers.values():
+            worker.wait(2000)
+        QApplication.instance().quit()
 
     def closeEvent(self, event):
         event.ignore()
@@ -237,9 +400,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, '_scanner') and self._scanner.isRunning():
             return
         self.btn_scan.setEnabled(False)
-        self.btn_scan.setText("🔍 Buscando...")
+        self.btn_scan.setText("Buscando...")
+        if hasattr(self, '_act_scan'):
+            self._act_scan.setEnabled(False)
         self._status("Buscando consolas en la red local...")
-        self._scanner = ScannerThread(self)
+        self._scanner = ScannerThread(self, subnet=self.config.get("scan_subnet", ""))
         self._scanner.console_found.connect(self._on_console_found)
         self._scanner.scan_finished.connect(self._on_scan_finished)
         self._scanner.start()
@@ -248,19 +413,59 @@ class MainWindow(QMainWindow):
     def _on_console_found(self, console: ConsoleInfo):
         if console.console_id not in self.consoles:
             self.consoles[console.console_id] = console
-            item = QListWidgetItem(f"🟢 {console.label}")
+            item = QListWidgetItem(f"  {self._console_label(console)}")
             item.setData(Qt.ItemDataRole.UserRole, console.console_id)
             self.console_list.addItem(item)
+            self._lbl_no_consoles.hide()
 
     @pyqtSlot()
     def _on_scan_finished(self):
         self.btn_scan.setEnabled(True)
-        self.btn_scan.setText("🔍 Buscar")
+        self.btn_scan.setText("Buscar")
+        if hasattr(self, '_act_scan'):
+            self._act_scan.setEnabled(True)
         count = self.console_list.count()
         if count == 0:
-            self._status("No se encontraron consolas. Verificá que estén encendidas y en la misma red.")
+            self._lbl_no_consoles.show()
+            self._status("Sin consolas detectadas. Verifica que esten encendidas y en la misma red.")
         else:
-            self._status(f"{count} consola(s) detectada(s). Hacé clic para seleccionar.")
+            self._lbl_no_consoles.hide()
+            self._status(f"{count} consola(s) detectada(s). Hace clic en una para ver los juegos.")
+
+    def _start_health_check(self):
+        if not self.consoles:
+            return
+        if hasattr(self, '_health_checker') and self._health_checker.isRunning():
+            return
+        self._health_checker = ConsoleHealthChecker(self.consoles, self)
+        self._health_checker.console_online.connect(self._on_console_online)
+        self._health_checker.console_offline.connect(self._on_console_offline)
+        self._health_checker.start()
+
+    @pyqtSlot(str)
+    def _on_console_online(self, console_id: str):
+        self._console_online[console_id] = True
+        self._update_console_item_state(console_id, online=True)
+
+    @pyqtSlot(str)
+    def _on_console_offline(self, console_id: str):
+        self._console_online[console_id] = False
+        self._update_console_item_state(console_id, online=False)
+
+    def _update_console_item_state(self, console_id: str, online: bool):
+        console = self.consoles.get(console_id)
+        if not console:
+            return
+        for i in range(self.console_list.count()):
+            item = self.console_list.item(i)
+            if item.data(Qt.ItemDataRole.UserRole) == console_id:
+                if online:
+                    item.setText(f"  {self._console_label(console)}")
+                    item.setForeground(QColor("#c0c0e0"))
+                else:
+                    item.setText(f"  {self._console_label(console)}  [sin conexion]")
+                    item.setForeground(QColor("#804040"))
+                break
 
     # ------------------------------------------------------------------
     # Consola seleccionada
@@ -273,46 +478,135 @@ class MainWindow(QMainWindow):
             self._populate_catalog(self.selected_console)
             self._refresh_staging_panel()
             self.btn_rename.setEnabled(True)
+            self._query_free_space(self.selected_console)
+
+    def _query_free_space(self, console: ConsoleInfo):
+        self._lbl_free_space.setText("Espacio libre: consultando...")
+        self._lbl_free_space.setStyleSheet(
+            "color: #404060; font-size: 11px; padding: 2px 4px; font-style: italic;"
+        )
+        self._lbl_free_space.show()
+        worker = FreeSpaceWorker(console)
+        worker.result.connect(self._on_free_space_result)
+        worker.start()
+        self._free_space_worker = worker
+
+    @pyqtSlot(str, float)
+    def _on_free_space_result(self, console_id: str, free_gb: float):
+        if not self.selected_console or self.selected_console.console_id != console_id:
+            return
+        if free_gb >= 0:
+            if free_gb > 10:
+                color = "#28b060"
+            elif free_gb > 2:
+                color = "#d09020"
+            else:
+                color = "#d04040"
+            self._lbl_free_space.setText(f"Espacio libre: {free_gb:.1f} GB")
+            self._lbl_free_space.setStyleSheet(
+                f"color: {color}; font-size: 11px; font-weight: bold; padding: 2px 4px;"
+            )
+        else:
+            self._lbl_free_space.setText("Espacio libre: no disponible")
+            self._lbl_free_space.setStyleSheet(
+                "color: #404060; font-size: 11px; padding: 2px 4px;"
+            )
 
     def _populate_catalog(self, console: ConsoleInfo):
-        self._catalog_table.setRowCount(0)
         self.search_box.clear()
-        self._catalog_hint.hide()
+        self._no_catalog_card.hide()
+        self._catalog_table.setRowCount(0)
 
-        games, error_msg = load_catalog(self.config["hdd_root"], console.console_type)
+        root_key = "ps3_root" if console.console_type == ConsoleType.PS3 else "xbox_root"
+        games, error_msg = load_catalog(self.config.get(root_key, ""), console.console_type)
 
         if error_msg:
-            self._catalog_hint.setText(f"ℹ️  {error_msg}")
-            self._catalog_hint.show()
+            self._catalog_table.hide()
+            self.search_box.hide()
+            self._no_catalog_card.show()
+
+            not_configured = not self.config.get(root_key, "")
+            self._no_catalog_icon.setText("!" if not not_configured else "?")
+            self._no_catalog_msg.setText(error_msg)
+            if not_configured:
+                self._btn_cfg_from_card.show()
+            else:
+                self._btn_cfg_from_card.hide()
+
+            self._lbl_catalog_count.setText("")
             self._status(f"Sin juegos para {console.label} — {error_msg.splitlines()[0]}")
             return
+
+        self._catalog_table.show()
+        self.search_box.show()
+        self._game_size_cache.clear()
 
         staging_names = {g.name for g in self.staging_manager.get(console.console_id)}
 
         for game in games:
             row = self._catalog_table.rowCount()
             self._catalog_table.insertRow(row)
+            self._catalog_table.setRowHeight(row, 28)
 
             name_item = QTableWidgetItem(game.name)
             name_item.setData(Qt.ItemDataRole.UserRole, game)
             self._catalog_table.setItem(row, 0, name_item)
 
-            btn = QPushButton("→▸")
-            btn.setFixedHeight(24)
+            size_item = QTableWidgetItem("...")
+            size_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            size_item.setForeground(QColor("#505080"))
+            self._catalog_table.setItem(row, 1, size_item)
+
+            btn = QPushButton("Agregar")
+            btn.setFixedHeight(22)
             btn.setEnabled(game.name not in staging_names)
             btn.clicked.connect(lambda _, g=game: self._add_to_staging(g))
-            self._catalog_table.setCellWidget(row, 1, btn)
+            self._catalog_table.setCellWidget(row, 2, btn)
 
+        self._lbl_catalog_count.setText(f"{len(games)} juegos")
         self._status(
-            f"{len(games)} juego(s) para {console.label}. "
-            "Usá → para agregar a la cola, luego ▶ INICIAR CARGA."
+            f"{len(games)} juego(s) disponibles para {console.label}. "
+            "Hace clic en 'Agregar' y luego en 'INICIAR CARGA'."
         )
+
+        self._size_worker = CatalogSizeWorker(games, self)
+        self._size_worker.size_ready.connect(self._on_game_size)
+        self._size_worker.start()
 
     def _filter_catalog(self, text: str):
         for row in range(self._catalog_table.rowCount()):
             item = self._catalog_table.item(row, 0)
             hidden = text.lower() not in (item.text() if item else "").lower()
             self._catalog_table.setRowHidden(row, hidden)
+
+    @pyqtSlot(str, int)
+    def _on_game_size(self, game_name: str, byte_count: int):
+        self._game_size_cache[game_name] = byte_count
+        for row in range(self._catalog_table.rowCount()):
+            name_item = self._catalog_table.item(row, 0)
+            if name_item and name_item.text() == game_name:
+                size_item = self._catalog_table.item(row, 1)
+                if size_item:
+                    size_item.setText(self._format_size(byte_count))
+                    size_item.setForeground(QColor("#7070a0"))
+                break
+
+    @staticmethod
+    def _format_size(byte_count: int) -> str:
+        if byte_count <= 0:
+            return "—"
+        gb = byte_count / (1024 ** 3)
+        if gb >= 1.0:
+            return f"{gb:.1f} GB"
+        mb = byte_count / (1024 ** 2)
+        return f"{mb:.0f} MB"
+
+    def _console_label(self, console: ConsoleInfo) -> str:
+        if console.console_type == ConsoleType.PS3:
+            hen_badge = "  ✓ HEN" if console.hen_verified else "  ✗ HEN"
+        else:
+            hen_badge = ""
+        return f"{console.label}{hen_badge}"
 
     def _rename_console(self):
         if not self.selected_console:
@@ -331,7 +625,7 @@ class MainWindow(QMainWindow):
         for i in range(self.console_list.count()):
             item = self.console_list.item(i)
             if item.data(Qt.ItemDataRole.UserRole) == self.selected_console.console_id:
-                item.setText(f"🟢 {new_label}")
+                item.setText(f"  {self._console_label(self.selected_console)}")
 
         for row in range(self.progress_table.rowCount()):
             cell = self.progress_table.item(row, 0)
@@ -373,12 +667,19 @@ class MainWindow(QMainWindow):
 
             row_widget = QWidget()
             row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(4, 1, 4, 1)
+            row_layout.setContentsMargins(8, 2, 4, 2)
 
             lbl = QLabel(game.name)
-            btn_remove = QPushButton("✕")
-            btn_remove.setFixedWidth(28)
-            btn_remove.setFixedHeight(22)
+            lbl.setStyleSheet("color: #c0c0e0;")
+
+            btn_remove = QPushButton("x")
+            btn_remove.setFixedWidth(26)
+            btn_remove.setFixedHeight(20)
+            btn_remove.setStyleSheet(
+                "QPushButton { background: #3a1a1a; color: #e05050; border: 1px solid #5a2020;"
+                " border-radius: 3px; font-weight: bold; padding: 0; }"
+                "QPushButton:hover { background: #5a2020; color: #ff7070; }"
+            )
             btn_remove.clicked.connect(lambda _, idx=i: self._remove_from_staging(idx))
 
             row_layout.addWidget(lbl, stretch=1)
@@ -389,8 +690,12 @@ class MainWindow(QMainWindow):
             self._staging_list.setItemWidget(item, row_widget)
 
         total_gb = self.staging_manager.total_size_gb(console.console_id)
-        self._staging_info.setText(f"{len(games)} juego(s) · ~{total_gb:.1f} GB")
-        self.btn_start_transfer.setEnabled(len(games) > 0)
+        n = len(games)
+        if total_gb > 0:
+            self._staging_info.setText(f"{n} juego(s)  ·  ~{total_gb:.1f} GB")
+        else:
+            self._staging_info.setText(f"{n} juego(s)")
+        self.btn_start_transfer.setEnabled(n > 0)
 
     def _update_catalog_buttons(self):
         if not self.selected_console:
@@ -398,7 +703,7 @@ class MainWindow(QMainWindow):
         staging_names = {g.name for g in self.staging_manager.get(self.selected_console.console_id)}
         for row in range(self._catalog_table.rowCount()):
             item = self._catalog_table.item(row, 0)
-            btn = self._catalog_table.cellWidget(row, 1)
+            btn = self._catalog_table.cellWidget(row, 2)
             if item and btn:
                 btn.setEnabled(item.text() not in staging_names)
 
@@ -411,20 +716,41 @@ class MainWindow(QMainWindow):
         if not console:
             return
 
-        remote_base = (
-            self.config.get("ps3_remote_path", "/dev_hdd0/GAMES/")
-            if console.console_type == ConsoleType.PS3
-            else self.config.get("xbox_remote_path", "Hdd1:\\Games\\")
-        )
-        if not remote_base:
+        if not self._preflight_ok(console):
             QMessageBox.warning(
-                self, "Ruta no configurada",
-                f"La ruta remota para {console.console_type.value} está vacía.\n"
-                "Configurala en Archivo → Configuración."
+                self, "Consola no accesible",
+                f"No se pudo conectar a {console.label} ({console.ip}) en el puerto FTP.\n\n"
+                "Verifica que la consola este encendida, con el servidor FTP activo "
+                "y en la misma red."
             )
             return
 
-        jobs = self.staging_manager.commit(console.console_id, remote_base)
+        staged_games = self.staging_manager.get(console.console_id)
+        if not staged_games:
+            return
+
+        jobs: list[TransferJob] = []
+        for game in staged_games:
+            local_path = game.local_path
+            if console.console_type == ConsoleType.PS3:
+                try:
+                    fmt = detect_format(local_path)
+                    game.format = fmt
+                    remote_base = remote_path_for_format(fmt, self.config)
+                except (FileNotFoundError, ValueError):
+                    remote_base = self.config.get("ps3_remote_path", "/dev_hdd0/GAMES/")
+            else:
+                remote_base = self.config.get("xbox_remote_path", "Hdd1:\\Games\\")
+            if not remote_base:
+                QMessageBox.warning(
+                    self, "Ruta no configurada",
+                    f"La ruta remota para {console.console_type.value} esta vacia.\n"
+                    "Configurala en Archivo → Configuracion."
+                )
+                return
+            jobs.append(TransferJob(game=game, remote_base_path=remote_base))
+
+        self.staging_manager.clear(console.console_id)
         if not jobs:
             return
 
@@ -437,6 +763,16 @@ class MainWindow(QMainWindow):
         self._ensure_worker_running(console)
         self._refresh_staging_panel()
         self._status(f"Iniciando carga de {len(jobs)} juego(s) en {console.label}...")
+
+    def _preflight_ok(self, console: ConsoleInfo) -> bool:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2.0)
+            result = s.connect_ex((console.ip, 21))
+            s.close()
+            return result == 0
+        except Exception:
+            return False
 
     def _ensure_worker_running(self, console: ConsoleInfo):
         existing = self.workers.get(console.console_id)
@@ -468,7 +804,7 @@ class MainWindow(QMainWindow):
             return
         item_st = self._safe_item(row, 4)
         if item_st:
-            item_st.setText("⛔ Cancelado")
+            item_st.setText("Cancelado")
         self.progress_table.removeCellWidget(row, 5)
 
     def _retry_job(self, console_id: str, job: TransferJob):
@@ -489,8 +825,8 @@ class MainWindow(QMainWindow):
         if bar:
             bar.setValue(0)
 
-        btn_cancel = QPushButton("⏹")
-        btn_cancel.setFixedWidth(36)
+        btn_cancel = QPushButton("Detener")
+        btn_cancel.setFixedWidth(60)
         btn_cancel.clicked.connect(lambda _, cid=console_id: self._cancel_transfer(cid))
         self.progress_table.setCellWidget(row, 5, btn_cancel)
 
@@ -502,26 +838,21 @@ class MainWindow(QMainWindow):
         for row in range(self.progress_table.rowCount()):
             cell = self.progress_table.item(row, 0)
             if cell and cell.text() == console.label:
-                item_name = self._safe_item(row, 1)
-                if item_name:
-                    item_name.setText("Iniciando...")
+                self._safe_item(row, 1) and self._safe_item(row, 1).setText("Iniciando...")
                 bar = self._safe_widget(row, 2)
                 if bar:
                     bar.setValue(0)
-                item_vel = self._safe_item(row, 3)
-                if item_vel:
-                    item_vel.setText("—")
-                item_st = self._safe_item(row, 4)
-                if item_st:
-                    item_st.setText("En cola")
-                btn_cancel = QPushButton("⏹")
-                btn_cancel.setFixedWidth(36)
-                btn_cancel.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer(cid))
-                self.progress_table.setCellWidget(row, 5, btn_cancel)
+                self._safe_item(row, 3) and self._safe_item(row, 3).setText("—")
+                self._safe_item(row, 4) and self._safe_item(row, 4).setText("En cola")
+                btn = QPushButton("Detener")
+                btn.setFixedWidth(60)
+                btn.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer(cid))
+                self.progress_table.setCellWidget(row, 5, btn)
                 return
 
         row = self.progress_table.rowCount()
         self.progress_table.insertRow(row)
+        self.progress_table.setRowHeight(row, 32)
         self.progress_table.setItem(row, 0, QTableWidgetItem(console.label))
         self.progress_table.setItem(row, 1, QTableWidgetItem("Iniciando..."))
         bar = QProgressBar()
@@ -531,10 +862,10 @@ class MainWindow(QMainWindow):
         self.progress_table.setItem(row, 3, QTableWidgetItem("—"))
         self.progress_table.setItem(row, 4, QTableWidgetItem("En cola"))
 
-        btn_cancel = QPushButton("⏹")
-        btn_cancel.setFixedWidth(36)
-        btn_cancel.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer(cid))
-        self.progress_table.setCellWidget(row, 5, btn_cancel)
+        btn = QPushButton("Detener")
+        btn.setFixedWidth(60)
+        btn.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer(cid))
+        self.progress_table.setCellWidget(row, 5, btn)
 
     def _find_row(self, console_id: str) -> int:
         console = self.consoles.get(console_id)
@@ -561,7 +892,12 @@ class MainWindow(QMainWindow):
         row = self._find_row(console_id)
         item_name = self._safe_item(row, 1)
         if item_name:
-            item_name.setText(game_name)
+            job = self._job_registry.get((console_id, game_name))
+            if job:
+                badge = _FORMAT_BADGE.get(job.game.format.value, "?")
+                item_name.setText(f"{game_name}  [{badge}]")
+            else:
+                item_name.setText(game_name)
         if total_bytes > 0:
             bar = self._safe_widget(row, 2)
             if bar:
@@ -576,10 +912,10 @@ class MainWindow(QMainWindow):
         row = self._find_row(console_id)
         item_name = self._safe_item(row, 1)
         if item_name:
-            item_name.setText(f"{game_name} (Reintentando {attempt}/{MAX_RETRIES}...)")
+            item_name.setText(f"{game_name}  (reintento {attempt}/{MAX_RETRIES})")
         item_st = self._safe_item(row, 4)
         if item_st:
-            item_st.setText(f"Reintento {attempt}/{MAX_RETRIES}")
+            item_st.setText(f"Reintentando {attempt}/{MAX_RETRIES}")
 
     @pyqtSlot(str, str, str)
     def _on_job_done(self, console_id: str, game_name: str, note: str):
@@ -593,10 +929,10 @@ class MainWindow(QMainWindow):
 
         if note == "skipped":
             if item_st:
-                item_st.setText(f"↷ J.{n}/{total} (ya existe)")
+                item_st.setText(f"J.{n}/{total}  (ya existe)")
         else:
             if item_name:
-                item_name.setText(f"✓ {game_name}")
+                item_name.setText(f"OK  {game_name}")
             if item_st:
                 item_st.setText(f"J.{n}/{total}")
 
@@ -609,16 +945,16 @@ class MainWindow(QMainWindow):
         item_st = self._safe_item(row, 4)
 
         if item_name:
-            item_name.setText(f"❌ {game_name}")
+            item_name.setText(f"Error: {game_name}")
         if item_st:
-            item_st.setText(f"❌ Error: {error_msg[:45]}")
+            item_st.setText(f"Error: {error_msg[:45]}")
 
-        self._status(f"⚠️  {game_name}: {error_msg[:80]}")
+        self._status(f"Error en {game_name}: {error_msg[:80]}")
 
         job = self._job_registry.get((console_id, game_name))
         if job:
-            btn_retry = QPushButton("🔄")
-            btn_retry.setFixedWidth(36)
+            btn_retry = QPushButton("Reintentar")
+            btn_retry.setFixedWidth(80)
             btn_retry.clicked.connect(lambda _, cid=console_id, j=job: self._retry_job(cid, j))
             self.progress_table.setCellWidget(row, 5, btn_retry)
 
@@ -639,9 +975,9 @@ class MainWindow(QMainWindow):
         if item_vel:
             item_vel.setText("—")
         if item_st:
-            status = f"✅ {success_count} cargado(s)"
+            status = f"{success_count} cargado(s)"
             if fail_count:
-                status += f"  ❌ {fail_count} error(es)"
+                status += f"  /  {fail_count} con error"
             item_st.setText(status)
 
         self.progress_table.removeCellWidget(row, 5)
@@ -649,7 +985,7 @@ class MainWindow(QMainWindow):
 
         console = self.consoles.get(console_id)
         if console:
-            msg = f"{console.label}: ¡Carga completa! {success_count} juego(s)"
+            msg = f"{console.label}: carga completa — {success_count} juego(s)"
             if fail_count:
                 msg += f", {fail_count} con error"
             self.tray.notify("GameLoader", msg)
@@ -675,4 +1011,7 @@ class MainWindow(QMainWindow):
             eta_str = f"~{int(eta_sec / 60)} min"
 
         n = len(active)
-        self._status(f"{n} consola(s) transfiriendo — ETA estimado: {eta_str}")
+        self._status(f"{n} consola(s) transfiriendo  —  ETA: {eta_str}")
+
+    def _status(self, msg: str):
+        self.statusBar().showMessage(msg)
