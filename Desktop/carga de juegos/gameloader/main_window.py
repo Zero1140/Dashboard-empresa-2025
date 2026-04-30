@@ -586,7 +586,8 @@ class MainWindow(QMainWindow):
         self._game_size_cache[game_name] = byte_count
         for row in range(self._catalog_table.rowCount()):
             name_item = self._catalog_table.item(row, 0)
-            if name_item and name_item.text() == game_name:
+            stored = name_item.data(Qt.ItemDataRole.UserRole) if name_item else None
+            if stored and stored.name == game_name:
                 size_item = self._catalog_table.item(row, 1)
                 if size_item:
                     size_item.setText(self._format_size(byte_count))
