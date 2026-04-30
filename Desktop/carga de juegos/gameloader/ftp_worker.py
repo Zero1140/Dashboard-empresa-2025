@@ -257,32 +257,16 @@ class FTPWorker(QThread):
                         fmt = job.game.format
                         velocity_window: deque = deque()
 
-                        if fmt == GameFormat.ISO:
+                        if fmt in (GameFormat.ISO, GameFormat.PKG):
                             remote_dest = job.remote_base_path.rstrip("/") + "/" + job.game.local_path.name
-                            # Check overwrite
                             if not self.overwrite:
                                 try:
                                     ftp.size(remote_dest)
-                                    # If size() didn't raise, file exists → skip
                                     self.job_done.emit(self.console.console_id, job.game.name, "skipped")
                                     success_count += 1
                                     break
                                 except ftplib.error_perm:
-                                    pass  # file doesn't exist, continue
-                            self._upload_file(ftp, job.game.local_path, remote_dest, job.game.name, velocity_window)
-
-                        elif fmt == GameFormat.PKG:
-                            remote_dest = job.remote_base_path.rstrip("/") + "/" + job.game.local_path.name
-                            # Check overwrite
-                            if not self.overwrite:
-                                try:
-                                    ftp.size(remote_dest)
-                                    # If size() didn't raise, file exists → skip
-                                    self.job_done.emit(self.console.console_id, job.game.name, "skipped")
-                                    success_count += 1
-                                    break
-                                except ftplib.error_perm:
-                                    pass  # file doesn't exist, continue
+                                    pass
                             self._upload_file(ftp, job.game.local_path, remote_dest, job.game.name, velocity_window)
 
                         elif fmt == GameFormat.ISO_SET:

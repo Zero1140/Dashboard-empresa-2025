@@ -101,6 +101,7 @@ def test_iso_set_folder_detected(tmp_path):
     games, err = load_catalog(str(tmp_path), ConsoleType.PS3)
     assert err == ""
     assert len(games) == 1
+    assert games[0].name == "Multi Disc Game"
     assert games[0].format == GameFormat.ISO_SET
 
 
@@ -114,7 +115,6 @@ def test_folder_game_format_is_folder(tmp_path):
 
 
 def test_catalog_mixed_formats(tmp_path):
-    """ISO, PKG y FOLDER conviven en el mismo root."""
     (tmp_path / "game.iso").write_bytes(b"x")
     (tmp_path / "dlc.pkg").write_bytes(b"x")
     folder = tmp_path / "BLUS12345"
@@ -130,7 +130,6 @@ def test_catalog_mixed_formats(tmp_path):
 
 
 def test_non_game_files_ignored(tmp_path):
-    """Archivos que no son .iso ni .pkg se ignoran."""
     (tmp_path / "notas.txt").write_bytes(b"x")
     (tmp_path / "thumbs.db").write_bytes(b"x")
     games, err = load_catalog(str(tmp_path), ConsoleType.PS3)

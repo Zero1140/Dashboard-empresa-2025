@@ -578,8 +578,9 @@ class MainWindow(QMainWindow):
     def _filter_catalog(self, text: str):
         for row in range(self._catalog_table.rowCount()):
             item = self._catalog_table.item(row, 0)
-            hidden = text.lower() not in (item.text() if item else "").lower()
-            self._catalog_table.setRowHidden(row, hidden)
+            entry = item.data(Qt.ItemDataRole.UserRole) if item else None
+            name = entry.name if entry else (item.text() if item else "")
+            self._catalog_table.setRowHidden(row, text.lower() not in name.lower())
 
     @pyqtSlot(str, int)
     def _on_game_size(self, game_name: str, byte_count: int):

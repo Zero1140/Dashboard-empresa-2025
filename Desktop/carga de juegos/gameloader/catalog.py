@@ -70,7 +70,6 @@ def _has_files(folder: Path) -> bool:
 
 
 class CatalogSizeWorker(QThread):
-    """Calculates sizes for catalog games progressively in the background."""
     size_ready = pyqtSignal(str, int)  # game_name, bytes
     all_done = pyqtSignal()
 
