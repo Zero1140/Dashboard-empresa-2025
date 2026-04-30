@@ -1,7 +1,7 @@
 import socket
 from typing import Dict, Optional, Tuple
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSlot
 from PyQt6.QtGui import QAction, QColor
 from PyQt6.QtWidgets import (
     QApplication, QFrame, QHeaderView, QInputDialog, QLabel,
@@ -30,6 +30,23 @@ _FORMAT_BADGE = {
     "iso_set": "MULTI-ISO",
     "pkg": "PKG",
 }
+
+
+class ManualConnectWorker(QThread):
+    found = pyqtSignal(object)     # ConsoleInfo
+    not_found = pyqtSignal(str)    # ip that failed
+
+    def __init__(self, ip: str):
+        super().__init__()
+        self._ip = ip.strip()
+
+    def run(self):
+        from detector import detect_console
+        console = detect_console(self._ip)
+        if console:
+            self.found.emit(console)
+        else:
+            self.not_found.emit(self._ip)
 
 
 class MainWindow(QMainWindow):
@@ -205,6 +222,11 @@ class MainWindow(QMainWindow):
         self.btn_rename.setToolTip("Asignar un nombre al cliente de esta consola")
         self.btn_rename.clicked.connect(self._rename_console)
         btn_row.addWidget(self.btn_rename)
+
+        self.btn_add_ip = QPushButton("IP...")
+        self.btn_add_ip.setToolTip("Agregar una consola ingresando su IP directamente")
+        self.btn_add_ip.clicked.connect(self._add_console_by_ip)
+        btn_row.addWidget(self.btn_add_ip)
 
         left_layout.addLayout(btn_row)
 
@@ -643,6 +665,59 @@ class MainWindow(QMainWindow):
                 break
 
         self._staging_title.setText(f"COLA: {new_label}")
+
+    def _add_console_by_ip(self):
+        ip, ok = QInputDialog.getText(
+            self, "Agregar consola por IP",
+            "Ingresá la IP de la consola\n(la ves en MultiMAN, ej: 192.168.1.105):",
+        )
+        if not ok or not ip.strip():
+            return
+        ip = ip.strip()
+        parts = ip.split(".")
+        if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
+            QMessageBox.warning(self, "IP inválida", f"'{ip}' no es una dirección IP válida.")
+            return
+        if ip in self.consoles:
+            self._status(f"{ip} ya está en la lista de consolas.")
+            return
+        self.btn_add_ip.setEnabled(False)
+        self.btn_add_ip.setText("Conectando...")
+        self._status(f"Intentando conectar a {ip}...")
+        worker = ManualConnectWorker(ip)
+        worker.found.connect(self._on_manual_found)
+        worker.not_found.connect(self._on_manual_not_found)
+        worker.finished.connect(lambda: (
+            self.btn_add_ip.setEnabled(True),
+            self.btn_add_ip.setText("IP..."),
+        ))
+        worker.start()
+        self._manual_worker = worker
+
+    @pyqtSlot(object)
+    def _on_manual_found(self, console: ConsoleInfo):
+        if console.console_id in self.consoles:
+            self._status(f"{console.label} ({console.ip}) ya estaba en la lista.")
+            return
+        self.consoles[console.console_id] = console
+        item = QListWidgetItem(f"  {self._console_label(console)}")
+        item.setData(Qt.ItemDataRole.UserRole, console.console_id)
+        self.console_list.addItem(item)
+        self._lbl_no_consoles.hide()
+        self._status(f"Consola detectada: {console.label} ({console.ip})")
+
+    @pyqtSlot(str)
+    def _on_manual_not_found(self, ip: str):
+        QMessageBox.warning(
+            self, "Sin respuesta",
+            f"No se detectó ninguna consola en {ip}.\n\n"
+            "Verificá que:\n"
+            "  • La consola esté encendida\n"
+            "  • MultiMAN / webMAN esté activo y con FTP\n"
+            "  • La IP sea correcta (verificala en MultiMAN)\n"
+            "  • La consola y esta PC estén en la misma red"
+        )
+        self._status(f"Sin respuesta de {ip}")
 
     # ------------------------------------------------------------------
     # Staging
