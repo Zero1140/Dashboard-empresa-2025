@@ -737,8 +737,9 @@ class MainWindow(QMainWindow):
                     fmt = detect_format(local_path)
                     game.format = fmt
                     remote_base = remote_path_for_format(fmt, self.config)
-                except (FileNotFoundError, ValueError):
+                except (FileNotFoundError, ValueError) as e:
                     remote_base = self.config.get("ps3_remote_path", "/dev_hdd0/GAMES/")
+                    self._status(f"Advertencia: no se pudo detectar formato de '{game.name}' — usando GAMES/ ({e})")
             else:
                 remote_base = self.config.get("xbox_remote_path", "Hdd1:\\Games\\")
             if not remote_base:
