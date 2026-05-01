@@ -122,6 +122,11 @@ class AppController(QObject):
             console.label = new_label
 
     def load_catalog(self, console: ConsoleInfo) -> None:
+        old = getattr(self, "_size_worker", None)
+        if old is not None and old.isRunning():
+            old.size_ready.disconnect()
+            old.quit()
+            old.wait(1000)
         root_key = "ps3_root" if console.console_type == ConsoleType.PS3 else "xbox_root"
         games, error_msg = _scan_catalog(self.config.get(root_key, ""), console.console_type)
         self.catalog_ready.emit(console, games, error_msg)
@@ -136,6 +141,11 @@ class AppController(QObject):
             self.commit_transfer(console.console_id)
 
     def query_free_space(self, console: ConsoleInfo) -> None:
+        old = getattr(self, "_free_space_worker", None)
+        if old is not None and old.isRunning():
+            old.result.disconnect()
+            old.quit()
+            old.wait(1000)
         worker = FreeSpaceWorker(console)
         worker.result.connect(self._on_free_space_result)
         worker.start()
