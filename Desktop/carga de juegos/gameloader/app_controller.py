@@ -93,6 +93,9 @@ class AppController(QObject):
         return any(w.isRunning() for w in self.workers.values())
 
     def stop_all_workers(self) -> None:
+        self._scan_timer.stop()
+        self._eta_timer.stop()
+        self._health_timer.stop()
         for w in self.workers.values():
             w.stop()
         for w in self.workers.values():
