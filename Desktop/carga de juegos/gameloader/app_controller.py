@@ -329,10 +329,61 @@ class AppController(QObject):
 
     @pyqtSlot(str, int, int)
     def _on_queue_done(self, console_id: str, success_count: int, fail_count: int) -> None:
-        pass
+        self._latest_eta_data.pop(console_id, None)
+        console = self.consoles.get(console_id)
+        if console:
+            msg = f"{console.label}: carga completa — {success_count} juego(s)"
+            if fail_count:
+                msg += f", {fail_count} con error"
+            self.status_message.emit(msg)
+        self.queue_done.emit(console_id, success_count, fail_count)
+
+        pkg_names = self._batch_has_pkg.pop(console_id, [])
+        if pkg_names and success_count > 0 and console:
+            if console.webman:
+                pkg_worker = PkgInstallWorker(console.ip, pkg_names)
+                pkg_worker.finished_ok.connect(
+                    lambda n, lbl=console.label:
+                        self.status_message.emit(f"{lbl}: {n} PKG(s) instalado(s) correctamente")
+                )
+                pkg_worker.finished_err.connect(
+                    lambda err, lbl=console.label:
+                        self.status_message.emit(f"{lbl}: error al instalar PKGs — {err}")
+                )
+                pkg_worker.finished.connect(
+                    lambda cid=console_id: self._pkg_install_workers.pop(cid, None)
+                )
+                self._pkg_install_workers[console_id] = pkg_worker
+                pkg_worker.start()
+            else:
+                self.pkg_guide_required.emit(pkg_names)
+
+        if success_count > 0 and console and console.webman:
+            post_worker = WebManPostWorker(console.ip, success_count)
+            post_worker.finished.connect(
+                lambda cid=console_id: self._webman_post_workers.pop(cid, None)
+            )
+            self._webman_post_workers[console_id] = post_worker
+            post_worker.start()
 
     def _update_eta_status(self) -> None:
-        pass
+        active = [
+            (cid, data)
+            for cid, data in self._latest_eta_data.items()
+            if cid in self.workers and self.workers[cid].isRunning()
+        ]
+        if not active:
+            return
+        total_remaining = sum(d[0] for _, d in active)
+        speeds = [d[1] for _, d in active if d[1] > 0]
+        avg_mbps = sum(speeds) / len(speeds) if speeds else 0.1
+        eta_sec = total_remaining / (avg_mbps * 1_048_576)
+        if eta_sec < 60:
+            eta_str = f"~{max(1, int(eta_sec))} seg"
+        else:
+            eta_str = f"~{int(eta_sec / 60)} min"
+        n = len(active)
+        self.status_message.emit(f"{n} consola(s) transfiriendo  —  ETA: {eta_str}")
 
     @pyqtSlot(str, int)
     def _on_game_size(self, game_name: str, byte_count: int) -> None:

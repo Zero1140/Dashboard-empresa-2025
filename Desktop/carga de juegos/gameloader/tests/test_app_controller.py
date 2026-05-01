@@ -219,3 +219,40 @@ def test_job_done_increments_counter(qapp):
     ctrl._on_job_done("192.168.1.10", "GameA", "")
     assert ctrl._job_done_count["192.168.1.10"] == 1
     ctrl.stop_all_workers()
+
+
+def test_queue_done_emits_signal(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    console = _make_ps3_console()
+    ctrl._on_console_found(console)
+    received = []
+    ctrl.queue_done.connect(lambda cid, ok, fail: received.append((cid, ok, fail)))
+    ctrl._on_queue_done("192.168.1.10", 3, 0)
+    assert received == [("192.168.1.10", 3, 0)]
+    ctrl.stop_all_workers()
+
+
+def test_auto_mode_queues_all_on_detection(qapp):
+    ctrl = AppController({
+        "ps3_root": "/fake", "xbox_root": "",
+        "auto_mode": True,
+        "scan_interval_seconds": 3600,
+    })
+    from models import ConsoleInfo, ConsoleType, GameEntry
+    from pathlib import Path
+    console = ConsoleInfo(ip="192.168.1.10", console_type=ConsoleType.PS3, label="PS3")
+    games = [
+        GameEntry(name="GameA", local_path=Path("/fake/GameA"), console_type=ConsoleType.PS3),
+        GameEntry(name="GameB", local_path=Path("/fake/GameB"), console_type=ConsoleType.PS3),
+    ]
+    with patch("app_controller._scan_catalog") as mock_cat, \
+         patch("app_controller.CatalogSizeWorker") as mock_sw, \
+         patch.object(ctrl, "commit_transfer") as mock_commit, \
+         patch.object(ctrl, "_preflight_ok", return_value=True):
+        mock_cat.return_value = (games, "")
+        mock_sw.return_value = MagicMock()
+        ctrl._on_console_found(console)
+
+    assert ctrl.staging_manager.get("192.168.1.10") == games
+    mock_commit.assert_called_once_with("192.168.1.10")
+    ctrl.stop_all_workers()
