@@ -186,3 +186,36 @@ def test_commit_transfer_unknown_console_is_noop(qapp):
     ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
     ctrl.commit_transfer("99.99.99.99")  # should not raise
     ctrl.stop_all_workers()
+
+
+def test_cancel_transfer_stops_worker_and_clears_queue(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    console = _make_ps3_console()
+    ctrl._on_console_found(console)
+
+    mock_worker = MagicMock()
+    mock_worker.isRunning.return_value = True
+    ctrl.workers["192.168.1.10"] = mock_worker
+
+    ctrl.cancel_transfer("192.168.1.10")
+
+    mock_worker.stop.assert_called_once()
+    assert ctrl.queue_manager.pending_count("192.168.1.10") == 0
+    ctrl.stop_all_workers()
+
+
+def test_progress_forwarded_to_signal(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    received = []
+    ctrl.transfer_progress.connect(lambda *args: received.append(args))
+    ctrl._on_progress("192.168.1.10", "GameA", 500, 1000, 5.0)
+    assert received == [("192.168.1.10", "GameA", 500, 1000, 5.0)]
+    ctrl.stop_all_workers()
+
+
+def test_job_done_increments_counter(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    ctrl._job_done_count["192.168.1.10"] = 0
+    ctrl._on_job_done("192.168.1.10", "GameA", "")
+    assert ctrl._job_done_count["192.168.1.10"] == 1
+    ctrl.stop_all_workers()

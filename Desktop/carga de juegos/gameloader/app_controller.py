@@ -178,10 +178,18 @@ class AppController(QObject):
         self._build_and_enqueue(console_id)
 
     def cancel_transfer(self, console_id: str) -> None:
-        pass
+        worker = self.workers.get(console_id)
+        if worker and worker.isRunning():
+            worker.stop()
+        self.queue_manager.clear(console_id)
 
     def retry_job(self, console_id: str, job: TransferJob) -> None:
-        pass
+        console = self.consoles.get(console_id)
+        if not console:
+            return
+        self._job_done_count[console_id] = max(0, self._job_done_count.get(console_id, 0) - 1)
+        self.queue_manager.add_jobs(console_id, [job])
+        self._ensure_worker_running(console)
 
     def hen_confirmed(self, console_ip: str) -> None:
         console = self.consoles.get(console_ip)
@@ -301,19 +309,23 @@ class AppController(QObject):
 
     @pyqtSlot(str, str, int, int, float)
     def _on_progress(self, console_id: str, game_name: str, sent: int, total: int, mbps: float) -> None:
-        pass
+        remaining = total - sent
+        self._latest_eta_data[console_id] = (remaining, mbps)
+        self.transfer_progress.emit(console_id, game_name, sent, total, mbps)
 
     @pyqtSlot(str, str, str)
     def _on_job_done(self, console_id: str, game_name: str, note: str) -> None:
-        pass
+        self._job_done_count[console_id] = self._job_done_count.get(console_id, 0) + 1
+        self.transfer_done.emit(console_id, game_name, note)
 
     @pyqtSlot(str, str, str)
     def _on_job_failed(self, console_id: str, game_name: str, error_msg: str) -> None:
-        pass
+        self._job_done_count[console_id] = self._job_done_count.get(console_id, 0) + 1
+        self.transfer_failed.emit(console_id, game_name, error_msg)
 
     @pyqtSlot(str, str, int)
     def _on_retry_attempt(self, console_id: str, game_name: str, attempt: int) -> None:
-        pass
+        self.transfer_retry.emit(console_id, game_name, attempt)
 
     @pyqtSlot(str, int, int)
     def _on_queue_done(self, console_id: str, success_count: int, fail_count: int) -> None:
