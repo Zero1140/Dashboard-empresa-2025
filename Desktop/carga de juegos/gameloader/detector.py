@@ -62,12 +62,19 @@ def detect_console(ip: str) -> Optional[ConsoleInfo]:
             ftp.quit()
             last = ip.rsplit(".", 1)[1]
             webman_active = _probe_webman(ip)
+            firmware_type = None
+            if webman_active:
+                from webman import WebManClient
+                firmware_type = WebManClient(ip).get_fw_type()
+                if firmware_type == "CFW":
+                    hen_ok = True   # CFW siempre está desbloqueada
             return ConsoleInfo(
                 ip=ip,
                 console_type=ConsoleType.PS3,
                 label=f"PS3-{last}",
                 hen_verified=hen_ok,
                 webman=webman_active,
+                firmware_type=firmware_type,
             )
         ftp.quit()
     except Exception:

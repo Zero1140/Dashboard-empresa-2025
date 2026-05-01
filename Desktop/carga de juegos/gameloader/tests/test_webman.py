@@ -82,3 +82,18 @@ class TestNotify:
         import requests as req
         with patch("webman.requests.get", side_effect=req.RequestException):
             assert WebManClient("1.2.3.4").notify("msg") is False
+
+
+class TestIsUnlocked:
+    def test_true_when_fw_type_is_hen(self):
+        with patch("webman.requests.get", return_value=_mock_response(200, "HEN")):
+            assert WebManClient("1.2.3.4").is_unlocked() is True
+
+    def test_true_when_fw_type_is_cfw(self):
+        with patch("webman.requests.get", return_value=_mock_response(200, "CFW")):
+            assert WebManClient("1.2.3.4").is_unlocked() is True
+
+    def test_false_when_no_fw_type(self):
+        import requests as req
+        with patch("webman.requests.get", side_effect=req.RequestException):
+            assert WebManClient("1.2.3.4").is_unlocked() is False

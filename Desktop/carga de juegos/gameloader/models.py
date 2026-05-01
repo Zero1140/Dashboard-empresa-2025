@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 from format_detector import GameFormat
 
@@ -17,6 +18,7 @@ class ConsoleInfo:
     label: str
     hen_verified: bool = False
     webman: bool = False
+    firmware_type: Optional[str] = None   # "HEN", "CFW", or None
 
     @property
     def console_id(self) -> str:

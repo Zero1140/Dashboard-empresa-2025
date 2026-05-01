@@ -232,7 +232,7 @@ class AppController(QObject):
         if console.console_type != ConsoleType.PS3:
             return True
         if console.webman:
-            return WebManClient(console.ip).is_hen_active()
+            return WebManClient(console.ip).is_unlocked()
         from detector import verify_hen
         return verify_hen(console.ip)
 

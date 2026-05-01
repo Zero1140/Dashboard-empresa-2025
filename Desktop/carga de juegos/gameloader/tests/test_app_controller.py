@@ -280,3 +280,59 @@ def test_default_config_has_auto_mode():
     from config import DEFAULT_CONFIG
     assert "auto_mode" in DEFAULT_CONFIG
     assert DEFAULT_CONFIG["auto_mode"] is False
+
+
+def test_commit_transfer_cfw_skips_hen_dialog(qapp):
+    """CFW console must NOT trigger hen_required signal."""
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    from models import ConsoleInfo, ConsoleType
+    console = ConsoleInfo(
+        ip="192.168.1.10",
+        console_type=ConsoleType.PS3,
+        label="PS3-CFW",
+        webman=True,
+        firmware_type="CFW",
+        hen_verified=True,
+    )
+    ctrl._on_console_found(console)
+
+    hen_signals = []
+    ctrl.hen_required.connect(lambda ip, wm: hen_signals.append((ip, wm)))
+
+    with patch.object(ctrl, "_preflight_ok", return_value=True), \
+         patch("app_controller.WebManClient") as MockWMC:
+        mock_client = MagicMock()
+        mock_client.is_unlocked.return_value = True
+        MockWMC.return_value = mock_client
+        ctrl.commit_transfer("192.168.1.10")
+
+    assert hen_signals == [], "CFW console should not trigger HEN dialog"
+    ctrl.stop_all_workers()
+
+
+def test_commit_transfer_hen_still_works(qapp):
+    """HEN console must also pass _hen_ok without dialog."""
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    from models import ConsoleInfo, ConsoleType
+    console = ConsoleInfo(
+        ip="192.168.1.11",
+        console_type=ConsoleType.PS3,
+        label="PS3-HEN",
+        webman=True,
+        firmware_type="HEN",
+        hen_verified=True,
+    )
+    ctrl._on_console_found(console)
+
+    hen_signals = []
+    ctrl.hen_required.connect(lambda ip, wm: hen_signals.append((ip, wm)))
+
+    with patch.object(ctrl, "_preflight_ok", return_value=True), \
+         patch("app_controller.WebManClient") as MockWMC:
+        mock_client = MagicMock()
+        mock_client.is_unlocked.return_value = True
+        MockWMC.return_value = mock_client
+        ctrl.commit_transfer("192.168.1.11")
+
+    assert hen_signals == [], "HEN console should also not trigger HEN dialog"
+    ctrl.stop_all_workers()

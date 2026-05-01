@@ -557,12 +557,17 @@ class MainWindow(QMainWindow):
 
     def _console_label(self, console: ConsoleInfo) -> str:
         if console.console_type == ConsoleType.PS3:
-            hen_badge = "  ✓ HEN" if console.hen_verified else "  ✗ HEN"
+            if console.firmware_type == "CFW":
+                fw_badge = "  ✓ CFW"
+            elif console.hen_verified:
+                fw_badge = "  ✓ HEN"
+            else:
+                fw_badge = "  ✗ HEN"
             wm_badge = "  [WM]" if console.webman else ""
         else:
-            hen_badge = ""
+            fw_badge = ""
             wm_badge = ""
-        return f"{console.label}{hen_badge}{wm_badge}"
+        return f"{console.label}{fw_badge}{wm_badge}"
 
     def _rename_console(self) -> None:
         if not self.selected_console:

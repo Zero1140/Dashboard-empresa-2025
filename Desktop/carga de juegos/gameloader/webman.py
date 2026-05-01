@@ -39,6 +39,10 @@ class WebManClient:
     def is_hen_active(self) -> bool:
         return self.get_fw_type() == "HEN"
 
+    def is_unlocked(self) -> bool:
+        """Returns True if the PS3 has HEN or CFW active."""
+        return self.get_fw_type() in ("HEN", "CFW")
+
     def refresh_xmb(self) -> bool:
         try:
             r = requests.get(f"{self._base}/refresh.ps3", timeout=self._timeout)
