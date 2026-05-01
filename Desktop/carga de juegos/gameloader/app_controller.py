@@ -360,7 +360,7 @@ class AppController(QObject):
 
         if success_count > 0 and console and console.webman:
             post_worker = WebManPostWorker(console.ip, success_count)
-            post_worker.finished.connect(
+            post_worker.done.connect(
                 lambda cid=console_id: self._webman_post_workers.pop(cid, None)
             )
             self._webman_post_workers[console_id] = post_worker
