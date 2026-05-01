@@ -11,7 +11,6 @@ from PyQt6.QtWidgets import (
     QMenuBar, QToolBar,
 )
 
-from config import save_config
 from hen_guide_dialog import HenGuideDialog
 from pkg_guide_dialog import PkgGuideDialog
 from models import ConsoleInfo, ConsoleType, GameEntry, TransferJob
@@ -391,6 +390,7 @@ class MainWindow(QMainWindow):
     # Scanner signal handlers
     # ------------------------------------------------------------------
 
+    @pyqtSlot()
     def _on_scan_started(self) -> None:
         self.btn_scan.setEnabled(False)
         self.btn_scan.setText("Buscando...")
@@ -485,7 +485,7 @@ class MainWindow(QMainWindow):
             self._no_catalog_card.show()
             root_key = "ps3_root" if console.console_type == ConsoleType.PS3 else "xbox_root"
             not_configured = not self.config.get(root_key, "")
-            self._no_catalog_icon.setText("!" if not not_configured else "?")
+            self._no_catalog_icon.setText("?" if not_configured else "!")
             self._no_catalog_msg.setText(error_msg)
             if not_configured:
                 self._btn_cfg_from_card.show()

@@ -213,7 +213,8 @@ class AppController(QObject):
     def update_config(self, config: dict) -> None:
         self.config = config
         self._scan_timer.setInterval(config.get("scan_interval_seconds", 30) * 1000)
-        save_config(config)
+        if not save_config(config):
+            self.status_message.emit("No se pudo guardar la configuracion (disco lleno o sin permisos)")
 
     # ── private ───────────────────────────────────────────────────────
 
