@@ -125,3 +125,24 @@ def test_free_space_ready_emitted(qapp):
     assert received == [("192.168.1.10", 120.5)]
     assert ctrl._free_space_cache["192.168.1.10"] == 120.5
     ctrl.stop_all_workers()
+
+
+def test_stage_and_get_game(qapp):
+    from models import ConsoleInfo, ConsoleType, GameEntry
+    from pathlib import Path
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    game = GameEntry(name="GameA", local_path=Path("/fake/GameA"), console_type=ConsoleType.PS3)
+    ctrl.stage_game("192.168.1.10", game)
+    assert ctrl.get_staged("192.168.1.10") == [game]
+    ctrl.stop_all_workers()
+
+
+def test_unstage_game(qapp):
+    from models import ConsoleInfo, ConsoleType, GameEntry
+    from pathlib import Path
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    game = GameEntry(name="GameA", local_path=Path("/fake/GameA"), console_type=ConsoleType.PS3)
+    ctrl.stage_game("192.168.1.10", game)
+    ctrl.unstage_game("192.168.1.10", 0)
+    assert ctrl.get_staged("192.168.1.10") == []
+    ctrl.stop_all_workers()

@@ -152,13 +152,13 @@ class AppController(QObject):
         self._free_space_worker = worker
 
     def stage_game(self, console_id: str, game: GameEntry) -> None:
-        pass
+        self.staging_manager.add(console_id, game)
 
     def unstage_game(self, console_id: str, index: int) -> None:
-        pass
+        self.staging_manager.remove(console_id, index)
 
     def get_staged(self, console_id: str) -> List[GameEntry]:
-        return []
+        return self.staging_manager.get(console_id)
 
     def commit_transfer(self, console_id: str) -> None:
         pass
