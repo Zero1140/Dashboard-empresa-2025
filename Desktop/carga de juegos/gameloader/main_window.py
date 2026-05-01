@@ -1,7 +1,7 @@
-import socket
-from typing import Dict, Optional, Tuple
+from __future__ import annotations
+from typing import Dict, Optional, TYPE_CHECKING
 
-from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtGui import QAction, QColor
 from PyQt6.QtWidgets import (
     QApplication, QFrame, QHeaderView, QInputDialog, QLabel,
@@ -11,20 +11,16 @@ from PyQt6.QtWidgets import (
     QMenuBar, QToolBar,
 )
 
-from catalog import load_catalog, CatalogSizeWorker
+from config import save_config
 from hen_guide_dialog import HenGuideDialog
 from pkg_guide_dialog import PkgGuideDialog
-from config import save_config
-from format_detector import detect_format, remote_path_for_format
-from ftp_worker import FTPWorker, FreeSpaceWorker, MAX_RETRIES
 from models import ConsoleInfo, ConsoleType, GameEntry, TransferJob
-from queue_manager import QueueManager
-from scanner import ScannerThread, ConsoleHealthChecker
 from settings_dialog import SettingsDialog
-from staging_manager import StagingManager
 from tray import SystemTray, set_autostart
-from webman import WebManClient, WebManPostWorker, PkgInstallWorker
+from ftp_worker import MAX_RETRIES
 
+if TYPE_CHECKING:
+    from app_controller import AppController
 
 _FORMAT_BADGE = {
     "folder": "CARPETA",
@@ -34,60 +30,41 @@ _FORMAT_BADGE = {
 }
 
 
-class ManualConnectWorker(QThread):
-    found = pyqtSignal(object)     # ConsoleInfo
-    not_found = pyqtSignal(str)    # ip that failed
-
-    def __init__(self, ip: str):
-        super().__init__()
-        self._ip = ip.strip()
-
-    def run(self):
-        from detector import detect_console
-        console = detect_console(self._ip)
-        if console:
-            self.found.emit(console)
-        else:
-            self.not_found.emit(self._ip)
-
-
 class MainWindow(QMainWindow):
-    def __init__(self, config: dict):
+    def __init__(self, ctrl: "AppController", config: dict):
         super().__init__()
+        self.ctrl = ctrl
         self.config = config
-        self.consoles: Dict[str, ConsoleInfo] = {}
-        self.workers: Dict[str, FTPWorker] = {}
-        self.queue_manager = QueueManager()
-        self.staging_manager = StagingManager()
         self.selected_console: Optional[ConsoleInfo] = None
-
+        self._progress_rows: Dict[str, int] = {}
         self._job_totals: Dict[str, int] = {}
         self._job_done_count: Dict[str, int] = {}
-        self._job_registry: Dict[Tuple[str, str], TransferJob] = {}
-        self._latest_eta_data: Dict[str, Tuple[int, float]] = {}
-        self._console_online: Dict[str, bool] = {}
-        self._game_size_cache: Dict[str, int] = {}
-        self._free_space_cache: Dict[str, float] = {}
-        self._batch_has_pkg: Dict[str, list] = {}
-        self._progress_rows: Dict[str, int] = {}  # console_id → row index
-        self._webman_post_workers: Dict[str, QThread] = {}
-        self._pkg_install_workers: Dict[str, QThread] = {}
-
         self._setup_ui()
         self._setup_tray()
-        self._start_scan()
+        self._connect_controller_signals()
 
-        self._scan_timer = QTimer(self)
-        self._scan_timer.timeout.connect(self._start_scan)
-        self._scan_timer.start(config.get("scan_interval_seconds", 30) * 1000)
+    # ------------------------------------------------------------------
+    # Signal wiring
+    # ------------------------------------------------------------------
 
-        self._eta_timer = QTimer(self)
-        self._eta_timer.timeout.connect(self._update_eta_status)
-        self._eta_timer.start(1000)
-
-        self._health_timer = QTimer(self)
-        self._health_timer.timeout.connect(self._start_health_check)
-        self._health_timer.start(15_000)
+    def _connect_controller_signals(self) -> None:
+        self.ctrl.console_found.connect(self._on_console_found)
+        self.ctrl.console_online.connect(self._on_console_online)
+        self.ctrl.console_offline.connect(self._on_console_offline)
+        self.ctrl.scan_started.connect(self._on_scan_started)
+        self.ctrl.scan_finished.connect(self._on_scan_finished)
+        self.ctrl.catalog_ready.connect(self._on_catalog_ready)
+        self.ctrl.game_size_ready.connect(self._on_game_size)
+        self.ctrl.free_space_ready.connect(self._on_free_space_result)
+        self.ctrl.transfer_progress.connect(self._on_progress)
+        self.ctrl.transfer_done.connect(self._on_job_done)
+        self.ctrl.transfer_failed.connect(self._on_job_failed)
+        self.ctrl.transfer_retry.connect(self._on_retry_attempt)
+        self.ctrl.queue_done.connect(self._on_queue_done)
+        self.ctrl.hen_required.connect(self._on_hen_required)
+        self.ctrl.space_warning.connect(self._on_space_warning)
+        self.ctrl.pkg_guide_required.connect(self._on_pkg_guide_required)
+        self.ctrl.status_message.connect(self._status)
 
     # ------------------------------------------------------------------
     # Menu + toolbar
@@ -124,7 +101,7 @@ class MainWindow(QMainWindow):
 
         self._act_scan = QAction("  Buscar consolas", self)
         self._act_scan.setToolTip("Escanear la red local para detectar consolas PS3 / Xbox")
-        self._act_scan.triggered.connect(self._start_scan)
+        self._act_scan.triggered.connect(self.ctrl.start_scan)
         tb.addAction(self._act_scan)
 
         self.addToolBar(tb)
@@ -136,16 +113,13 @@ class MainWindow(QMainWindow):
         new_cfg = dlg.get_config()
 
         autostart_changed = new_cfg["autostart_windows"] != self.config.get("autostart_windows", False)
-        interval_changed = new_cfg["scan_interval_seconds"] != self.config.get("scan_interval_seconds", 30)
-        subnet_changed = new_cfg.get("scan_subnet", "") != self.config.get("scan_subnet", "")
         root_changed = (
             new_cfg.get("ps3_root", "") != self.config.get("ps3_root", "") or
             new_cfg.get("xbox_root", "") != self.config.get("xbox_root", "")
         )
 
         self.config = new_cfg
-        if not save_config(self.config):
-            self._status("No se pudo guardar la configuracion (disco lleno o sin permisos)")
+        self.ctrl.update_config(new_cfg)
 
         if autostart_changed:
             ok = set_autostart(new_cfg["autostart_windows"])
@@ -156,15 +130,9 @@ class MainWindow(QMainWindow):
                     "Intenta ejecutar GameLoader como administrador."
                 )
 
-        if interval_changed:
-            self._scan_timer.setInterval(new_cfg["scan_interval_seconds"] * 1000)
-
-        if subnet_changed:
-            self._start_scan()
-
         if root_changed:
             if self.selected_console:
-                self._populate_catalog(self.selected_console)
+                self.ctrl.load_catalog(self.selected_console)
             else:
                 self._show_welcome()
 
@@ -219,7 +187,7 @@ class MainWindow(QMainWindow):
 
         self.btn_scan = QPushButton("Buscar")
         self.btn_scan.setToolTip("Escanear la red para detectar consolas")
-        self.btn_scan.clicked.connect(self._start_scan)
+        self.btn_scan.clicked.connect(self.ctrl.start_scan)
         btn_row.addWidget(self.btn_scan)
 
         self.btn_rename = QPushButton("Renombrar")
@@ -292,7 +260,7 @@ class MainWindow(QMainWindow):
         self.btn_start_transfer = QPushButton("INICIAR CARGA")
         self.btn_start_transfer.setObjectName("btn_start")
         self.btn_start_transfer.setEnabled(False)
-        self.btn_start_transfer.clicked.connect(self._commit_and_transfer)
+        self.btn_start_transfer.clicked.connect(self._on_start_transfer_clicked)
         right_layout.addWidget(self.btn_start_transfer)
 
         splitter.addWidget(left)
@@ -398,12 +366,12 @@ class MainWindow(QMainWindow):
         self.tray.show_window.connect(self.show)
         self.tray.quit_app.connect(self._safe_quit)
 
-    def _safe_quit(self):
-        active = [w for w in self.workers.values() if w.isRunning()]
-        if active:
+    def _safe_quit(self) -> None:
+        if self.ctrl.is_transferring():
+            active_count = sum(1 for w in self.ctrl.workers.values() if w.isRunning())
             resp = QMessageBox.question(
                 self, "Cerrar GameLoader",
-                f"Hay {len(active)} transferencia(s) activa(s).\n\n"
+                f"Hay {active_count} transferencia(s) activa(s).\n\n"
                 "Si cerras ahora los juegos en proceso quedan incompletos "
                 "y tendran que cargarse de nuevo.\n\n"
                 "Cerrar de todas formas?",
@@ -412,10 +380,7 @@ class MainWindow(QMainWindow):
             )
             if resp != QMessageBox.StandardButton.Yes:
                 return
-        for worker in self.workers.values():
-            worker.stop()
-        for worker in self.workers.values():
-            worker.wait(2000)
+        self.ctrl.stop_all_workers()
         QApplication.instance().quit()
 
     def closeEvent(self, event):
@@ -423,67 +388,43 @@ class MainWindow(QMainWindow):
         self.hide()
 
     # ------------------------------------------------------------------
-    # Scanner
+    # Scanner signal handlers
     # ------------------------------------------------------------------
 
-    def _start_scan(self):
-        if hasattr(self, '_scanner') and self._scanner.isRunning():
-            return
+    def _on_scan_started(self) -> None:
         self.btn_scan.setEnabled(False)
         self.btn_scan.setText("Buscando...")
         if hasattr(self, '_act_scan'):
             self._act_scan.setEnabled(False)
-        self._status("Buscando consolas en la red local...")
-        self._scanner = ScannerThread(self, subnet=self.config.get("scan_subnet", ""))
-        self._scanner.console_found.connect(self._on_console_found)
-        self._scanner.scan_finished.connect(self._on_scan_finished)
-        self._scanner.start()
 
     @pyqtSlot(object)
-    def _on_console_found(self, console: ConsoleInfo):
-        if console.console_id not in self.consoles:
-            self.consoles[console.console_id] = console
-            item = QListWidgetItem(f"  {self._console_label(console)}")
-            item.setData(Qt.ItemDataRole.UserRole, console.console_id)
-            self.console_list.addItem(item)
-            self._lbl_no_consoles.hide()
+    def _on_console_found(self, console: ConsoleInfo) -> None:
+        item = QListWidgetItem(f"  {self._console_label(console)}")
+        item.setData(Qt.ItemDataRole.UserRole, console.console_id)
+        self.console_list.addItem(item)
+        self._lbl_no_consoles.hide()
 
-    @pyqtSlot()
-    def _on_scan_finished(self):
+    @pyqtSlot(int)
+    def _on_scan_finished(self, count: int) -> None:
         self.btn_scan.setEnabled(True)
         self.btn_scan.setText("Buscar")
         if hasattr(self, '_act_scan'):
             self._act_scan.setEnabled(True)
-        count = self.console_list.count()
         if count == 0:
             self._lbl_no_consoles.show()
-            self._status("Sin consolas detectadas. Verifica que esten encendidas y en la misma red.")
         else:
             self._lbl_no_consoles.hide()
-            self._status(f"{count} consola(s) detectada(s). Hace clic en una para ver los juegos.")
-
-    def _start_health_check(self):
-        if not self.consoles:
-            return
-        if hasattr(self, '_health_checker') and self._health_checker.isRunning():
-            return
-        self._health_checker = ConsoleHealthChecker(self.consoles, self)
-        self._health_checker.console_online.connect(self._on_console_online)
-        self._health_checker.console_offline.connect(self._on_console_offline)
-        self._health_checker.start()
 
     @pyqtSlot(str)
     def _on_console_online(self, console_id: str):
-        self._console_online[console_id] = True
         self._update_console_item_state(console_id, online=True)
 
     @pyqtSlot(str)
     def _on_console_offline(self, console_id: str):
-        self._console_online[console_id] = False
         self._update_console_item_state(console_id, online=False)
 
     def _update_console_item_state(self, console_id: str, online: bool):
-        console = self.consoles.get(console_id)
+        console = self.ctrl.consoles.get(console_id)
         if not console:
             return
         for i in range(self.console_list.count()):
@@ -498,33 +439,20 @@ class MainWindow(QMainWindow):
                 break
 
     # ------------------------------------------------------------------
-    # Consola seleccionada
+    # Console selection
     # ------------------------------------------------------------------
 
-    def _on_console_clicked(self, item: QListWidgetItem):
+    def _on_console_clicked(self, item: QListWidgetItem) -> None:
         console_id = item.data(Qt.ItemDataRole.UserRole)
-        self.selected_console = self.consoles.get(console_id)
+        self.selected_console = self.ctrl.consoles.get(console_id)
         if self.selected_console:
-            self._populate_catalog(self.selected_console)
+            self.ctrl.load_catalog(self.selected_console)
             self._refresh_staging_panel()
             self.btn_rename.setEnabled(True)
-            self._query_free_space(self.selected_console)
-
-    def _query_free_space(self, console: ConsoleInfo):
-        self._lbl_free_space.setText("Espacio libre: consultando...")
-        self._lbl_free_space.setStyleSheet(
-            "color: #404060; font-size: 11px; padding: 2px 4px; font-style: italic;"
-        )
-        self._lbl_free_space.show()
-        worker = FreeSpaceWorker(console)
-        worker.result.connect(self._on_free_space_result)
-        worker.start()
-        self._free_space_worker = worker
+            self.ctrl.query_free_space(self.selected_console)
 
     @pyqtSlot(str, float)
     def _on_free_space_result(self, console_id: str, free_gb: float):
-        if free_gb >= 0:
-            self._free_space_cache[console_id] = free_gb
         if not self.selected_console or self.selected_console.console_id != console_id:
             return
         if free_gb >= 0:
@@ -543,20 +471,19 @@ class MainWindow(QMainWindow):
             self._lbl_free_space.setStyleSheet(
                 "color: #404060; font-size: 11px; padding: 2px 4px;"
             )
+        self._lbl_free_space.show()
 
-    def _populate_catalog(self, console: ConsoleInfo):
+    @pyqtSlot(object, list, str)
+    def _on_catalog_ready(self, console: ConsoleInfo, games: list, error_msg: str) -> None:
         self.search_box.clear()
         self._no_catalog_card.hide()
         self._catalog_table.setRowCount(0)
-
-        root_key = "ps3_root" if console.console_type == ConsoleType.PS3 else "xbox_root"
-        games, error_msg = load_catalog(self.config.get(root_key, ""), console.console_type)
 
         if error_msg:
             self._catalog_table.hide()
             self.search_box.hide()
             self._no_catalog_card.show()
-
+            root_key = "ps3_root" if console.console_type == ConsoleType.PS3 else "xbox_root"
             not_configured = not self.config.get(root_key, "")
             self._no_catalog_icon.setText("!" if not not_configured else "?")
             self._no_catalog_msg.setText(error_msg)
@@ -564,16 +491,12 @@ class MainWindow(QMainWindow):
                 self._btn_cfg_from_card.show()
             else:
                 self._btn_cfg_from_card.hide()
-
             self._lbl_catalog_count.setText("")
-            self._status(f"Sin juegos para {console.label} — {error_msg.splitlines()[0]}")
             return
 
         self._catalog_table.show()
         self.search_box.show()
-        self._game_size_cache.clear()
-
-        staging_names = {g.name for g in self.staging_manager.get(console.console_id)}
+        staging_names = {g.name for g in self.ctrl.get_staged(console.console_id)}
 
         for game in games:
             row = self._catalog_table.rowCount()
@@ -594,18 +517,14 @@ class MainWindow(QMainWindow):
             btn = QPushButton("Agregar")
             btn.setFixedHeight(22)
             btn.setEnabled(game.name not in staging_names)
-            btn.clicked.connect(lambda _, g=game: self._add_to_staging(g))
+            btn.clicked.connect(lambda _, g=game: (
+                self.ctrl.stage_game(console.console_id, g),
+                self._refresh_staging_panel(),
+                self._update_catalog_buttons(),
+            ))
             self._catalog_table.setCellWidget(row, 2, btn)
 
         self._lbl_catalog_count.setText(f"{len(games)} juegos")
-        self._status(
-            f"{len(games)} juego(s) disponibles para {console.label}. "
-            "Hace clic en 'Agregar' y luego en 'INICIAR CARGA'."
-        )
-
-        self._size_worker = CatalogSizeWorker(games, self)
-        self._size_worker.size_ready.connect(self._on_game_size)
-        self._size_worker.start()
 
     def _filter_catalog(self, text: str):
         for row in range(self._catalog_table.rowCount()):
@@ -616,7 +535,6 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(str, int)
     def _on_game_size(self, game_name: str, byte_count: int):
-        self._game_size_cache[game_name] = byte_count
         for row in range(self._catalog_table.rowCount()):
             name_item = self._catalog_table.item(row, 0)
             stored = name_item.data(Qt.ItemDataRole.UserRole) if name_item else None
@@ -646,7 +564,7 @@ class MainWindow(QMainWindow):
             wm_badge = ""
         return f"{console.label}{hen_badge}{wm_badge}"
 
-    def _rename_console(self):
+    def _rename_console(self) -> None:
         if not self.selected_console:
             return
         new_name, ok = QInputDialog.getText(
@@ -655,25 +573,20 @@ class MainWindow(QMainWindow):
         )
         if not (ok and new_name.strip()):
             return
-
-        old_label = self.selected_console.label
         new_label = new_name.strip()
-        self.selected_console.label = new_label
-
+        self.ctrl.rename_console(self.selected_console.console_id, new_label)
         for i in range(self.console_list.count()):
             item = self.console_list.item(i)
             if item.data(Qt.ItemDataRole.UserRole) == self.selected_console.console_id:
                 item.setText(f"  {self._console_label(self.selected_console)}")
-
         row = self._progress_rows.get(self.selected_console.console_id, -1)
         if row >= 0:
             cell = self.progress_table.item(row, 0)
             if cell:
                 cell.setText(new_label)
-
         self._staging_title.setText(f"COLA: {new_label}")
 
-    def _add_console_by_ip(self):
+    def _add_console_by_ip(self) -> None:
         ip, ok = QInputDialog.getText(
             self, "Agregar consola por IP",
             "Ingresá la IP de la consola\n(la ves en MultiMAN, ej: 192.168.1.105):",
@@ -685,84 +598,41 @@ class MainWindow(QMainWindow):
         if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
             QMessageBox.warning(self, "IP inválida", f"'{ip}' no es una dirección IP válida.")
             return
-        if ip in self.consoles:
+        if ip in self.ctrl.consoles:
             self._status(f"{ip} ya está en la lista de consolas.")
             return
         self.btn_add_ip.setEnabled(False)
         self.btn_add_ip.setText("Conectando...")
-        self._status(f"Intentando conectar a {ip}...")
-        worker = ManualConnectWorker(ip)
-        worker.found.connect(self._on_manual_found)
-        worker.not_found.connect(self._on_manual_not_found)
-        worker.finished.connect(lambda: (
+        self.ctrl.add_console_by_ip(ip)
+        # Re-enable button after a delay — ctrl will emit status_message when done
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(3000, lambda: (
             self.btn_add_ip.setEnabled(True),
             self.btn_add_ip.setText("IP..."),
         ))
-        worker.start()
-        self._manual_worker = worker
-
-    @pyqtSlot(object)
-    def _on_manual_found(self, console: ConsoleInfo):
-        if console.console_id in self.consoles:
-            self._status(f"{console.label} ({console.ip}) ya estaba en la lista.")
-            return
-        self.consoles[console.console_id] = console
-        item = QListWidgetItem(f"  {self._console_label(console)}")
-        item.setData(Qt.ItemDataRole.UserRole, console.console_id)
-        self.console_list.addItem(item)
-        self._lbl_no_consoles.hide()
-        self._status(f"Consola detectada: {console.label} ({console.ip})")
-
-    @pyqtSlot(str)
-    def _on_manual_not_found(self, ip: str):
-        QMessageBox.warning(
-            self, "Sin respuesta",
-            f"No se detectó ninguna consola en {ip}.\n\n"
-            "Verificá que:\n"
-            "  • La consola esté encendida\n"
-            "  • MultiMAN / webMAN esté activo y con FTP\n"
-            "  • La IP sea correcta (verificala en MultiMAN)\n"
-            "  • La consola y esta PC estén en la misma red"
-        )
-        self._status(f"Sin respuesta de {ip}")
 
     # ------------------------------------------------------------------
     # Staging
     # ------------------------------------------------------------------
 
-    def _add_to_staging(self, game: GameEntry):
-        if not self.selected_console:
-            return
-        self.staging_manager.add(self.selected_console.console_id, game)
-        self._refresh_staging_panel()
-        self._update_catalog_buttons()
+    def _on_start_transfer_clicked(self) -> None:
+        if self.selected_console:
+            self.ctrl.commit_transfer(self.selected_console.console_id)
 
-    def _remove_from_staging(self, index: int):
-        if not self.selected_console:
-            return
-        self.staging_manager.remove(self.selected_console.console_id, index)
-        self._refresh_staging_panel()
-        self._update_catalog_buttons()
-
-    def _refresh_staging_panel(self):
+    def _refresh_staging_panel(self) -> None:
         console = self.selected_console
         if not console:
             return
-
         self._staging_title.setText(f"COLA: {console.label}")
         self._staging_list.clear()
-
-        games = self.staging_manager.get(console.console_id)
+        games = self.ctrl.get_staged(console.console_id)
         for i, game in enumerate(games):
             item = QListWidgetItem()
-
             row_widget = QWidget()
             row_layout = QHBoxLayout(row_widget)
             row_layout.setContentsMargins(8, 2, 4, 2)
-
             lbl = QLabel(game.name)
             lbl.setStyleSheet("color: #c0c0e0;")
-
             btn_remove = QPushButton("x")
             btn_remove.setFixedWidth(26)
             btn_remove.setFixedHeight(20)
@@ -771,199 +641,71 @@ class MainWindow(QMainWindow):
                 " border-radius: 3px; font-weight: bold; padding: 0; }"
                 "QPushButton:hover { background: #5a2020; color: #ff7070; }"
             )
-            btn_remove.clicked.connect(lambda _, idx=i: self._remove_from_staging(idx))
-
+            btn_remove.clicked.connect(lambda _, idx=i: (
+                self.ctrl.unstage_game(console.console_id, idx),
+                self._refresh_staging_panel(),
+                self._update_catalog_buttons(),
+            ))
             row_layout.addWidget(lbl, stretch=1)
             row_layout.addWidget(btn_remove)
-
             item.setSizeHint(row_widget.sizeHint())
             self._staging_list.addItem(item)
             self._staging_list.setItemWidget(item, row_widget)
 
-        total_gb = self.staging_manager.total_size_gb(console.console_id)
+        total_bytes = sum(
+            self.ctrl._game_size_cache.get(g.name, 0)
+            for g in games
+        )
         n = len(games)
-        if total_gb > 0:
+        if total_bytes > 0:
+            total_gb = total_bytes / (1024 ** 3)
             self._staging_info.setText(f"{n} juego(s)  ·  ~{total_gb:.1f} GB")
         else:
             self._staging_info.setText(f"{n} juego(s)")
         self.btn_start_transfer.setEnabled(n > 0)
 
-    def _update_catalog_buttons(self):
+    def _update_catalog_buttons(self) -> None:
         if not self.selected_console:
             return
-        staging_names = {g.name for g in self.staging_manager.get(self.selected_console.console_id)}
+        staging_names = {g.name for g in self.ctrl.get_staged(self.selected_console.console_id)}
         for row in range(self._catalog_table.rowCount()):
             item = self._catalog_table.item(row, 0)
             btn = self._catalog_table.cellWidget(row, 2)
             if item and btn:
-                btn.setEnabled(item.text() not in staging_names)
+                game = item.data(Qt.ItemDataRole.UserRole)
+                name = game.name if game else ""
+                btn.setEnabled(name not in staging_names)
 
     # ------------------------------------------------------------------
-    # Transferencia
+    # Transfer signal handlers
     # ------------------------------------------------------------------
 
-    def _commit_and_transfer(self):
-        console = self.selected_console
-        if not console:
-            return
+    def _on_hen_required(self, console_ip: str, has_webman: bool) -> None:
+        dlg = HenGuideDialog(console_ip, has_webman, self)
+        dlg.exec()
+        self.ctrl.hen_confirmed(console_ip)
 
-        if not self._preflight_ok(console):
-            QMessageBox.warning(
-                self, "Consola no accesible",
-                f"No se pudo conectar a {console.label} ({console.ip}) en el puerto FTP.\n\n"
-                "Verifica que la consola este encendida, con el servidor FTP activo "
-                "y en la misma red."
-            )
-            return
-
-        if not self._hen_ok(console):
-            dlg = HenGuideDialog(console.ip, console.webman, self)
-            dlg.exec()
-            if not self._hen_ok(console):
-                self._status("Transferencia cancelada: HEN no está activo.")
-                return
-
-        staged_games = self.staging_manager.get(console.console_id)
-        if not staged_games:
-            return
-
-        jobs: list[TransferJob] = []
-        for game in staged_games:
-            local_path = game.local_path
-            if console.console_type == ConsoleType.PS3:
-                try:
-                    fmt = detect_format(local_path)
-                    game.format = fmt
-                    remote_base = remote_path_for_format(fmt, self.config)
-                except (FileNotFoundError, ValueError) as e:
-                    remote_base = self.config.get("ps3_remote_path", "/dev_hdd0/GAMES/")
-                    self._status(f"Advertencia: no se pudo detectar formato de '{game.name}' — usando GAMES/ ({e})")
-            else:
-                remote_base = self.config.get("xbox_remote_path", "Hdd1:\\Games\\")
-            if not remote_base:
-                QMessageBox.warning(
-                    self, "Ruta no configurada",
-                    f"La ruta remota para {console.console_type.value} esta vacia.\n"
-                    "Configurala en Archivo → Configuracion."
-                )
-                return
-            jobs.append(TransferJob(game=game, remote_base_path=remote_base))
-
-        from format_detector import GameFormat
-        self._batch_has_pkg[console.console_id] = [
-            job.game.name for job in jobs if job.game.format == GameFormat.PKG
-        ]
-
-        total_bytes = sum(
-            self._game_size_cache.get(job.game.name, 0)
-            for job in jobs
+    def _on_space_warning(self, console_id: str, needed_gb: float, free_gb: float) -> None:
+        console = self.ctrl.consoles.get(console_id)
+        label = console.label if console else console_id
+        resp = QMessageBox.warning(
+            self, "Espacio insuficiente",
+            f"Los juegos seleccionados ocupan ~{needed_gb:.1f} GB,\n"
+            f"pero la consola solo tiene {free_gb:.1f} GB libres.\n\n"
+            "Si continuás, algunos juegos pueden quedar incompletos.\n\n"
+            "¿Continuar de todas formas?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if total_bytes > 0:
-            free_gb = self._free_space_cache.get(console.console_id, -1.0)
-            total_gb = total_bytes / (1024 ** 3)
-            if free_gb >= 0 and total_gb > free_gb * 0.95:
-                resp = QMessageBox.warning(
-                    self, "Espacio insuficiente",
-                    f"Los juegos seleccionados ocupan ~{total_gb:.1f} GB,\n"
-                    f"pero la consola solo tiene {free_gb:.1f} GB libres.\n\n"
-                    "Si continuás, algunos juegos pueden quedar incompletos.\n\n"
-                    "¿Continuar de todas formas?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
-                )
-                if resp != QMessageBox.StandardButton.Yes:
-                    return
+        if resp == QMessageBox.StandardButton.Yes:
+            self.ctrl.commit_transfer_confirmed(console_id)
 
-        self.staging_manager.clear(console.console_id)
-        if not jobs:
-            return
-
-        self._job_totals[console.console_id] = len(jobs)
-        self._job_done_count[console.console_id] = 0
-        for job in jobs:
-            self._job_registry[(console.console_id, job.game.name)] = job
-
-        self.queue_manager.add_jobs(console.console_id, jobs)
-        self._ensure_worker_running(console)
-        self._refresh_staging_panel()
-        self._status(f"Iniciando carga de {len(jobs)} juego(s) en {console.label}...")
-
-    def _preflight_ok(self, console: ConsoleInfo) -> bool:
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(2.0)
-            result = s.connect_ex((console.ip, 21))
-            s.close()
-            return result == 0
-        except Exception:
-            return False
-
-    def _hen_ok(self, console: ConsoleInfo) -> bool:
-        if console.console_type != ConsoleType.PS3:
-            return True
-        if console.webman:
-            return WebManClient(console.ip).is_hen_active()
-        from detector import verify_hen
-        return verify_hen(console.ip)
-
-    def _ensure_worker_running(self, console: ConsoleInfo):
-        existing = self.workers.get(console.console_id)
-        if existing and existing.isRunning():
-            return
-
-        worker = FTPWorker(
-            console=console,
-            queue=self.queue_manager,
-            overwrite=self.config.get("overwrite_existing", False),
-        )
-        worker.progress.connect(self._on_progress)
-        worker.job_done.connect(self._on_job_done)
-        worker.job_failed.connect(self._on_job_failed)
-        worker.retry_attempt.connect(self._on_retry_attempt)
-        worker.queue_done.connect(self._on_queue_done)
-        self.workers[console.console_id] = worker
-
-        self._upsert_progress_row(console)
-        worker.start()
-
-    def _cancel_transfer(self, console_id: str):
-        worker = self.workers.get(console_id)
-        if worker and worker.isRunning():
-            worker.stop()
-        self.queue_manager.clear(console_id)
-        row = self._find_row(console_id)
-        if row < 0:
-            return
-        item_st = self._safe_item(row, 4)
-        if item_st:
-            item_st.setText("Cancelado")
-        self.progress_table.removeCellWidget(row, 5)
-
-    def _retry_job(self, console_id: str, job: TransferJob):
-        console = self.consoles.get(console_id)
-        if not console:
-            return
-        self._job_done_count[console_id] = max(
-            0, self._job_done_count.get(console_id, 0) - 1
-        )
-        self.queue_manager.add_jobs(console_id, [job])
-        self._ensure_worker_running(console)
-
-        row = self._find_row(console_id)
-        item_name = self._safe_item(row, 1)
-        if item_name:
-            item_name.setText("Reintentando...")
-        bar = self._safe_widget(row, 2)
-        if bar:
-            bar.setValue(0)
-
-        btn_cancel = QPushButton("Detener")
-        btn_cancel.setFixedWidth(60)
-        btn_cancel.clicked.connect(lambda _, cid=console_id: self._cancel_transfer(cid))
-        self.progress_table.setCellWidget(row, 5, btn_cancel)
+    def _on_pkg_guide_required(self, pkg_names: list) -> None:
+        guide = PkgGuideDialog(pkg_names, self)
+        guide.exec()
 
     # ------------------------------------------------------------------
-    # Progreso
+    # Progress table
     # ------------------------------------------------------------------
 
     def _upsert_progress_row(self, console: ConsoleInfo):
@@ -978,7 +720,7 @@ class MainWindow(QMainWindow):
             self._safe_item(row, 4) and self._safe_item(row, 4).setText("En cola")
             btn = QPushButton("Detener")
             btn.setFixedWidth(60)
-            btn.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer(cid))
+            btn.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer_ui(cid))
             self.progress_table.setCellWidget(row, 5, btn)
             return
 
@@ -997,8 +739,16 @@ class MainWindow(QMainWindow):
 
         btn = QPushButton("Detener")
         btn.setFixedWidth(60)
-        btn.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer(cid))
+        btn.clicked.connect(lambda _, cid=console.console_id: self._cancel_transfer_ui(cid))
         self.progress_table.setCellWidget(row, 5, btn)
+
+    def _cancel_transfer_ui(self, console_id: str) -> None:
+        self.ctrl.cancel_transfer(console_id)
+        row = self._find_row(console_id)
+        item_st = self._safe_item(row, 4)
+        if item_st:
+            item_st.setText("Cancelado")
+        self.progress_table.removeCellWidget(row, 5)
 
     def _find_row(self, console_id: str) -> int:
         return self._progress_rows.get(console_id, -1)
@@ -1014,11 +764,19 @@ class MainWindow(QMainWindow):
         return self.progress_table.cellWidget(row, col)
 
     @pyqtSlot(str, str, int, int, float)
-    def _on_progress(self, console_id: str, game_name: str, bytes_sent: int, total_bytes: int, mbps: float):
+    def _on_progress(self, console_id: str, game_name: str, bytes_sent: int, total_bytes: int, mbps: float) -> None:
+        # Lazily create progress row on first progress event for this console
+        if self._find_row(console_id) < 0:
+            console = self.ctrl.consoles.get(console_id)
+            if console:
+                self._job_totals[console_id] = self.ctrl._job_totals.get(console_id, 0)
+                self._job_done_count[console_id] = 0
+                self._upsert_progress_row(console)
+
         row = self._find_row(console_id)
         item_name = self._safe_item(row, 1)
         if item_name:
-            job = self._job_registry.get((console_id, game_name))
+            job = self.ctrl._job_registry.get((console_id, game_name))
             if job:
                 badge = _FORMAT_BADGE.get(job.game.format.value, "?")
                 item_name.setText(f"{game_name}  [{badge}]")
@@ -1031,7 +789,6 @@ class MainWindow(QMainWindow):
         item_vel = self._safe_item(row, 3)
         if item_vel:
             item_vel.setText(f"{mbps:.1f} MB/s")
-        self._latest_eta_data[console_id] = (max(0, total_bytes - bytes_sent), mbps)
 
     @pyqtSlot(str, str, int)
     def _on_retry_attempt(self, console_id: str, game_name: str, attempt: int):
@@ -1063,29 +820,40 @@ class MainWindow(QMainWindow):
                 item_st.setText(f"J.{n}/{total}")
 
     @pyqtSlot(str, str, str)
-    def _on_job_failed(self, console_id: str, game_name: str, error_msg: str):
+    def _on_job_failed(self, console_id: str, game_name: str, error_msg: str) -> None:
         row = self._find_row(console_id)
         self._job_done_count[console_id] = self._job_done_count.get(console_id, 0) + 1
-
         item_name = self._safe_item(row, 1)
         item_st = self._safe_item(row, 4)
-
         if item_name:
             item_name.setText(f"Error: {game_name}")
         if item_st:
             item_st.setText(f"Error: {error_msg[:45]}")
-
         self._status(f"Error en {game_name}: {error_msg[:80]}")
 
-        job = self._job_registry.get((console_id, game_name))
+        job = self.ctrl._job_registry.get((console_id, game_name))
         if job:
             btn_retry = QPushButton("Reintentar")
             btn_retry.setFixedWidth(80)
-            btn_retry.clicked.connect(lambda _, cid=console_id, j=job: self._retry_job(cid, j))
+            btn_retry.clicked.connect(lambda _, cid=console_id, j=job: self._retry_job_ui(cid, j))
             self.progress_table.setCellWidget(row, 5, btn_retry)
 
+    def _retry_job_ui(self, console_id: str, job: TransferJob) -> None:
+        self.ctrl.retry_job(console_id, job)
+        row = self._find_row(console_id)
+        item_name = self._safe_item(row, 1)
+        if item_name:
+            item_name.setText("Reintentando...")
+        bar = self._safe_widget(row, 2)
+        if bar:
+            bar.setValue(0)
+        btn_cancel = QPushButton("Detener")
+        btn_cancel.setFixedWidth(60)
+        btn_cancel.clicked.connect(lambda _, cid=console_id: self._cancel_transfer_ui(cid))
+        self.progress_table.setCellWidget(row, 5, btn_cancel)
+
     @pyqtSlot(str, int, int)
-    def _on_queue_done(self, console_id: str, success_count: int, fail_count: int):
+    def _on_queue_done(self, console_id: str, success_count: int, fail_count: int) -> None:
         row = self._find_row(console_id)
         if row < 0:
             return
@@ -1093,7 +861,6 @@ class MainWindow(QMainWindow):
         item_name = self._safe_item(row, 1)
         item_vel = self._safe_item(row, 3)
         item_st = self._safe_item(row, 4)
-
         if bar:
             bar.setValue(100)
         if item_name:
@@ -1105,68 +872,13 @@ class MainWindow(QMainWindow):
             if fail_count:
                 status += f"  /  {fail_count} con error"
             item_st.setText(status)
-
         self.progress_table.removeCellWidget(row, 5)
-        self._latest_eta_data.pop(console_id, None)
-
-        console = self.consoles.get(console_id)
+        console = self.ctrl.consoles.get(console_id)
         if console:
             msg = f"{console.label}: carga completa — {success_count} juego(s)"
             if fail_count:
                 msg += f", {fail_count} con error"
             self.tray.notify("GameLoader", msg)
-            self._status(msg)
-
-        pkg_names = self._batch_has_pkg.pop(console_id, [])
-        if pkg_names and success_count > 0:
-            if console and console.webman:
-                # Auto-install via webMAN — no physical interaction needed
-                self._status(f"{console.label}: instalando {len(pkg_names)} PKG(s) en PS3...")
-                pkg_worker = PkgInstallWorker(console.ip, pkg_names)
-                pkg_worker.finished_ok.connect(
-                    lambda n, lbl=console.label: self._status(f"{lbl}: {n} PKG(s) instalado(s) correctamente")
-                )
-                pkg_worker.finished_err.connect(
-                    lambda err, lbl=console.label: self._status(f"{lbl}: error al instalar PKGs — {err}")
-                )
-                pkg_worker.finished.connect(
-                    lambda cid=console_id: self._pkg_install_workers.pop(cid, None)
-                )
-                self._pkg_install_workers[console_id] = pkg_worker
-                pkg_worker.start()
-            else:
-                guide = PkgGuideDialog(pkg_names, self)
-                guide.exec()
-
-        if success_count > 0 and console and console.webman:
-            worker = WebManPostWorker(console.ip, success_count)
-            worker.finished.connect(
-                lambda cid=console_id: self._webman_post_workers.pop(cid, None)
-            )
-            self._webman_post_workers[console_id] = worker
-            worker.start()
-
-    def _update_eta_status(self):
-        active = [
-            (cid, data)
-            for cid, data in self._latest_eta_data.items()
-            if cid in self.workers and self.workers[cid].isRunning()
-        ]
-        if not active:
-            return
-
-        total_remaining = sum(d[0] for _, d in active)
-        speeds = [d[1] for _, d in active if d[1] > 0]
-        avg_mbps = sum(speeds) / len(speeds) if speeds else 0.1
-        eta_sec = total_remaining / (avg_mbps * 1_048_576)
-
-        if eta_sec < 60:
-            eta_str = f"~{max(1, int(eta_sec))} seg"
-        else:
-            eta_str = f"~{int(eta_sec / 60)} min"
-
-        n = len(active)
-        self._status(f"{n} consola(s) transfiriendo  —  ETA: {eta_str}")
 
     def _status(self, msg: str):
         self.statusBar().showMessage(msg)
