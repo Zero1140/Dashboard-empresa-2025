@@ -101,7 +101,7 @@ class AppController(QObject):
             return
         self.scan_started.emit()
         self.status_message.emit("Buscando consolas en la red local...")
-        self._scanner = ScannerThread(subnet=self.config.get("scan_subnet", ""))
+        self._scanner = ScannerThread(parent=self, subnet=self.config.get("scan_subnet", ""))
         self._scanner.console_found.connect(self._on_console_found)
         self._scanner.scan_finished.connect(self._on_scan_finished)
         self._scanner.start()
@@ -181,12 +181,13 @@ class AppController(QObject):
                 f"{count} consola(s) detectada(s). Hace clic en una para ver los juegos."
             )
 
+    @pyqtSlot()
     def _start_health_check(self) -> None:
         if not self.consoles:
             return
         if hasattr(self, '_health_checker') and self._health_checker.isRunning():
             return
-        self._health_checker = ConsoleHealthChecker(self.consoles)
+        self._health_checker = ConsoleHealthChecker(self.consoles, parent=self)
         self._health_checker.console_online.connect(self._on_console_online)
         self._health_checker.console_offline.connect(self._on_console_offline)
         self._health_checker.start()

@@ -3,6 +3,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
+from unittest.mock import patch, MagicMock
 from app_controller import AppController
 
 
@@ -18,9 +19,6 @@ def test_initial_state_is_empty(qapp):
     assert ctrl.workers == {}
     assert ctrl.is_transferring() is False
     ctrl.stop_all_workers()
-
-
-from unittest.mock import patch, MagicMock
 
 
 def test_start_scan_emits_scan_started(qapp):
