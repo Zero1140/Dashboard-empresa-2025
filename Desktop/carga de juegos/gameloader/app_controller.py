@@ -122,10 +122,24 @@ class AppController(QObject):
             console.label = new_label
 
     def load_catalog(self, console: ConsoleInfo) -> None:
-        pass
+        root_key = "ps3_root" if console.console_type == ConsoleType.PS3 else "xbox_root"
+        games, error_msg = _scan_catalog(self.config.get(root_key, ""), console.console_type)
+        self.catalog_ready.emit(console, games, error_msg)
+        if games:
+            worker = CatalogSizeWorker(games, self)
+            worker.size_ready.connect(self._on_game_size)
+            worker.start()
+            self._size_worker = worker
+        if self.config.get("auto_mode", False) and games and not error_msg:
+            for game in games:
+                self.staging_manager.add(console.console_id, game)
+            self.commit_transfer(console.console_id)
 
     def query_free_space(self, console: ConsoleInfo) -> None:
-        pass
+        worker = FreeSpaceWorker(console)
+        worker.result.connect(self._on_free_space_result)
+        worker.start()
+        self._free_space_worker = worker
 
     def stage_game(self, console_id: str, game: GameEntry) -> None:
         pass
@@ -158,6 +172,17 @@ class AppController(QObject):
 
     def _update_eta_status(self) -> None:
         pass
+
+    @pyqtSlot(str, int)
+    def _on_game_size(self, game_name: str, byte_count: int) -> None:
+        self._game_size_cache[game_name] = byte_count
+        self.game_size_ready.emit(game_name, byte_count)
+
+    @pyqtSlot(str, float)
+    def _on_free_space_result(self, console_id: str, free_gb: float) -> None:
+        if free_gb >= 0:
+            self._free_space_cache[console_id] = free_gb
+        self.free_space_ready.emit(console_id, free_gb)
 
     @pyqtSlot(object)
     def _on_console_found(self, console: ConsoleInfo) -> None:
