@@ -146,3 +146,43 @@ def test_unstage_game(qapp):
     ctrl.unstage_game("192.168.1.10", 0)
     assert ctrl.get_staged("192.168.1.10") == []
     ctrl.stop_all_workers()
+
+
+def _make_ps3_console(ip="192.168.1.10"):
+    from models import ConsoleInfo, ConsoleType
+    return ConsoleInfo(ip=ip, console_type=ConsoleType.PS3, label="PS3", webman=False)
+
+
+def test_commit_transfer_preflight_fail_emits_status(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    console = _make_ps3_console()
+    ctrl._on_console_found(console)
+
+    msgs = []
+    ctrl.status_message.connect(msgs.append)
+
+    with patch.object(ctrl, "_preflight_ok", return_value=False):
+        ctrl.commit_transfer("192.168.1.10")
+
+    assert any("FTP" in m or "encendida" in m or "conectar" in m for m in msgs)
+
+
+def test_commit_transfer_hen_fail_emits_hen_required(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    console = _make_ps3_console()
+    ctrl._on_console_found(console)
+
+    hen_signals = []
+    ctrl.hen_required.connect(lambda ip, wm: hen_signals.append((ip, wm)))
+
+    with patch.object(ctrl, "_preflight_ok", return_value=True), \
+         patch.object(ctrl, "_hen_ok", return_value=False):
+        ctrl.commit_transfer("192.168.1.10")
+
+    assert hen_signals == [("192.168.1.10", False)]
+
+
+def test_commit_transfer_unknown_console_is_noop(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    ctrl.commit_transfer("99.99.99.99")  # should not raise
+    ctrl.stop_all_workers()

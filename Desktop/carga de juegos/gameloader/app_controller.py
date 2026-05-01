@@ -161,7 +161,19 @@ class AppController(QObject):
         return self.staging_manager.get(console_id)
 
     def commit_transfer(self, console_id: str) -> None:
-        pass
+        console = self.consoles.get(console_id)
+        if not console:
+            return
+        if not self._preflight_ok(console):
+            self.status_message.emit(
+                f"No se pudo conectar a {console.label} ({console.ip}). "
+                "Verifica que la consola esté encendida y con FTP activo."
+            )
+            return
+        if not self._hen_ok(console):
+            self.hen_required.emit(console.ip, console.webman)
+            return
+        self._build_and_enqueue(console_id)
 
     def cancel_transfer(self, console_id: str) -> None:
         pass
@@ -170,15 +182,138 @@ class AppController(QObject):
         pass
 
     def hen_confirmed(self, console_ip: str) -> None:
-        pass
+        console = self.consoles.get(console_ip)
+        if not console:
+            return
+        if not self._hen_ok(console):
+            self.status_message.emit("Transferencia cancelada: HEN no está activo.")
+            return
+        self._build_and_enqueue(console.console_id)
 
     def commit_transfer_confirmed(self, console_id: str) -> None:
-        pass
+        entry = self._pending_transfer.pop(console_id, None)
+        if entry is None:
+            return
+        console, jobs = entry
+        self._enqueue_jobs(console, jobs)
 
     def update_config(self, config: dict) -> None:
         pass
 
     # ── private ───────────────────────────────────────────────────────
+
+    def _preflight_ok(self, console: ConsoleInfo) -> bool:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2.0)
+            result = s.connect_ex((console.ip, 21))
+            s.close()
+            return result == 0
+        except Exception:
+            return False
+
+    def _hen_ok(self, console: ConsoleInfo) -> bool:
+        if console.console_type != ConsoleType.PS3:
+            return True
+        if console.webman:
+            return WebManClient(console.ip).is_hen_active()
+        from detector import verify_hen
+        return verify_hen(console.ip)
+
+    def _build_and_enqueue(self, console_id: str) -> None:
+        console = self.consoles[console_id]
+        staged = self.staging_manager.get(console_id)
+        if not staged:
+            return
+
+        jobs: List[TransferJob] = []
+        for game in staged:
+            if console.console_type == ConsoleType.PS3:
+                try:
+                    fmt = detect_format(game.local_path)
+                    game.format = fmt
+                    remote_base = remote_path_for_format(fmt, self.config)
+                except (FileNotFoundError, ValueError) as e:
+                    remote_base = self.config.get("ps3_remote_path", "/dev_hdd0/GAMES/")
+                    self.status_message.emit(
+                        f"Advertencia: formato desconocido para '{game.name}' — usando GAMES/ ({e})"
+                    )
+            else:
+                remote_base = self.config.get("xbox_remote_path", "Hdd1:\\Games\\")
+
+            if not remote_base:
+                self.status_message.emit(
+                    f"Ruta remota para {console.console_type.value} no configurada. "
+                    "Configurala en Archivo → Configuración."
+                )
+                return
+            jobs.append(TransferJob(game=game, remote_base_path=remote_base))
+
+        self._batch_has_pkg[console_id] = [
+            job.game.name for job in jobs if job.game.format == GameFormat.PKG
+        ]
+
+        total_bytes = sum(self._game_size_cache.get(job.game.name, 0) for job in jobs)
+        free_gb = self._free_space_cache.get(console_id, -1.0)
+        total_gb = total_bytes / (1024 ** 3) if total_bytes > 0 else 0.0
+
+        if total_bytes > 0 and free_gb >= 0 and total_gb > free_gb * 0.95:
+            self._pending_transfer[console_id] = (console, jobs)
+            self.space_warning.emit(console_id, total_gb, free_gb)
+            return
+
+        self._enqueue_jobs(console, jobs)
+
+    def _enqueue_jobs(self, console: ConsoleInfo, jobs: List[TransferJob]) -> None:
+        self.staging_manager.clear(console.console_id)
+        self._job_totals[console.console_id] = len(jobs)
+        self._job_done_count[console.console_id] = 0
+        for job in jobs:
+            self._job_registry[(console.console_id, job.game.name)] = job
+        self.queue_manager.add_jobs(console.console_id, jobs)
+        self._ensure_worker_running(console)
+        self.status_message.emit(
+            f"Iniciando carga de {len(jobs)} juego(s) en {console.label}..."
+        )
+
+    def _ensure_worker_running(self, console: ConsoleInfo) -> None:
+        existing = self.workers.get(console.console_id)
+        if existing and existing.isRunning():
+            return
+        worker = FTPWorker(
+            console=console,
+            queue=self.queue_manager,
+            overwrite=self.config.get("overwrite_existing", False),
+        )
+        worker.progress.connect(self._on_progress)
+        worker.job_done.connect(self._on_job_done)
+        worker.job_failed.connect(self._on_job_failed)
+        worker.retry_attempt.connect(self._on_retry_attempt)
+        worker.queue_done.connect(self._on_queue_done)
+        self.workers[console.console_id] = worker
+        worker.start()
+
+    # ── worker signal stubs (Tasks 6 & 7) ────────────────────────────
+
+    @pyqtSlot(str, str, int, int, float)
+    def _on_progress(self, console_id: str, game_name: str, sent: int, total: int, mbps: float) -> None:
+        pass
+
+    @pyqtSlot(str, str, str)
+    def _on_job_done(self, console_id: str, game_name: str, note: str) -> None:
+        pass
+
+    @pyqtSlot(str, str, str)
+    def _on_job_failed(self, console_id: str, game_name: str, error_msg: str) -> None:
+        pass
+
+    @pyqtSlot(str, str, int)
+    def _on_retry_attempt(self, console_id: str, game_name: str, attempt: int) -> None:
+        pass
+
+    @pyqtSlot(str, int, int)
+    def _on_queue_done(self, console_id: str, success_count: int, fail_count: int) -> None:
+        pass
 
     def _update_eta_status(self) -> None:
         pass
