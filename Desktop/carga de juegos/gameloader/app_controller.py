@@ -203,14 +203,14 @@ class AppController(QObject):
     # ── private ───────────────────────────────────────────────────────
 
     def _preflight_ok(self, console: ConsoleInfo) -> bool:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2.0)
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(2.0)
-            result = s.connect_ex((console.ip, 21))
-            s.close()
-            return result == 0
+            return s.connect_ex((console.ip, 21)) == 0
         except Exception:
             return False
+        finally:
+            s.close()
 
     def _hen_ok(self, console: ConsoleInfo) -> bool:
         if console.console_type != ConsoleType.PS3:
