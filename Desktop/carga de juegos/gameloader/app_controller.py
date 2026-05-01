@@ -32,6 +32,8 @@ class _ManualConnectWorker(QThread):
 
 
 class AppController(QObject):
+    _SPACE_WARNING_THRESHOLD = 0.95
+
     # ── signals toward UI ─────────────────────────────────────────────
     console_found     = pyqtSignal(object)             # ConsoleInfo
     console_online    = pyqtSignal(str)                # console_id
@@ -221,7 +223,9 @@ class AppController(QObject):
         return verify_hen(console.ip)
 
     def _build_and_enqueue(self, console_id: str) -> None:
-        console = self.consoles[console_id]
+        console = self.consoles.get(console_id)
+        if not console:
+            return
         staged = self.staging_manager.get(console_id)
         if not staged:
             return
@@ -257,7 +261,7 @@ class AppController(QObject):
         free_gb = self._free_space_cache.get(console_id, -1.0)
         total_gb = total_bytes / (1024 ** 3) if total_bytes > 0 else 0.0
 
-        if total_bytes > 0 and free_gb >= 0 and total_gb > free_gb * 0.95:
+        if total_bytes > 0 and free_gb >= 0 and total_gb > free_gb * self._SPACE_WARNING_THRESHOLD:
             self._pending_transfer[console_id] = (console, jobs)
             self.space_warning.emit(console_id, total_gb, free_gb)
             return
