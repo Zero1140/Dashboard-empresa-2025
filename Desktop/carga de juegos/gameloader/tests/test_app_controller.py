@@ -256,3 +256,27 @@ def test_auto_mode_queues_all_on_detection(qapp):
     assert ctrl.staging_manager.get("192.168.1.10") == games
     mock_commit.assert_called_once_with("192.168.1.10")
     ctrl.stop_all_workers()
+
+
+def test_is_transferring_true_when_worker_running(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 3600})
+    mock_worker = MagicMock()
+    mock_worker.isRunning.return_value = True
+    ctrl.workers["192.168.1.10"] = mock_worker
+    assert ctrl.is_transferring() is True
+    ctrl.stop_all_workers()
+
+
+def test_update_config_changes_scan_interval(qapp):
+    ctrl = AppController({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 30})
+    with patch("app_controller.save_config") as mock_save:
+        ctrl.update_config({"ps3_root": "", "xbox_root": "", "scan_interval_seconds": 60})
+        mock_save.assert_called_once()
+    assert ctrl._scan_timer.interval() == 60_000
+    ctrl.stop_all_workers()
+
+
+def test_default_config_has_auto_mode():
+    from config import DEFAULT_CONFIG
+    assert "auto_mode" in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG["auto_mode"] is False

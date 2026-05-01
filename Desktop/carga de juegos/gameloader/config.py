@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     "scan_interval_seconds": 30,
     "scan_subnet": "",
     "autostart_windows": False,
+    "auto_mode": False,
     "overwrite_existing": False,
 }
 

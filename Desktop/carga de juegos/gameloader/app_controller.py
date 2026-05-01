@@ -208,7 +208,9 @@ class AppController(QObject):
         self._enqueue_jobs(console, jobs)
 
     def update_config(self, config: dict) -> None:
-        pass
+        self.config = config
+        self._scan_timer.setInterval(config.get("scan_interval_seconds", 30) * 1000)
+        save_config(config)
 
     # ── private ───────────────────────────────────────────────────────
 
